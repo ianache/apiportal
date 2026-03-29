@@ -162,28 +162,32 @@ const userRoles = computed<string[]>(() => {
   return (auth.user as any)?.resource_access?.[clientId]?.roles ?? [];
 });
 
+const isManager = computed(() => 
+  userRoles.value.includes('API-Manager') || userRoles.value.includes('API-Admin')
+);
+
 const roleLabel = computed(() => {
-  if (userRoles.value.includes('API-Manager')) return 'API Manager';
+  if (isManager.value) return 'API Manager';
   if (userRoles.value.includes('API-Designer')) return 'API Designer';
   if (userRoles.value.includes('API-Developer')) return 'API Developer';
   return 'Guest';
 });
 
 const roleDescription = computed(() => {
-  if (userRoles.value.includes('API-Manager')) return 'Full platform administration';
+  if (isManager.value) return 'Full platform administration';
   if (userRoles.value.includes('API-Designer')) return 'API design & flow authoring';
   if (userRoles.value.includes('API-Developer')) return 'API discovery & subscription';
   return 'Limited access';
 });
 
 const roleIcon = computed(() => {
-  if (userRoles.value.includes('API-Manager')) return 'admin_panel_settings';
+  if (isManager.value) return 'admin_panel_settings';
   if (userRoles.value.includes('API-Designer')) return 'design_services';
   return 'code';
 });
 
 const roleBadgeColor = computed(() => {
-  if (userRoles.value.includes('API-Manager')) return '#0058bc';
+  if (isManager.value) return '#0058bc';
   if (userRoles.value.includes('API-Designer')) return '#006e28';
   return '#9e3d00';
 });

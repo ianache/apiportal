@@ -13,7 +13,7 @@
         <mxCell id="r-m-JThopzbuXKn6Ompk-8" edge="1" parent="1" source="r-m-JThopzbuXKn6Ompk-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;" target="r-m-JThopzbuXKn6Ompk-7" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="r-m-JThopzbuXKn6Ompk-21" edge="1" parent="1" source="r-m-JThopzbuXKn6Ompk-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" target="r-m-JThopzbuXKn6Ompk-20">
+        <mxCell id="r-m-JThopzbuXKn6Ompk-21" edge="1" parent="1" source="r-m-JThopzbuXKn6Ompk-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;endArrow=blockThin;endFill=1;" target="r-m-JThopzbuXKn6Ompk-20">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="r-m-JThopzbuXKn6Ompk-1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;b&gt;api-portal&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;vue + pinia&lt;/div&gt;" vertex="1">
@@ -31,10 +31,16 @@
         <mxCell id="r-m-JThopzbuXKn6Ompk-10" edge="1" parent="1" source="r-m-JThopzbuXKn6Ompk-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=blockThin;endFill=1;" target="r-m-JThopzbuXKn6Ompk-9" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
+        <mxCell id="LvJ0yF8iAGvQYfpzsbPc-1" edge="1" parent="1" source="r-m-JThopzbuXKn6Ompk-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;endArrow=blockThin;endFill=1;" target="r-m-JThopzbuXKn6Ompk-20">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
         <mxCell id="r-m-JThopzbuXKn6Ompk-7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;b&gt;portal-bff&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;nodejs + javascript&lt;/div&gt;" vertex="1">
           <mxGeometry height="60" width="120" x="360" y="255" as="geometry" />
         </mxCell>
         <mxCell id="r-m-JThopzbuXKn6Ompk-16" edge="1" parent="1" source="r-m-JThopzbuXKn6Ompk-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;endArrow=blockThin;endFill=1;" target="r-m-JThopzbuXKn6Ompk-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="LvJ0yF8iAGvQYfpzsbPc-2" edge="1" parent="1" source="r-m-JThopzbuXKn6Ompk-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;exitX=0.5;exitY=0;exitDx=0;exitDy=0;endArrow=blockThin;endFill=1;" target="r-m-JThopzbuXKn6Ompk-20">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="r-m-JThopzbuXKn6Ompk-9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;" value="&lt;div&gt;&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&lt;b&gt;api-gateway&lt;/b&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;SprintBoot&lt;/div&gt;&lt;div&gt;(out-of-scope)&lt;/div&gt;" vertex="1">

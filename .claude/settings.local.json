@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Read(//d/02-PERSONAL/01-PROJECTS/21-APIManager/$HOME/.claude/get-shit-done/**)",
+      "Read(//d/02-PERSONAL/01-PROJECTS/21-APIManager/$USERPROFILE/.claude/get-shit-done/**)",
+      "Bash(node \"$USERPROFILE/.claude/get-shit-done/bin/gsd-tools.cjs\" state advance-plan)",
+      "Bash(ls:*)"
+    ]
+  }
+}

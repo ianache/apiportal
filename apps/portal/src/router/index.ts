@@ -36,7 +36,7 @@ const router = createRouter({
   routes
 });
 
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async (to, _from) => {
   const auth = useAuthStore();
 
   // Initialize Keycloak on first navigation if not yet done
@@ -47,11 +47,12 @@ router.beforeEach(async (to, _from, next) => {
   if (to.meta.requiresAuth && !auth.authenticated) {
     // Redirect to Keycloak login — does not call next()
     auth.keycloak?.login({ redirectUri: window.location.origin + to.fullPath });
+    return false; // prevent navigation while redirecting
   } else if (to.path === '/' && auth.authenticated) {
     // Authenticated users visiting root are forwarded to dashboard
-    next('/dashboard');
+    return '/dashboard';
   } else {
-    next();
+    return true;
   }
 });
 

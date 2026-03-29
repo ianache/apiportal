@@ -1,0 +1,68 @@
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: nexus-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro   # SQL init scripts
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # BFF — Fastify + Prisma
+  # ---------------------------------------------------------------------------
+  bff:
+    build:
+      context: ../
+      dockerfile: entorno/bff/Dockerfile
+    container_name: nexus-bff
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public"
+      PORT: 3001
+      KEYCLOAK_URL:               ${KEYCLOAK_URL}
+      KEYCLOAK_BFF_CLIENT_ID:     ${KEYCLOAK_BFF_CLIENT_ID}
+      KEYCLOAK_BFF_CLIENT_SECRET: ${KEYCLOAK_BFF_CLIENT_SECRET}
+    ports:
+      - "3001:3001"
+    # Allow containers to reach Keycloak on the host LAN
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ---------------------------------------------------------------------------
+  # Portal — Vue 3 SPA served by nginx
+  # ---------------------------------------------------------------------------
+  portal:
+    build:
+      context: ../
+      dockerfile: entorno/portal/Dockerfile
+      args:
+        VITE_KEYCLOAK_URL:       ${VITE_KEYCLOAK_URL}
+        VITE_KEYCLOAK_REALM:     ${VITE_KEYCLOAK_REALM}
+        VITE_KEYCLOAK_CLIENT_ID: ${VITE_KEYCLOAK_CLIENT_ID}
+    container_name: nexus-portal
+    restart: unless-stopped
+    depends_on:
+      - bff
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:

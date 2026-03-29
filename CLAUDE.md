@@ -55,7 +55,7 @@ npm run test       # Vitest
 - In development, if OIDC discovery fails the server starts in **unauthenticated mode** (does not throw). In production it throws.
 
 ### Portal (`apps/portal`) — Vue 3 + Pinia + Vue Router + Tailwind CSS v4
-- Auth: `src/stores/auth.ts` (Pinia) — wraps `keycloak-js`, initializes with `check-sso` + PKCE S256
+- Auth: `src/stores/auth.ts` (Pinia) — wraps `keycloak-js`, initializes with `check-sso` + PKCE S256; reads `VITE_KEYCLOAK_URL`, `VITE_KEYCLOAK_REALM`, `VITE_KEYCLOAK_CLIENT_ID` from env
 - Router: `src/router/index.ts` — guards routes with `meta: { requiresAuth: true }`, triggers `keycloak.login()` when unauthenticated
 - Layout: `src/components/layout/Shell.vue`
 

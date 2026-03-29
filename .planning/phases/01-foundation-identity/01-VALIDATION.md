@@ -7,16 +7,16 @@ Foundation & Identity - Scaffolding BFF (Node) and Portal (Vue), Keycloak integr
 
 ## Observable Truths
 
-| ID | Truth | Evidence | Plan |
-|----|-------|----------|------|
-| T-01 | Monorepo root is configured with npm workspaces | `package.json` contains `"workspaces": ["apps/*", "packages/*"]` | 01-01 |
-| T-02 | Portal (Vue 3) and BFF (Fastify) are scaffolded | `apps/portal` and `apps/bff` exist and have valid build scripts | 01-01 |
-| T-03 | Shared types package is linked and usable | `packages/shared-types` contains core interfaces used by both apps | 01-02 |
-| T-04 | Persistence layer is configured with Prisma | `apps/bff/prisma/schema.prisma` contains User and AuditLog models | 01-02 |
-| T-05 | Keycloak integration provides OIDC/PKCE | Portal redirects to Keycloak; BFF validates JWT tokens | 01-03 |
-| T-06 | Role-Based Access Control (RBAC) is established | Keycloak roles (API-Manager, etc.) are mapped to application logic | 01-03 |
-| T-07 | UI Shell implements design language | Portal has Sidebar/Topbar layout with Material Symbols | 01-04 |
-| T-08 | Dashboard provides operational diagnostics | UI shows current User Role and Backend/DB health status | 01-04 |
+| ID | Truth | Evidence | Plan | Result |
+|----|-------|----------|------|--------|
+| T-01 | Monorepo root is configured with npm workspaces | `package.json` contains `"workspaces": ["apps/*", "packages/*"]` | 01-01 | **PASS** |
+| T-02 | Portal (Vue 3) and BFF (Fastify) are scaffolded | `apps/portal` and `apps/bff` exist and have valid build scripts | 01-01 | **PASS** |
+| T-03 | Shared types package is linked and usable | `packages/shared-types` contains core interfaces used by both apps | 01-02 | **PASS** |
+| T-04 | Persistence layer is configured with Prisma | `apps/bff/prisma/schema.prisma` contains User and AuditLog models | 01-02 | **PASS** |
+| T-05 | Keycloak integration provides OIDC/PKCE | Portal redirects to Keycloak; BFF validates JWT tokens | 01-03 | **PASS** |
+| T-06 | Role-Based Access Control (RBAC) is established | Keycloak roles (API-Manager, etc.) are mapped to application logic | 01-03 | **PASS** |
+| T-07 | UI Shell implements design language | Portal has Sidebar/Topbar layout with Material Symbols | 01-04 | **PASS** |
+| T-08 | Dashboard provides operational diagnostics | UI shows current User Role and Backend/DB health status | 01-04 | **PASS** |
 
 ## Verification Steps
 
@@ -32,11 +32,12 @@ npm run build --workspace=apps/portal
 
 # BFF Build & Prisma Validation
 npm run build --workspace=apps/bff
-npx prisma validate --schema=apps/bff/prisma/schema.prisma
+npm run prisma --workspace=apps/bff -- validate --schema=prisma/schema.prisma
 
 # Shared Types
 node -e "require('./packages/shared-types/package.json')"
 ```
+**Status: ALL PASS (Verified 2026-03-29)**
 
 ### Manual Verification (UAT)
 Follow these steps to verify the end-to-end integration:
@@ -53,10 +54,17 @@ Follow these steps to verify the end-to-end integration:
    - Click "Login". Expect: Redirection to Keycloak.
    - Authenticate with a test user. Expect: Redirection back to `/dashboard`.
    - On Dashboard, verify:
-     - "Role: [User Role]" matches Keycloak assignment.
+     - "Role: [User Role]" matches Keycloak assignment (Mapped API-Admin/API-Manager).
      - "Database Status: Connected" (indicating BFF successfully queried DB).
 
+**Status: PASS (Verified 2026-03-29 via 01-UAT.md)**
+
 ## Success Criteria
-- [ ] 100% of automated build/test commands pass.
-- [ ] User can log in and see their specific role in the UI.
-- [ ] The platform foundation supports parallel development for subsequent phases.
+- [x] 100% of automated build/test commands pass.
+- [x] User can log in and see their specific role in the UI.
+- [x] The platform foundation supports parallel development for subsequent phases.
+
+## Phase Completion Sign-off
+- **Date:** 2026-03-29
+- **Status:** APPROVED
+- **Note:** Foundation is solid. Ready for Phase 2.

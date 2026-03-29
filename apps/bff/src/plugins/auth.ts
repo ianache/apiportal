@@ -46,7 +46,7 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
           (payload.resource_access as any)?.[clientId]?.roles ?? [];
         let appRole: Role = 'API_DEVELOPER';
 
-        if (clientRoles.includes('API-Manager')) appRole = 'API_MANAGER';
+        if (clientRoles.includes('API-Manager') || clientRoles.includes('API-Admin')) appRole = 'API_MANAGER';
         else if (clientRoles.includes('API-Designer')) appRole = 'API_DESIGNER';
         else if (clientRoles.includes('API-Developer')) appRole = 'API_DEVELOPER';
 

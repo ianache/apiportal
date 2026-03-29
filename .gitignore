@@ -1,9 +1,11 @@
-node_modules
-dist
+node_modules/
 .env
-.env.*
-!.env.example
+dist/
+entorno/.env
+apps/bff/src/**/*.js
+apps/bff/src/**/*.js.map
 .DS_Store
 *.log
-.vscode
-.idea
+.vscode/
+.idea/
+*.swp

@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node --loader ts-node/esm src/app.ts",
-    "dev": "node --loader ts-node/esm src/app.ts",
+    "start": "tsx src/app.ts",
+    "dev": "tsx src/app.ts",
     "build": "tsc",
     "prisma": "prisma"
   },
@@ -27,6 +27,7 @@
     "@types/node": "^22.13.1",
     "prisma": "^6.4.1",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.7.3"
   }
 }

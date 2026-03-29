@@ -130,9 +130,9 @@ export const useAuthStore = defineStore('auth', {
 // Source: https://github.com/panva/node-openid-client
 import { issuer } from 'openid-client';
 
-const keycloakIssuer = await issuer.discover('https://keycloak/realms/nexus');
+const keycloakIssuer = await issuer.discover('https://keycloak/realms/apps');
 const client = new keycloakIssuer.Client({
-  client_id: 'nexus-bff',
+  client_id: 'apiportal',
   client_secret: '...', // if confidential
 });
 

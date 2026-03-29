@@ -1,5 +1,7 @@
 {
-  "workflow": "gsd-v1",
+  "workflow": {
+    "_auto_chain_active": false
+  },
   "preferences": {
     "auto_mode": true,
     "tech_stack": {
