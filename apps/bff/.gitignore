@@ -1,0 +1,11 @@
+node_modules
+dist
+# Keep environment variables out of version control
+.env
+
+/src/generated/prisma
+# Compiled output in src (ts-node runs TS directly)
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map

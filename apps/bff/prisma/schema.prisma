@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  sub       String   @unique // Keycloak subject ID
+  email     String   @unique
+  name      String?
+  role      Role     @default(API_DEVELOPER)
+  auditLogs AuditLog[]
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  timestamp DateTime @default(now())
+  details   Json?
+}
+
+enum Role {
+  API_MANAGER
+  API_DESIGNER
+  API_DEVELOPER
+}
