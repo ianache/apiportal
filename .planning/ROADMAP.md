@@ -15,7 +15,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Identity | 0/4 | Not started | - |
+| 1. Foundation & Identity | 3/4 | Executing (checkpoint) | - |
 | 2. API Registry | 0/0 | Not started | - |
 | 3. Visual Designer | 0/0 | Not started | - |
 | 4. Node Library | 0/0 | Not started | - |
@@ -23,8 +23,8 @@
 | 6. Gateway Sync | 0/0 | Not started | - |
 
 ## Plan List: Phase 1
-- [ ] 01-01-PLAN.md — Scaffolding & Shared Base
-- [ ] 01-02-PLAN.md — Persistence & Contracts
-- [ ] 01-03-PLAN.md — Identity Layer
-- [ ] 01-04-PLAN.md — UI Shell & Verification
+- [x] 01-01-PLAN.md — Scaffolding & Shared Base
+- [x] 01-02-PLAN.md — Persistence & Contracts
+- [x] 01-03-PLAN.md — Identity Layer
+- [~] 01-04-PLAN.md — UI Shell & Verification (tasks done; awaiting E2E checkpoint)
 - [ ] 01-VALIDATION.md — Phase-wide Verification & Truths
