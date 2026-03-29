@@ -2,7 +2,9 @@ import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import fastifyEnv from '@fastify/env';
 import prismaPlugin from './plugins/prisma.js';
+import authPlugin from './plugins/auth.js';
 import healthRoutes from './routes/health.js';
+import apiRoutes from './routes/apis.js';
 
 const schema = {
   type: 'object',
@@ -37,8 +39,14 @@ fastify.register(cors, {
   origin: true // In production, this should be more restrictive
 });
 
+// Register Auth plugin
+fastify.register(authPlugin);
+
 // Register Health check routes
 fastify.register(healthRoutes);
+
+// Register API Registry routes
+fastify.register(apiRoutes);
 
 const start = async () => {
   try {

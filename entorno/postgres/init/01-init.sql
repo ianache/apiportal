@@ -42,3 +42,4 @@ ALTER DEFAULT PRIVILEGES FOR ROLE apiportal_user IN SCHEMA public
   GRANT ALL ON TABLES TO apiportal_user;
 ALTER DEFAULT PRIVILEGES FOR ROLE apiportal_user IN SCHEMA public
   GRANT ALL ON SEQUENCES TO apiportal_user;
+ALTER USER apiportal_user WITH CREATEDB;

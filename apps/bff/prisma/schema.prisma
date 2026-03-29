@@ -8,12 +8,15 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  sub       String   @unique // Keycloak subject ID
-  email     String   @unique
-  name      String?
-  role      Role     @default(API_DEVELOPER)
-  auditLogs AuditLog[]
+  id               String       @id @default(uuid())
+  sub              String       @unique // Keycloak subject ID
+  email            String       @unique
+  name             String?
+  role             Role         @default(API_DEVELOPER)
+  auditLogs        AuditLog[]
+  ownedApis        API[]        @relation("ApiOwner")
+  createdVersions  APIVersion[] @relation("VersionCreator")
+  approvedVersions APIVersion[] @relation("VersionApprover")
 }
 
 model AuditLog {
@@ -29,4 +32,42 @@ enum Role {
   API_MANAGER
   API_DESIGNER
   API_DEVELOPER
+}
+
+enum APIStatus {
+  DESIGN
+  REVIEW
+  APPROVED
+  PUBLISHED
+  DEPRECATED
+  RETIRED
+}
+
+model API {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  description String?
+  ownerId     String
+  owner       User         @relation("ApiOwner", fields: [ownerId], references: [id])
+  versions    APIVersion[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model APIVersion {
+  id          String    @id @default(uuid())
+  apiId       String
+  api         API       @relation(fields: [apiId], references: [id], onDelete: Cascade)
+  version     String    @default("0.1.0")
+  status      APIStatus @default(DESIGN)
+  definition  Json?     // OpenAPI-like metadata
+  flowConfig  Json?     // Visual Designer nodes/edges (Phase 3)
+  createdBy   String
+  creator     User      @relation("VersionCreator", fields: [createdBy], references: [id])
+  approvedBy  String?
+  approver    User?     @relation("VersionApprover", fields: [approvedBy], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([apiId, version])
 }

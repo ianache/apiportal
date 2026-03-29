@@ -16,12 +16,27 @@ export interface AuditLog {
   details?: Record<string, any>;
 }
 
-export type APIStatus = 'DESIGN' | 'APPROVED' | 'PUBLISHED' | 'DEPRECATED';
+export type APIStatus = 'DESIGN' | 'REVIEW' | 'APPROVED' | 'PUBLISHED' | 'DEPRECATED' | 'RETIRED';
 
 export interface API {
   id: string;
   name: string;
-  version: string;
-  status: APIStatus;
   description?: string;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+  versions?: APIVersion[];
+}
+
+export interface APIVersion {
+  id: string;
+  apiId: string;
+  version: string; // SemVer e.g., "1.0.0"
+  status: APIStatus;
+  definition?: any; // OpenAPI-like metadata
+  flowConfig?: any; // Visual Designer nodes/edges (Phase 3)
+  createdBy: string;
+  approvedBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }

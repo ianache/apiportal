@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import Dashboard from '../views/Dashboard.vue';
+import Projects from '../views/Projects.vue';
+import ProjectDetail from '../views/ProjectDetail.vue';
 import Landing from '../views/Landing.vue';
 import { useAuthStore } from '../stores/auth';
 
@@ -13,12 +15,17 @@ const routes = [
     component: Dashboard,
     meta: { requiresAuth: true }
   },
-  // Placeholder routes — rendered inside Shell, will be implemented in future plans
   {
     path: '/projects',
-    component: Dashboard,
+    component: Projects,
     meta: { requiresAuth: true }
   },
+  {
+    path: '/projects/:id',
+    component: ProjectDetail,
+    meta: { requiresAuth: true }
+  },
+  // Placeholder routes
   {
     path: '/analytics',
     component: Dashboard,
