@@ -1,0 +1,391 @@
+l
+<!DOCTYPE html>
+
+<html class="light" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Nexus API Explorer</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-surface": "#1a1b1f",
+                        "on-tertiary-fixed": "#351000",
+                        "surface-bright": "#faf9fe",
+                        "tertiary": "#9e3d00",
+                        "secondary-fixed": "#72fe88",
+                        "primary-fixed": "#d8e2ff",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed-dim": "#53e16f",
+                        "on-primary-container": "#fefcff",
+                        "tertiary-container": "#c64f00",
+                        "on-error-container": "#93000a",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#e3e2e7",
+                        "surface-dim": "#dad9df",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#00531c",
+                        "primary-container": "#0070eb",
+                        "surface-container-low": "#f4f3f8",
+                        "surface-tint": "#005bc1",
+                        "on-secondary-fixed": "#002107",
+                        "tertiary-fixed": "#ffdbcc",
+                        "primary-fixed-dim": "#adc6ff",
+                        "inverse-surface": "#2f3034",
+                        "secondary-container": "#6ffb85",
+                        "secondary": "#006e28",
+                        "on-tertiary-container": "#fffbff",
+                        "on-tertiary": "#ffffff",
+                        "outline-variant": "#c1c6d7",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e3e2e7",
+                        "outline": "#717786",
+                        "error": "#ba1a1a",
+                        "tertiary-fixed-dim": "#ffb595",
+                        "background": "#faf9fe",
+                        "on-background": "#1a1b1f",
+                        "surface-container-high": "#e9e7ed",
+                        "inverse-on-surface": "#f1f0f5",
+                        "on-primary-fixed": "#001a41",
+                        "on-tertiary-fixed-variant": "#7c2e00",
+                        "on-primary-fixed-variant": "#004493",
+                        "surface-container": "#eeedf3",
+                        "on-secondary-container": "#00732a",
+                        "primary": "#0058bc",
+                        "error-container": "#ffdad6",
+                        "inverse-primary": "#adc6ff",
+                        "surface": "#faf9fe",
+                        "on-surface-variant": "#414755"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.75rem", "xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+    </style>
+</head>
+
+<body class="bg-surface text-on-surface selection:bg-primary-fixed">
+    <!-- Top Navigation Shell -->
+    <header
+        class="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl shadow-sm h-16 flex items-center justify-between px-6 font-sans antialiased tracking-tight">
+        <div class="flex items-center gap-8">
+            <span class="text-xl font-bold tracking-tighter text-slate-900">Nexus API</span>
+            <nav class="hidden md:flex items-center gap-6">
+                <a class="text-slate-500 hover:text-slate-900 transition-all duration-200" href="#">Docs</a>
+                <a class="text-slate-500 hover:text-slate-900 transition-all duration-200" href="#">Support</a>
+                <a class="text-slate-500 hover:text-slate-900 transition-all duration-200" href="#">Changelog</a>
+            </nav>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="relative group">
+                <span
+                    class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+                <input
+                    class="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-1.5 text-sm w-64 focus:ring-2 focus:ring-primary/20 transition-all"
+                    placeholder="Search endpoints..." type="text" />
+            </div>
+            <button class="p-2 hover:bg-slate-100/50 rounded-full transition-all">
+                <span class="material-symbols-outlined text-on-surface-variant"
+                    data-icon="notifications">notifications</span>
+            </button>
+            <div class="h-8 w-8 rounded-full overflow-hidden bg-surface-container-high border-2 border-white shadow-sm">
+                <img alt="User profile"
+                    data-alt="professional portrait of a developer in a modern office setting with soft natural lighting"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4kkfVL58tVyY7dznlAA8CzJRY_R7qokaBf6lMKwhXlr7UX3MpOPuAIQpHcDgWHO920I-5TxRE8XlKu5X6ZrT5Rt7yWA4VHWV6hyeXb5po-fs9jbow-UpbiTx80jGpEXvZn2Vtgp4XSiHh7UmIYx-7CnCu5R-RZoIl-wsakyZjNeJKKdnxYqw4ZuogEoEqb70n8iagoS-cIkwbVQwB_eaAAGgYsIBT40sq1U81IzYJtOY7RofNT9_fuyw0GnYRnRLd-VZi4Wx6fX4" />
+            </div>
+        </div>
+    </header>
+    <!-- Side Navigation Shell -->
+    <aside class="h-screen w-64 fixed left-0 top-16 bg-slate-50 flex flex-col py-4 tonal-shift overflow-y-auto">
+        <div class="px-6 py-4">
+            <h2 class="text-lg font-heavy text-slate-900">Developer Hub</h2>
+            <p class="text-xs text-on-surface-variant/60">v2.4.0-stable</p>
+        </div>
+        <div class="px-2 space-y-1">
+            <a class="cursor-pointer flex items-center space-x-3 p-3 mx-2 my-1 rounded-lg bg-white text-blue-600 shadow-sm transition-transform duration-200 hover:translate-x-1"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="explore">explore</span>
+                <span class="text-sm font-medium">Explorer</span>
+            </a>
+            <a class="cursor-pointer flex items-center space-x-3 p-3 mx-2 my-1 rounded-lg text-slate-600 hover:bg-slate-100 transition-transform duration-200 hover:translate-x-1"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+                <span class="text-sm font-medium">Projects</span>
+            </a>
+            <a class="cursor-pointer flex items-center space-x-3 p-3 mx-2 my-1 rounded-lg text-slate-600 hover:bg-slate-100 transition-transform duration-200 hover:translate-x-1"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+                <span class="text-sm font-medium">Analytics</span>
+            </a>
+            <a class="cursor-pointer flex items-center space-x-3 p-3 mx-2 my-1 rounded-lg text-slate-600 hover:bg-slate-100 transition-transform duration-200 hover:translate-x-1"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="hub">hub</span>
+                <span class="text-sm font-medium">Integrations</span>
+            </a>
+            <a class="cursor-pointer flex items-center space-x-3 p-3 mx-2 my-1 rounded-lg text-slate-600 hover:bg-slate-100 transition-transform duration-200 hover:translate-x-1"
+                href="#">
+                <span class="material-symbols-outlined" data-icon="settings">settings</span>
+                <span class="text-sm font-medium">Settings</span>
+            </a>
+        </div>
+        <div class="mt-8 px-6">
+            <h3 class="text-[10px] uppercase tracking-widest text-outline font-bold mb-4">Categories</h3>
+            <div class="space-y-3">
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <div class="w-2 h-2 rounded-full bg-primary shadow-[0_0_8px_rgba(0,88,188,0.4)]"></div>
+                    <span class="text-sm text-on-surface-variant group-hover:text-primary transition-colors">REST
+                        APIs</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <div class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(0,110,40,0.4)]"></div>
+                    <span
+                        class="text-sm text-on-surface-variant group-hover:text-secondary transition-colors">GraphQL</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer group">
+                    <div class="w-2 h-2 rounded-full bg-tertiary shadow-[0_0_8px_rgba(158,61,0,0.4)]"></div>
+                    <span
+                        class="text-sm text-on-surface-variant group-hover:text-tertiary transition-colors">Webhooks</span>
+                </label>
+            </div>
+        </div>
+        <div class="mt-auto px-4 pb-8">
+            <button
+                class="w-full bg-gradient-to-br from-primary to-primary-container text-white py-3 rounded-xl font-medium shadow-lg active:scale-95 transition-all">
+                Create New API
+            </button>
+        </div>
+    </aside>
+    <!-- Main Content Canvas -->
+    <main class="ml-64 mt-16 p-8 min-h-screen">
+        <!-- Header Section -->
+        <header class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div>
+                <span class="text-[10px] font-bold uppercase tracking-[0.2em] text-primary mb-2 block">Developer
+                    Experience</span>
+                <h1 class="text-5xl font-bold tracking-tighter text-on-surface leading-tight">API Explorer</h1>
+            </div>
+            <p class="max-w-xs text-sm text-on-surface-variant leading-relaxed">
+                Connect your services with our high-performance endpoints. Built for speed, scale, and seamless
+                integration.
+            </p>
+        </header>
+        <!-- Featured APIs (Bento Hero) -->
+        <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+            <div class="md:col-span-2 relative h-[400px] rounded-3xl overflow-hidden group">
+                <img alt="Blockchain technology"
+                    class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    data-alt="abstract digital visualization of blockchain nodes and cryptographic connections in glowing blue and violet colors"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtDtTN7w3Y62VzCxnXhVJf_34MVAmOxqE9QigCuMYKXbj3TTMb15t0tSQnUPt3mlqCEMSbrKlAybZA06K0juXZ8Rmssgnn7DtHm6qd8efyUpq2u_1FFlhzEV2vFvlGkh2qMCyu75JzR5gSB1vtwlK-yvbXSHJs7B_z0porDjktYuo5kvcuLwfXgVLUd5enaJuVqKDLjmLwANDsbv_Yhtlr7KNQum89LdfHk1UR9Tneao2TA0DCuGRqokjuMPrIYMDPKhOIhMX99sg" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                <div class="absolute bottom-0 left-0 p-8 w-full flex justify-between items-end">
+                    <div class="max-w-md">
+                        <span
+                            class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-secondary-fixed text-on-secondary-fixed mb-4">
+                            New Release
+                        </span>
+                        <h3 class="text-3xl font-bold text-white mb-2">Nexus Core Payments</h3>
+                        <p class="text-white/70 text-sm">Our most advanced financial processing engine, now with
+                            multi-currency support and real-time settlement.</p>
+                    </div>
+                    <button
+                        class="bg-white text-on-surface px-6 py-2.5 rounded-full text-sm font-semibold hover:bg-surface-bright transition-colors">
+                        View Documentation
+                    </button>
+                </div>
+            </div>
+            <div class="glass-card rounded-3xl p-8 border border-white/20 shadow-xl flex flex-col">
+                <div class="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-6">
+                    <span class="material-symbols-outlined text-3xl" data-icon="auto_awesome">auto_awesome</span>
+                </div>
+                <h3 class="text-xl font-bold mb-3">AI Image Synthesis</h3>
+                <p class="text-sm text-on-surface-variant mb-6 leading-relaxed">Generate high-fidelity assets using our
+                    proprietary diffusion models. Integrated sandbox available.</p>
+                <div class="mt-auto pt-6 border-t border-slate-100 flex items-center justify-between">
+                    <span class="text-xs font-bold text-outline uppercase tracking-widest">v4.2 Beta</span>
+                    <span class="material-symbols-outlined text-primary" data-icon="arrow_forward">arrow_forward</span>
+                </div>
+            </div>
+        </section>
+        <!-- API Grid -->
+        <section>
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-2xl font-bold tracking-tight">Public Catalog</h2>
+                <div class="flex gap-2">
+                    <button class="px-4 py-2 rounded-full bg-surface-container-high text-xs font-bold">Trending</button>
+                    <button
+                        class="px-4 py-2 rounded-full bg-transparent text-xs font-bold text-outline hover:text-on-surface">Most
+                        Used</button>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- API Card 1 -->
+                <div
+                    class="group bg-surface-container-lowest p-6 rounded-2xl transition-all duration-300 hover:shadow-xl hover:bg-surface-container-low cursor-pointer">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-slate-600" data-icon="cloud">cloud</span>
+                        </div>
+                        <span
+                            class="text-[10px] font-bold px-2 py-1 rounded bg-secondary-container/30 text-secondary uppercase">Stable</span>
+                    </div>
+                    <h4 class="font-bold text-on-surface mb-2">Cloud Storage</h4>
+                    <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2">S3-compatible distributed
+                        storage for high-availability file serving.</p>
+                </div>
+                <!-- API Card 2 -->
+                <div
+                    class="group bg-surface-container-lowest p-6 rounded-2xl transition-all duration-300 hover:shadow-xl hover:bg-surface-container-low cursor-pointer">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-primary" data-icon="security">security</span>
+                        </div>
+                        <span
+                            class="text-[10px] font-bold px-2 py-1 rounded bg-secondary-container/30 text-secondary uppercase">Stable</span>
+                    </div>
+                    <h4 class="font-bold text-on-surface mb-2">Auth Shield</h4>
+                    <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2">Enterprise-grade SSO, MFA,
+                        and biometric authentication toolkit.</p>
+                </div>
+                <!-- API Card 3 -->
+                <div
+                    class="group bg-surface-container-lowest p-6 rounded-2xl transition-all duration-300 hover:shadow-xl hover:bg-surface-container-low cursor-pointer">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-tertiary" data-icon="terminal">terminal</span>
+                        </div>
+                        <span
+                            class="text-[10px] font-bold px-2 py-1 rounded bg-tertiary-fixed text-on-tertiary-fixed-variant uppercase">Beta</span>
+                    </div>
+                    <h4 class="font-bold text-on-surface mb-2">Serverless Compute</h4>
+                    <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2">Run edge functions globally
+                        with zero cold starts and instant scaling.</p>
+                </div>
+                <!-- API Card 4 -->
+                <div
+                    class="group bg-surface-container-lowest p-6 rounded-2xl transition-all duration-300 hover:shadow-xl hover:bg-surface-container-low cursor-pointer">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-purple-600" data-icon="database">database</span>
+                        </div>
+                        <span
+                            class="text-[10px] font-bold px-2 py-1 rounded bg-secondary-container/30 text-secondary uppercase">Stable</span>
+                    </div>
+                    <h4 class="font-bold text-on-surface mb-2">Graph Database</h4>
+                    <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2">High-performance
+                        relationship mapping for social and fraud analysis.</p>
+                </div>
+                <!-- API Card 5 -->
+                <div
+                    class="group bg-surface-container-lowest p-6 rounded-2xl transition-all duration-300 hover:shadow-xl hover:bg-surface-container-low cursor-pointer">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-error" data-icon="emergency">emergency</span>
+                        </div>
+                        <span
+                            class="text-[10px] font-bold px-2 py-1 rounded bg-secondary-container/30 text-secondary uppercase">Stable</span>
+                    </div>
+                    <h4 class="font-bold text-on-surface mb-2">Status Watchdog</h4>
+                    <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2">Real-time health monitoring
+                        and automated incident reporting.</p>
+                </div>
+                <!-- API Card 6 -->
+                <div
+                    class="group bg-surface-container-lowest p-6 rounded-2xl transition-all duration-300 hover:shadow-xl hover:bg-surface-container-low cursor-pointer">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-emerald-600"
+                                data-icon="monitoring">monitoring</span>
+                        </div>
+                        <span
+                            class="text-[10px] font-bold px-2 py-1 rounded bg-tertiary-fixed text-on-tertiary-fixed-variant uppercase">Beta</span>
+                    </div>
+                    <h4 class="font-bold text-on-surface mb-2">Market Data</h4>
+                    <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2">Streaming stock and crypto
+                        pricing with sub-10ms latency.</p>
+                </div>
+                <!-- API Card 7 -->
+                <div
+                    class="group bg-surface-container-lowest p-6 rounded-2xl transition-all duration-300 hover:shadow-xl hover:bg-surface-container-low cursor-pointer">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-indigo-600"
+                                data-icon="translate">translate</span>
+                        </div>
+                        <span
+                            class="text-[10px] font-bold px-2 py-1 rounded bg-secondary-container/30 text-secondary uppercase">Stable</span>
+                    </div>
+                    <h4 class="font-bold text-on-surface mb-2">Neural Translation</h4>
+                    <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2">Context-aware machine
+                        translation supporting over 120 languages.</p>
+                </div>
+                <!-- API Card 8 -->
+                <div
+                    class="group bg-surface-container-lowest p-6 rounded-2xl transition-all duration-300 hover:shadow-xl hover:bg-surface-container-low cursor-pointer">
+                    <div class="flex justify-between items-start mb-4">
+                        <div
+                            class="w-10 h-10 rounded-xl bg-pink-50 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-pink-600" data-icon="mail">mail</span>
+                        </div>
+                        <span
+                            class="text-[10px] font-bold px-2 py-1 rounded bg-secondary-container/30 text-secondary uppercase">Stable</span>
+                    </div>
+                    <h4 class="font-bold text-on-surface mb-2">Mail Relay</h4>
+                    <p class="text-xs text-on-surface-variant leading-relaxed line-clamp-2">High-volume transactional
+                        email delivery with templating support.</p>
+                </div>
+            </div>
+        </section>
+        <!-- Footer Shell -->
+        <footer
+            class="w-full py-8 mt-24 flex flex-col md:flex-row justify-between items-center px-4 border-t border-slate-100 font-normal">
+            <p class="text-xs text-slate-400 mb-4 md:mb-0">© 2024 Nexus Systems Inc.</p>
+            <div class="flex gap-8">
+                <a class="text-xs text-slate-400 hover:text-blue-500 transition-colors" href="#">Privacy Policy</a>
+                <a class="text-xs text-slate-400 hover:text-blue-500 transition-colors" href="#">Terms of Service</a>
+                <a class="text-xs text-slate-400 hover:text-blue-500 transition-colors" href="#">Security</a>
+                <a class="text-xs text-slate-400 hover:text-blue-500 transition-colors" href="#">Status</a>
+            </div>
+        </footer>
+    </main>
+</body>
+
+</html>

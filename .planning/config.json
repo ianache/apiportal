@@ -1,0 +1,11 @@
+{
+  "workflow": "gsd-v1",
+  "preferences": {
+    "auto_mode": true,
+    "tech_stack": {
+      "frontend": "vue-pinia",
+      "styling": "tailwind",
+      "backend": "node-bff"
+    }
+  }
+}
