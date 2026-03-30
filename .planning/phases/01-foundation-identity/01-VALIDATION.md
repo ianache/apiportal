@@ -1,3 +1,10 @@
+---
+phase: 01-foundation-identity
+nyquist_compliant: true
+wave_0_complete: true
+validated: 2026-03-30
+---
+
 # Validation: Phase 1 (Foundation & Identity)
 
 This document tracks the observable truths and verification steps for the completion of Phase 1.
@@ -68,3 +75,30 @@ Follow these steps to verify the end-to-end integration:
 - **Date:** 2026-03-29
 - **Status:** APPROVED
 - **Note:** Foundation is solid. Ready for Phase 2.
+
+---
+
+## Validation Audit 2026-03-30
+| Metric | Count |
+|--------|-------|
+| Gaps found | 8 |
+| Resolved | 8 |
+| Escalated | 0 |
+
+### Test Infrastructure
+| Workspace | Framework | Test File | Tests |
+|-----------|-----------|-----------|-------|
+| BFF | Vitest | `apps/bff/src/infrastructure.test.ts` | 14 |
+| Portal | Vitest | `apps/portal/src/infrastructure.test.ts` | 13 |
+
+### Coverage Map
+| Truth | Requirement | Test Status |
+|-------|-------------|-------------|
+| T-01 | Monorepo workspaces | ✅ COVERED |
+| T-02 | Portal & BFF scaffolded | ✅ COVERED |
+| T-03 | Shared types linked | ✅ COVERED |
+| T-04 | Prisma configured | ✅ COVERED |
+| T-05 | Keycloak OIDC/PKCE | ✅ COVERED |
+| T-06 | RBAC established | ✅ COVERED |
+| T-07 | UI Shell | ✅ COVERED |
+| T-08 | Dashboard diagnostics | ✅ COVERED |
