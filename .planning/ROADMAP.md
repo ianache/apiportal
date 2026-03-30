@@ -41,5 +41,46 @@
 ## Plan List: Phase 3
 - [ ] TBD (run /gsd:plan-phase 3 to break down)
 
+## Phase Detail Sections
+
+### Phase 3: Portal UX Polish & Environment Catalog
+
+**Goal:** Polish the Portal UX with renamed nav labels, a structured Settings submenu (Environments/Preferences/Platform), inline API metadata editing, new version creation flow, version status filtering, and a tagged environment catalog with API endpoint URLs per environment.
+
+**Deliverables:**
+- Rename navigation labels for clarity
+- Settings page refactored into submenu: Environments, Preferences, Platform
+- Inline edit of API name and description in ProjectDetail with auto-save
+- New API version creation from ProjectDetail
+- Version status filter and sort in ProjectDetail sidebar
+- API endpoint URLs displayed per environment
+- Tagged environment catalog (e.g., dev, staging, prod)
+
+**Requirements:** [UX-01, ENV-01, ENV-02]
+
+### Phase 4: Visual Flow Designer Core
+
+**Goal:** Build the Integration Flow canvas with Vue-based drag-and-drop, supporting Incoming/Response/Exception flow types.
+
+**Requirements:** [FLOW-01, FLOW-02]
+
+### Phase 5: Node Library & Properties
+
+**Goal:** Implement Transform, Validate, Route node types with their property panels.
+
+**Requirements:** [NODE-01, NODE-02]
+
+### Phase 6: Developer Portal & Explorer
+
+**Goal:** Build the categorized catalog, documentation view, and subscription management for API Developers.
+
+**Requirements:** [DEV-01, DEV-02, DEV-03]
+
+### Phase 7: Gateway Integration
+
+**Goal:** Sync configurations with the Spring Boot Gateway Admin API.
+
+**Requirements:** [GW-01, GW-02]
+
 ## Deferred & Seeds (Future)
 - **SEED-001:** API Design Studio (from `documentations/FEAT01.md`). Surfaced in Phase 4 or later. Visual node-based OpenAPI designer.
