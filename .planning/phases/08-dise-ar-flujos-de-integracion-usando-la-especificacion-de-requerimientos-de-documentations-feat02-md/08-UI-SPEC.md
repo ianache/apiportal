@@ -1,10 +1,11 @@
 ---
 phase: 8
 slug: 08-dise-ar-flujos-de-integracion-usando-la-especificacion-de-requerimientos-de-documentations-feat02-md
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-03-30
+reviewed_at: 2026-03-30
 ---
 
 # Phase 8 — UI Design Contract: Integration Flow Designer
