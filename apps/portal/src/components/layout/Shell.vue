@@ -80,6 +80,40 @@
               <span class="material-symbols-outlined" style="font-size: 19px;">{{ item.icon }}</span>
               {{ item.label }}
             </router-link>
+
+            <!-- Settings Collapsible -->
+            <div>
+              <button
+                @click="settingsOpen = !settingsOpen"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 text-slate-500 hover:bg-white/70 hover:text-slate-700"
+                :class="{ 'text-slate-700 bg-white/40': settingsOpen || route.path.startsWith('/settings') }"
+              >
+                <div class="flex items-center gap-2.5">
+                  <span class="material-symbols-outlined" style="font-size: 19px;">settings</span>
+                  Settings
+                </div>
+                <span
+                  class="material-symbols-outlined transition-transform duration-200"
+                  style="font-size: 18px;"
+                  :class="settingsOpen ? 'rotate-180' : ''"
+                >expand_more</span>
+              </button>
+              <div v-show="settingsOpen" class="mt-1 ml-3 pl-3 border-l-2 border-slate-200/60 space-y-0.5">
+                <router-link
+                  v-for="sub in settingsNav"
+                  :key="sub.path"
+                  :to="sub.path"
+                  class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
+                  :class="isActive(sub.path)
+                    ? 'bg-white shadow-sm'
+                    : 'text-slate-500 hover:bg-white/70 hover:text-slate-700'"
+                  :style="isActive(sub.path) ? 'color: #0058bc;' : ''"
+                >
+                  <span class="material-symbols-outlined" style="font-size: 17px;">{{ sub.icon }}</span>
+                  {{ sub.label }}
+                </router-link>
+              </div>
+            </div>
           </nav>
         </div>
 
@@ -136,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watchEffect } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '../../stores/auth';
 
@@ -147,11 +181,22 @@ const headerLinks = ['Docs', 'Support', 'Changelog'];
 
 const mainNav = [
   { path: '/dashboard',    icon: 'explore',     label: 'Explorer'     },
-  { path: '/projects',     icon: 'inventory_2', label: 'Projects'     },
+  { path: '/projects',     icon: 'inventory_2', label: 'APIs Catalog' },
   { path: '/analytics',    icon: 'analytics',   label: 'Analytics'    },
   { path: '/integrations', icon: 'hub',         label: 'Integrations' },
-  { path: '/settings',     icon: 'settings',    label: 'Settings'     },
 ];
+
+const settingsNav = [
+  { path: '/settings/environments', icon: 'dns',             label: 'Environments' },
+  { path: '/settings/preferences',  icon: 'manage_accounts', label: 'Preferences'  },
+  { path: '/settings/platform',     icon: 'tune',            label: 'Platform'     },
+];
+
+const settingsOpen = ref(false);
+
+watchEffect(() => {
+  if (route.path.startsWith('/settings')) settingsOpen.value = true;
+});
 
 const apiNav = [
   { label: 'Nexus Core APIs', color: '#0058bc' },

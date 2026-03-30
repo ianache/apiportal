@@ -1,0 +1,10 @@
+{
+  "permission": {
+    "read": {
+      "D:/02-PERSONAL/01-PROJECTS/21-APIManager/.opencode/get-shit-done/*": "allow"
+    },
+    "external_directory": {
+      "D:/02-PERSONAL/01-PROJECTS/21-APIManager/.opencode/get-shit-done/*": "allow"
+    }
+  }
+}

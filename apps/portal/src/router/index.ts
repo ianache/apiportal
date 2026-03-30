@@ -35,6 +35,16 @@ const routes = [
     path: '/integrations',
     component: Dashboard,
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/settings',
+    redirect: '/settings/environments',
+    meta: { requiresAuth: true },
+    children: [
+      { path: 'environments', component: () => import('../views/settings/SettingsEnvironments.vue') },
+      { path: 'preferences', component: () => import('../views/settings/SettingsPreferences.vue') },
+      { path: 'platform', component: () => import('../views/settings/SettingsPlatform.vue') }
+    ]
   }
 ];
 

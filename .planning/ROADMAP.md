@@ -9,6 +9,8 @@
   **Requirements:** [API-01, API-02, VER-01, VER-02, LIF-01, LIF-02, RBAC-01]
   **Plans:** 2 plans (COMPLETED 2026-03-29)
 - [ ] **Phase 3: Portal UX Polish & Environment Catalog** - Rename nav labels, Settings submenu (Environments/Preferences/Platform), inline API metadata editing, new version creation, version status filter, and API endpoint URLs per environment with tagged environment catalog.
+  **Requirements:** [UX-01, ENV-01, ENV-02]
+  **Plans:** 3 plans
 - [ ] **Phase 4: Visual Flow Designer Core** - Integration Flow canvas (Vue-based) with Incoming/Response/Exception flow types.
 - [ ] **Phase 5: Node Library & Properties** - Implementation of specific node types (Transform, Validate, Route) and property panels.
 - [ ] **Phase 6: Developer Portal & Explorer** - Categorized catalog, documentation view, and subscription management.
@@ -20,7 +22,7 @@
 |-------|----------------|--------|-----------|
 | 1. Foundation & Identity | 4/4 | Completed | 2026-03-29 |
 | 2. API Registry | 2/2 | Completed | 2026-03-29 |
-| 3. Portal UX Polish & Environment Catalog | 0/0 | Not started | - |
+| 3. Portal UX Polish & Environment Catalog | 0/3 | Not started | - |
 | 4. Visual Flow Designer | 0/0 | Not started | - |
 | 5. Node Library | 0/0 | Not started | - |
 | 6. Developer Portal | 0/0 | Not started | - |
@@ -39,7 +41,9 @@
 - [x] 02-VALIDATION.md — Phase-wide Verification & Truths
 
 ## Plan List: Phase 3
-- [ ] TBD (run /gsd:plan-phase 3 to break down)
+- [ ] 03-01-PLAN.md — Wave 1: UX/UI Shell
+- [ ] 03-02-PLAN.md — Wave 2: Versioning & Editing
+- [ ] 03-03-PLAN.md — Wave 3: Environment Catalog
 
 ## Phase Detail Sections
 
