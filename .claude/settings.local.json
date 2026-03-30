@@ -9,7 +9,8 @@
       "Bash(ls:*)",
       "Bash(node:*)",
       "Skill(gsd:add-phase)",
-      "Skill(gsd:plan-phase)"
+      "Skill(gsd:plan-phase)",
+      "Bash(npx prisma:*)"
     ]
   }
 }
