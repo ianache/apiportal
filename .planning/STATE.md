@@ -66,6 +66,7 @@ Plan: 0 of TBD
 ### Pending Todos
 
 - **Implement New Version creation in ProjectDetail** (`ui`) — Create button in modal has no handler; needs BFF route, store action, and view wiring. See `.planning/todos/pending/2026-03-30-implement-new-version-creation-in-projectdetail.md`
+- **Rename Projects to APIs Catalog in nav and workspace label** (`ui`) — Sidebar nav label → "APIs Catalog"; page heading → "APIs"; breadcrumb → consistent. See `.planning/todos/pending/2026-03-30-rename-projects-to-apis-catalog-in-nav-and-workspace-label.md`
 
 ### Blockers / Risks
 
