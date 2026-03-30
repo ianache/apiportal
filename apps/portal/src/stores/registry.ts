@@ -169,6 +169,58 @@ export const useRegistryStore = defineStore('registry', {
       } finally {
         this.loading = false;
       }
+    },
+
+    async registerEndpoint(apiId: string, version: string, payload: { environmentId: string; baseUrl: string }) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const auth = useAuthStore();
+        const token = await auth.getToken();
+        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/endpoints`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Failed to register endpoint');
+        }
+        return await res.json();
+      } catch (err: any) {
+        this.error = err.message;
+        throw err;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async deleteEndpoint(apiId: string, version: string, endpointId: string) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const auth = useAuthStore();
+        const token = await auth.getToken();
+        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/endpoints/${endpointId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Failed to delete endpoint');
+        }
+        return { success: true };
+      } catch (err: any) {
+        this.error = err.message;
+        throw err;
+      } finally {
+        this.loading = false;
+      }
     }
   }
 });

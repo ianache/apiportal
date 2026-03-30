@@ -264,6 +264,61 @@
                 </p>
               </div>
             </div>
+
+            <!-- Endpoints Section -->
+            <section class="mt-8">
+              <div class="flex items-center justify-between mb-4">
+                <h4 class="text-lg font-bold" style="color: #1a1b1f;">API Endpoints</h4>
+                <button
+                  v-if="canManageEndpoints"
+                  @click="showEndpointModal = true"
+                  class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
+                  style="background: #eff4ff; color: #0058bc;"
+                >
+                  <span class="material-symbols-outlined" style="font-size: 15px;">add</span>
+                  Add Endpoint
+                </button>
+              </div>
+
+              <div v-if="!selectedVersion.endpoints?.length" class="p-6 rounded-2xl border text-center" style="background: #f4f3f8; border-color: #e3e2e7;">
+                <p class="text-sm" style="color: #717786;">
+                  No endpoints configured for this version yet.
+                </p>
+              </div>
+
+              <div v-else class="space-y-2">
+                <div
+                  v-for="endpoint in selectedVersion.endpoints"
+                  :key="endpoint.id"
+                  class="flex items-center justify-between p-4 rounded-xl border"
+                  style="background: #ffffff; border-color: #e3e2e7;"
+                >
+                  <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: #eff4ff;">
+                      <span class="material-symbols-outlined" style="color: #0058bc;">http</span>
+                    </div>
+                    <div>
+                      <p class="font-semibold" style="color: #1a1b1f;">{{ endpoint.environment?.name || 'Unknown' }}</p>
+                      <p class="text-sm font-mono" style="color: #717786;">{{ endpoint.baseUrl }}</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span
+                      class="px-2 py-0.5 text-[10px] font-semibold rounded-full"
+                      style="background: #e0f2fe; color: #075985;"
+                    >{{ endpoint.environment?.slug }}</span>
+                    <button
+                      v-if="canManageEndpoints"
+                      @click="handleDeleteEndpoint(endpoint.id)"
+                      class="p-2 rounded-lg transition-colors hover:bg-red-50"
+                      title="Delete endpoint"
+                    >
+                      <span class="material-symbols-outlined" style="color: #991b1b; font-size: 18px;">delete</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
           </section>
         </main>
 
@@ -334,6 +389,89 @@
       </div>
     </div>
 
+    <!-- Add Endpoint Modal -->
+    <div
+      v-if="showEndpointModal"
+      class="fixed inset-0 z-[100] flex items-center justify-center p-6"
+      style="background: rgba(26,27,31,0.55); backdrop-filter: blur(4px);"
+    >
+      <div
+        class="rounded-3xl w-full max-w-sm p-8 shadow-2xl animate-in zoom-in-95 duration-200"
+        style="background: #ffffff;"
+      >
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h2 class="text-2xl font-bold" style="color: #1a1b1f;">Add Endpoint</h2>
+            <p class="text-sm mt-1" style="color: #717786;">Map an environment to this API version.</p>
+          </div>
+          <button
+            @click="showEndpointModal = false"
+            class="p-1.5 rounded-full transition-colors hover:bg-gray-100 ml-4"
+            style="color: #717786;"
+          >
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-widest mb-1.5 ml-1" style="color: #414755;">
+              Environment <span style="color: #991b1b;">*</span>
+            </label>
+            <select
+              v-model="newEndpoint.environmentId"
+              class="w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all"
+              style="background: #f4f3f8; border-color: #e3e2e7; color: #1a1b1f;"
+            >
+              <option value="">Select environment...</option>
+              <option v-for="env in environments" :key="env.id" :value="env.id">
+                {{ env.name }} ({{ env.slug }})
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-widest mb-1.5 ml-1" style="color: #414755;">
+              Base URL <span style="color: #991b1b;">*</span>
+            </label>
+            <input
+              v-model="newEndpoint.baseUrl"
+              type="url"
+              class="w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all"
+              style="background: #f4f3f8; border-color: #e3e2e7; color: #1a1b1f;"
+              placeholder="https://api.example.com"
+            />
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-8">
+          <button
+            @click="showEndpointModal = false"
+            class="flex-1 py-3 px-6 rounded-xl font-bold transition-colors hover:bg-gray-50 flex items-center justify-center gap-2"
+            style="color: #414755; border: 1px solid #e3e2e7;"
+          >
+            <span class="material-symbols-outlined text-base">close</span>
+            Cancel
+          </button>
+          <button
+            @click="handleAddEndpoint"
+            :disabled="!newEndpoint.environmentId || !newEndpoint.baseUrl || registry.loading"
+            class="flex-1 py-3 px-6 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+            :style="{
+              background: '#0058bc',
+              color: '#ffffff',
+              boxShadow: '0 4px 14px rgba(0,88,188,0.30)',
+              opacity: !newEndpoint.environmentId || !newEndpoint.baseUrl || registry.loading ? 0.5 : 1,
+              cursor: !newEndpoint.environmentId || !newEndpoint.baseUrl || registry.loading ? 'not-allowed' : 'pointer'
+            }"
+          >
+            <span v-if="registry.loading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
+            <span v-else class="material-symbols-outlined text-base">add_circle</span>
+            {{ registry.loading ? 'Adding...' : 'Add' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
   </Shell>
 </template>
 
@@ -342,11 +480,13 @@ import { ref, onMounted, computed, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import Shell from '../components/layout/Shell.vue';
 import { useRegistryStore } from '../stores/registry';
+import { useEnvironmentStore } from '../stores/environments';
 import { useAuthStore } from '../stores/auth';
-import type { API, APIVersion, APIStatus } from 'shared-types';
+import type { API, APIVersion, APIStatus, Environment } from 'shared-types';
 
 const route = useRoute();
 const registry = useRegistryStore();
+const environmentStore = useEnvironmentStore();
 const auth = useAuthStore();
 
 const api = ref<API | null>(null);
@@ -355,6 +495,13 @@ const loading = ref(true);
 const error = ref<string | null>(null);
 const showNewVersionModal = ref(false);
 const newVersionNumber = ref('');
+
+// Endpoint modal state
+const showEndpointModal = ref(false);
+const newEndpoint = ref({ environmentId: '', baseUrl: '' });
+
+const environments = computed(() => environmentStore.environments);
+const canManageEndpoints = computed(() => userRole.value !== 'API_DEVELOPER');
 
 // Inline editing state
 const editingName = ref(false);
@@ -477,6 +624,32 @@ const handleCreateVersion = async () => {
   }
 };
 
+// Endpoint handlers
+const handleAddEndpoint = async () => {
+  if (!api.value || !selectedVersion.value || !newEndpoint.value.environmentId || !newEndpoint.value.baseUrl) return;
+  try {
+    await registry.registerEndpoint(api.value.id, selectedVersion.value.version, {
+      environmentId: newEndpoint.value.environmentId,
+      baseUrl: newEndpoint.value.baseUrl
+    });
+    showEndpointModal.value = false;
+    newEndpoint.value = { environmentId: '', baseUrl: '' };
+    await fetchData();
+  } catch (err: any) {
+    error.value = err.message;
+  }
+};
+
+const handleDeleteEndpoint = async (endpointId: string) => {
+  if (!api.value || !selectedVersion.value) return;
+  try {
+    await registry.deleteEndpoint(api.value.id, selectedVersion.value.version, endpointId);
+    await fetchData();
+  } catch (err: any) {
+    error.value = err.message;
+  }
+};
+
 const fetchData = async () => {
   loading.value = true;
   error.value = null;
@@ -492,7 +665,10 @@ const fetchData = async () => {
   }
 };
 
-onMounted(fetchData);
+onMounted(async () => {
+  await fetchData();
+  await environmentStore.fetchEnvironments();
+});
 
 const handleStatusTransition = async (status: APIStatus) => {
   if (!api.value || !selectedVersion.value) return;
