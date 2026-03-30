@@ -5,6 +5,7 @@ status: draft
 shadcn_initialized: false
 preset: none
 created: 2026-03-29
+revised: 2026-03-29
 ---
 
 # Phase 3 — UI Design Contract
@@ -46,7 +47,7 @@ Declared values (multiples of 4):
 
 Exceptions:
 - Page content padding uses `p-8` (32px), not 48px — consistent with existing `Projects.vue` and `ProjectDetail.vue` patterns.
-- Sidebar sub-item indent: 12px left padding (`pl-3`) — not on the 8-point scale, retained for visual hierarchy in the Settings collapsible group.
+- Sidebar sub-item indent: `pl-[28px]` (28px). 28 is a multiple of 4 and is a layout-derived value — it aligns sub-item text with the text column of the parent nav row (parent row: `pl-4` icon padding + 20px icon + `gap-2` gap = ~28px total offset). This value was previously specified as `pl-3` (12px), which was incorrect; corrected to `pl-[28px]`.
 - Touch targets for interactive icon-only buttons: minimum 32px × 32px (existing shell pattern), not 44px (desktop-only application, touch target exception applies).
 
 ---
@@ -58,15 +59,17 @@ Exceptions:
 | Body | 14px (`text-sm`) | 400 (regular) | 1.5 |
 | Label | 12px (`text-xs`) | 700 (bold) | 1.25 |
 | Heading | 24px (`text-2xl`) | 700 (bold) | 1.2 |
-| Display | 48px (`text-5xl`) | 800 (extrabold) | 1.1 |
+| Display | 48px (`text-5xl`) | 700 (bold) | 1.1 |
+
+Weights in use: 400 (regular) and 700 (bold) — exactly 2 weights.
 
 Notes:
 - Label role is used for uppercase tracking-widest section headers (e.g. "Versions", "Lifecycle Status", sidebar group labels, column headers, field labels). All uppercase labels use `tracking-widest`.
 - Body role covers card descriptions, table cell text, modal body copy, tooltip text.
 - Heading role covers modal titles (`text-2xl font-bold`), version detail section titles, card titles (`text-base font-bold` — treated as compact heading).
-- Display role is reserved for page-level `<h1>` elements (e.g. "APIs" on the catalog page).
+- Display role is reserved for page-level `<h1>` elements (e.g. "APIs" on the catalog page, "Environments" on the environment catalog page). All display `<h1>` elements use `font-bold` (700).
 - Font: Inter for all roles. `font-family: 'Inter', sans-serif` declared inline on root containers (existing pattern).
-- Code/monospace: 11px (`text-[11px]`), `font-mono`, used for Version ID and SemVer values only.
+- Code/monospace: 12px (`text-xs`), `font-mono`, used for Version ID and SemVer values only. Collapses into the Label scale slot — no separate size declaration needed.
 
 ---
 
@@ -138,7 +141,7 @@ These are the UI components introduced or modified in Phase 3.
 
 **Sub-item styling:**
 - Font: `text-xs` (12px) weight 500.
-- Left indent: `pl-[28px]` (to clear icon + gap of parent row).
+- Left indent: `pl-[28px]` (28px — layout-derived, aligns text with parent nav row text column; see Spacing Scale exceptions).
 - Active state: `color: #0058bc`, `background: #ffffff`, `box-shadow: 0 1px 4px rgba(0,0,0,0.08)`.
 - Icon: `font-variation-settings: 'FILL' 1` when active, `0` when inactive.
 - Same `rounded-xl` and `hover:bg-white/70` hover style as existing `mainNav` items.
@@ -162,6 +165,8 @@ Route path `/projects` is unchanged. Only display labels change.
 
 ### 3. Inline Edit — API Name & Description (ProjectDetail.vue)
 
+**Primary visual anchor:** The API name `<h1>` is the primary focal point of the ProjectDetail view. It sits at the top of the main content area, uses Display typography (48px `font-bold`), and is the first element a user interacts with when reviewing or editing an API.
+
 **Editable fields:** `<h1>` (name) and `<p>` (description) in the header section.
 
 **Edit eligibility (`canEditMetadata`):**
@@ -169,7 +174,7 @@ Route path `/projects` is unchanged. Only display labels change.
 
 **Edit trigger:** Click on the field text when `canEditMetadata` is true. A `edit` icon (Material Symbols, 16px, `#a0a7b5`) appears on hover to signal editability.
 
-**Name field edit mode:** `<input>` replacing `<h1>`, same font size (`text-4xl font-extrabold`), `border-b-2 border-[#0058bc]`, transparent background, full width. Saves on `blur` or `Enter`. Cancels on `Escape`.
+**Name field edit mode:** `<input>` replacing `<h1>`, same font size (`text-5xl font-bold`), `border-b-2 border-[#0058bc]`, transparent background, full width. Saves on `blur` or `Enter`. Cancels on `Escape`.
 
 **Description field edit mode:** `<textarea>` replacing `<p>`, `text-lg`, `border border-[#e3e2e7] rounded-xl px-3 py-2`, background `#f4f3f8`. Saves on `blur`. Cancels on `Escape`.
 
@@ -222,9 +227,9 @@ Route path `/projects` is unchanged. Only display labels change.
 **Layout:** Full-page content inside `Shell`. Matches the `p-8 max-w-7xl mx-auto` pattern from Projects.vue.
 
 **Page header:**
-- Eyebrow label: "Settings" (text-xs font-bold uppercase tracking-widest, `#0058bc`).
-- `<h1>`: "Environments" (text-5xl font-extrabold, `#1a1b1f`).
-- Subtitle: "Manage deployment environments and their tags." (text-sm, `#414755`).
+- Eyebrow label: "Settings" (`text-xs font-bold uppercase tracking-widest`, `#0058bc`).
+- `<h1>`: "Environments" (`text-5xl font-bold`, `#1a1b1f`).
+- Subtitle: "Manage deployment environments and their tags." (`text-sm`, `#414755`).
 - Primary CTA button (top-right): "Add Environment" (`#0058bc` background, white text).
 
 **Table:**
@@ -233,7 +238,7 @@ Route path `/projects` is unchanged. Only display labels change.
 - Name cell: `text-sm`, `#414755`.
 - Tags cell: inline chip list. Each tag: `text-xs font-semibold px-2 py-0.5 rounded-full`, background `#eff4ff`, text `#0058bc`. Max visible: 4, then "+N more" pill.
 - Inline "Add tag" per row: clicking the `+` icon on a row opens a small inline input within the tags cell. Save on Enter or blur.
-- Actions column: "Edit" icon button (`edit`, `#717786`) and "Delete" icon button (`delete`, `#991b1b`).
+- Actions column: "Edit" icon button (`edit`, `#717786`, `aria-label="Edit environment"`) and "Delete" icon button (`delete`, `#991b1b`, `aria-label="Delete environment"`).
 
 **Empty state:**
 - Icon: `dns` (64px, `#c7c6d1`).
@@ -255,13 +260,13 @@ Route path `/projects` is unchanged. Only display labels change.
 
 **Placement:** New "Endpoints" card below the existing "Implementation Details" and "Designer Insights" cards in the version detail panel.
 
-**Card header:** "Endpoints" (text-xs font-bold uppercase tracking-widest, `#717786`) + "Register Endpoint" button (icon `add`, `#eff4ff` background, `#0058bc` text, text-xs). Button hidden when version status is `RETIRED`.
+**Card header:** "Endpoints" (`text-xs font-bold uppercase tracking-widest`, `#717786`) + "Register Endpoint" button (icon `add`, `#eff4ff` background, `#0058bc` text, `text-xs`). Button hidden when version status is `RETIRED`.
 
 **Endpoint list (per registered environment):**
-- Row: Environment slug badge (monospace, `#0058bc`) + Environment name + Base URL (`text-sm font-mono`, `#1a1b1f`) + delete icon button (`delete`, `#717786`).
+- Row: Environment slug badge (monospace, `#0058bc`) + Environment name + Base URL (`text-sm font-mono`, `#1a1b1f`) + delete icon button (`delete`, `#717786`, `aria-label="Delete endpoint"`).
 - URL is rendered as plain text (not a link) to prevent accidental navigation.
 
-**Empty state (no endpoints):** "No endpoints registered." (text-sm italic, `#717786`).
+**Empty state (no endpoints):** "No endpoints registered." (`text-sm italic`, `#717786`).
 
 **Register Endpoint modal:**
 - Dropdown: select Environment from catalog (slug — name format).
@@ -355,6 +360,15 @@ No third-party component registry is used. All components are custom Vue 3 SFCs 
 | `apps/portal/src/views/ProjectDetail.vue` | Status badge colours, version card pattern, modal pattern, breadcrumb pattern |
 | Todo files (6 × pending) | Feature-level interaction specs, field names, route definitions, RBAC constraints |
 | `.planning/STATE.md` | Phase scope, completed phases, pending todos |
+
+---
+
+## Revision Log
+
+| Date | Change |
+|------|--------|
+| 2026-03-29 | Initial draft |
+| 2026-03-29 | Checker revision: removed weight 800 (extrabold) — Display role changed to `font-bold` (700); removed 11px monospace size — collapsed into `text-xs` (12px) Label slot; corrected sidebar sub-item indent from `pl-3` (12px) to `pl-[28px]` (28px, multiple of 4, layout-derived); added `aria-label` to Edit/Delete icon buttons in Environments table and Endpoints panel; added primary focal point declaration for ProjectDetail `<h1>` |
 
 ---
 
