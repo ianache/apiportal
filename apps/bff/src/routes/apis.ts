@@ -11,6 +11,17 @@ const createApiSchema = z.object({
   }).default("0.1.0")
 });
 
+const updateApiSchema = z.object({
+  name: z.string().min(3).max(50).optional(),
+  description: z.string().optional()
+});
+
+const createVersionSchema = z.object({
+  version: z.string().refine((v) => semver.valid(v), {
+    message: "Invalid SemVer version"
+  })
+});
+
 const updateStatusSchema = z.object({
   status: z.nativeEnum({
     DESIGN: 'DESIGN',
@@ -111,6 +122,100 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
       if (err.code === 'P2002') {
         return reply.code(409).send({ error: 'Conflict', message: 'An API with this name already exists' });
       }
+      throw err;
+    }
+  });
+
+  // Update API metadata (PATCH /apis/:id)
+  fastify.patch('/apis/:id', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+
+      // RBAC: Developers cannot update API metadata
+      if (request.user.role === 'API_DEVELOPER') {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Developers cannot update API metadata' });
+      }
+
+      const { id } = request.params as { id: string };
+      const updates = updateApiSchema.parse(request.body);
+
+      const existingApi = await fastify.prisma.aPI.findUnique({ where: { id } });
+      if (!existingApi) return reply.code(404).send({ error: 'Not Found' });
+
+      const updated = await fastify.prisma.aPI.update({
+        where: { id },
+        data: updates,
+        include: { versions: true }
+      });
+
+      fastify.log.info({ apiId: id, updates }, 'API updated successfully');
+      return updated;
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to update API');
+      if (err.code === 'P2002') {
+        return reply.code(409).send({ error: 'Conflict', message: 'An API with this name already exists' });
+      }
+      throw err;
+    }
+  });
+
+  // Create new version (POST /apis/:id/versions)
+  fastify.post('/apis/:id/versions', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+
+      // RBAC: Developers cannot create versions
+      if (request.user.role === 'API_DEVELOPER') {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Developers cannot create versions' });
+      }
+
+      const { id } = request.params as { id: string };
+      const { version } = createVersionSchema.parse(request.body);
+
+      const existingApi = await fastify.prisma.aPI.findUnique({ where: { id } });
+      if (!existingApi) return reply.code(404).send({ error: 'API Not Found' });
+
+      // Check if version already exists
+      const existingVersion = await fastify.prisma.aPIVersion.findUnique({
+        where: { apiId_version: { apiId: id, version } }
+      });
+      if (existingVersion) {
+        return reply.code(409).send({ error: 'Conflict', message: 'Version already exists' });
+      }
+
+      // Get the user for createdBy
+      let dbUser = await fastify.prisma.user.findUnique({
+        where: { sub: request.user.sub }
+      });
+
+      if (!dbUser) {
+        dbUser = await fastify.prisma.user.create({
+          data: {
+            sub: request.user.sub,
+            email: request.user.email,
+            name: request.user.name,
+            role: request.user.role as any
+          }
+        });
+      }
+
+      const newVersion = await fastify.prisma.aPIVersion.create({
+        data: {
+          apiId: id,
+          version,
+          status: 'DESIGN',
+          createdBy: dbUser.id
+        }
+      });
+
+      fastify.log.info({ apiId: id, version }, 'API version created successfully');
+      return newVersion;
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to create API version');
       throw err;
     }
   });
