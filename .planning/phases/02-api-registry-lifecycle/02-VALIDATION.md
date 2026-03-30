@@ -1,3 +1,10 @@
+---
+phase: 02-api-registry-lifecycle
+nyquist_compliant: true
+wave_0_complete: true
+validated: 2026-03-30
+---
+
 # Validation: Phase 2 (API Registry & Lifecycle)
 
 This document tracks the observable truths and verification steps for the completion of Phase 2.
@@ -56,3 +63,28 @@ npm run build --workspace=apps/bff
 - **Date:** 2026-03-29
 - **Status:** APPROVED
 - **Note:** Registry is functional. Ready for Phase 3 (Visual Flow Designer).
+
+---
+
+## Validation Audit 2026-03-30
+| Metric | Count |
+|--------|-------|
+| Gaps found | 6 |
+| Resolved | 6 |
+| Escalated | 0 |
+
+### Test Infrastructure
+| Workspace | Framework | Test File | Tests |
+|-----------|-----------|-----------|-------|
+| BFF | Vitest | `apps/bff/src/routes/phase2-validation.test.ts` | 7 |
+| Portal | Vitest | `apps/portal/src/phase2-validation.test.ts` | 11 |
+
+### Coverage Map
+| Truth | Requirement | Test Status |
+|-------|-------------|-------------|
+| T-01 | API and APIVersion models | ✅ COVERED |
+| T-02 | BFF Registry endpoints | ✅ COVERED |
+| T-03 | Lifecycle state machine | ✅ COVERED |
+| T-04 | Projects dashboard UI | ✅ COVERED |
+| T-05 | Project Detail status transitions | ✅ COVERED |
+| T-06 | RBAC gates | ✅ COVERED |
