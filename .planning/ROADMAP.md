@@ -88,3 +88,13 @@
 
 ## Deferred & Seeds (Future)
 - **SEED-001:** API Design Studio (from `documentations/FEAT01.md`). Surfaced in Phase 4 or later. Visual node-based OpenAPI designer.
+
+### Phase 8: diseñar flujos de integracion usando la especificacion de requerimientos de documentations/FEAT02.md
+
+**Goal:** [To be planned]
+**Requirements**: TBD
+**Depends on:** Phase 7
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 8 to break down)
