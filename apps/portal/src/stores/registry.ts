@@ -106,6 +106,69 @@ export const useRegistryStore = defineStore('registry', {
       } finally {
         this.loading = false;
       }
+    },
+
+    async updateApi(id: string, payload: { name?: string; description?: string }) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const auth = useAuthStore();
+        const token = await auth.getToken();
+        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${bffBase}/apis/${id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Failed to update API');
+        }
+        const updated = await res.json();
+        // Update local state
+        const idx = this.apis.findIndex(a => a.id === id);
+        if (idx !== -1) this.apis[idx] = updated;
+        return updated;
+      } catch (err: any) {
+        this.error = err.message;
+        throw err;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async createVersion(apiId: string, version: string) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const auth = useAuthStore();
+        const token = await auth.getToken();
+        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${bffBase}/apis/${apiId}/versions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ version })
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Failed to create version');
+        }
+        const newVersion = await res.json();
+        // Refresh to get updated list
+        await this.fetchApis();
+        return newVersion;
+      } catch (err: any) {
+        this.error = err.message;
+        throw err;
+      } finally {
+        this.loading = false;
+      }
     }
   }
 });
