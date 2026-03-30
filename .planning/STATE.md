@@ -63,6 +63,10 @@ Plan: 0 of TBD
 - Phase 3: Visual Designer canvas integration.
 - Phase 4: Integration Flow node library.
 
+### Pending Todos
+
+- **Implement New Version creation in ProjectDetail** (`ui`) — Create button in modal has no handler; needs BFF route, store action, and view wiring. See `.planning/todos/pending/2026-03-30-implement-new-version-creation-in-projectdetail.md`
+
 ### Blockers / Risks
 
 - Visual Designer (Phase 3) complexity in state management (Vue Flow).
