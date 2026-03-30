@@ -45,6 +45,10 @@ Plan: 0 of TBD
 - **RBAC:** Integrated Keycloak roles (`API-Designer`, `API-Manager`) into Registry & Lifecycle.
 - **Persistence:** PostgreSQL (Prisma) with `JsonB` support for future flow configurations.
 
+### Roadmap Evolution
+
+- Phase 3 added: Portal UX Polish & Environment Catalog (inserted before Visual Designer; former Phase 3-6 renumbered to 4-7)
+
 ### Major Achievements
 
 - **Phase 1 Complete:** Identity and Base Shell.
