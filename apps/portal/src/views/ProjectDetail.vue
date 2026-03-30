@@ -45,11 +45,45 @@
                     style="font-variation-settings: 'FILL' 1;">api</span>
             </div>
             <div>
-              <h1 class="text-4xl font-extrabold tracking-tight" style="color: #1a1b1f;">{{ api.name }}</h1>
+              <!-- Inline Edit: API Name -->
+              <div v-if="editingName" class="flex items-center gap-2">
+                <input
+                  v-model="editName"
+                  ref="nameInput"
+                  @blur="saveName"
+                  @keydown.enter="saveName"
+                  @keydown.escape="cancelEditName"
+                  class="text-4xl font-extrabold tracking-tight px-2 py-1 rounded border outline-none"
+                  style="color: #1a1b1f; border-color: #0058bc;"
+                />
+                <button @click="saveName" class="p-1 rounded hover:bg-green-100" style="color: #047857;">
+                  <span class="material-symbols-outlined text-xl">check</span>
+                </button>
+                <button @click="cancelEditName" class="p-1 rounded hover:bg-red-100" style="color: #991b1b;">
+                  <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+              </div>
+              <h1 v-else @click="startEditName" class="text-4xl font-extrabold tracking-tight cursor-pointer hover:underline" style="color: #1a1b1f;" :title="canEditMetadata ? 'Click to edit' : ''">{{ api.name }}</h1>
               <p class="font-medium text-sm" style="color: #717786;">Project ID: {{ api.id }}</p>
             </div>
           </div>
-          <p class="text-lg leading-relaxed max-w-2xl" style="color: #414755;">
+          <!-- Inline Edit: Description -->
+          <div v-if="editingDesc" class="flex flex-col gap-2">
+            <textarea
+              v-model="editDesc"
+              ref="descInput"
+              @blur="saveDesc"
+              @keydown.escape="cancelEditDesc"
+              class="text-lg leading-relaxed max-w-2xl px-2 py-1 rounded border outline-none resize-none"
+              style="color: #414755; border-color: #0058bc; height: 80px;"
+              placeholder="Enter description..."
+            />
+            <div class="flex gap-2">
+              <button @click="saveDesc" class="px-3 py-1 rounded-lg text-sm font-bold" style="background: #047857; color: white;">Save</button>
+              <button @click="cancelEditDesc" class="px-3 py-1 rounded-lg text-sm font-bold" style="background: #991b1b; color: white;">Cancel</button>
+            </div>
+          </div>
+          <p v-else @click="startEditDesc" class="text-lg leading-relaxed max-w-2xl cursor-pointer hover:underline" style="color: #414755;" :title="canEditMetadata ? 'Click to edit' : ''">
             {{ api.description || 'No description provided for this API project.' }}
           </p>
         </div>
@@ -82,9 +116,21 @@
 
         <!-- Versions Sidebar -->
         <aside class="lg:col-span-1">
-          <div class="flex items-center justify-between mb-4 px-1">
+          <div class="flex items-center justify-between mb-4 px-1 gap-2">
             <h2 class="text-xs font-bold uppercase tracking-widest" style="color: #717786;">Versions</h2>
+            <select
+              v-model="statusFilter"
+              class="text-xs px-2 py-1 rounded-lg border outline-none"
+              style="border-color: #e3e2e7; color: #414755;"
+            >
+              <option value="ALL">All Status</option>
+              <option value="DESIGN">DESIGN</option>
+              <option value="REVIEW">REVIEW</option>
+              <option value="APPROVED">APPROVED</option>
+              <option value="PUBLISHED">PUBLISHED</option>
+            </select>
             <button
+              v-if="canCreateVersion"
               @click="showNewVersionModal = true"
               class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-opacity hover:opacity-80"
               style="background: #eff4ff; color: #0058bc;"
@@ -96,7 +142,7 @@
           </div>
           <div class="space-y-2">
             <button
-              v-for="v in api.versions"
+              v-for="v in filteredVersions"
               :key="v.id"
               @click="selectedVersion = v"
               class="w-full text-left p-4 rounded-2xl border transition-all duration-200"
@@ -269,11 +315,20 @@
             Cancel
           </button>
           <button
+            @click="handleCreateVersion"
+            :disabled="!newVersionNumber || registry.loading"
             class="flex-1 py-3 px-6 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
-            style="background: #0058bc; color: #ffffff; box-shadow: 0 4px 14px rgba(0,88,188,0.30);"
+            :style="{
+              background: '#0058bc',
+              color: '#ffffff',
+              boxShadow: '0 4px 14px rgba(0,88,188,0.30)',
+              opacity: !newVersionNumber || registry.loading ? 0.5 : 1,
+              cursor: !newVersionNumber || registry.loading ? 'not-allowed' : 'pointer'
+            }"
           >
-            <span class="material-symbols-outlined text-base">add_circle</span>
-            Create
+            <span v-if="registry.loading" class="material-symbols-outlined text-base animate-spin">progress_activity</span>
+            <span v-else class="material-symbols-outlined text-base">add_circle</span>
+            {{ registry.loading ? 'Creating...' : 'Create' }}
           </button>
         </div>
       </div>
@@ -283,7 +338,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import Shell from '../components/layout/Shell.vue';
 import { useRegistryStore } from '../stores/registry';
@@ -301,6 +356,28 @@ const error = ref<string | null>(null);
 const showNewVersionModal = ref(false);
 const newVersionNumber = ref('');
 
+// Inline editing state
+const editingName = ref(false);
+const editingDesc = ref(false);
+const editName = ref('');
+const editDesc = ref('');
+const nameInput = ref<HTMLInputElement | null>(null);
+const descInput = ref<HTMLTextAreaElement | null>(null);
+
+// Version filter
+const statusFilter = ref('ALL');
+
+const filteredVersions = computed(() => {
+  if (!api.value?.versions) return [];
+  let versions = [...api.value.versions];
+  if (statusFilter.value !== 'ALL') {
+    versions = versions.filter(v => v.status === statusFilter.value);
+  }
+  // Sort descending by createdAt
+  versions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return versions;
+});
+
 const currentVersion = computed(() => api.value?.versions?.[0] || null);
 
 const userRole = computed(() => {
@@ -309,6 +386,15 @@ const userRole = computed(() => {
   if (roles.includes('API-Designer')) return 'API_DESIGNER';
   return 'API_DEVELOPER';
 });
+
+const canEditMetadata = computed(() =>
+  userRole.value !== 'API_DEVELOPER' &&
+  selectedVersion.value?.status !== 'PUBLISHED'
+);
+
+const canCreateVersion = computed(() =>
+  userRole.value !== 'API_DEVELOPER'
+);
 
 const canSubmitForReview = computed(() =>
   selectedVersion.value?.status === 'DESIGN' &&
@@ -322,6 +408,74 @@ const canApprove = computed(() =>
 const canPublish = computed(() =>
   selectedVersion.value?.status === 'APPROVED' && userRole.value === 'API_MANAGER'
 );
+
+// Inline editing methods
+const startEditName = async () => {
+  if (!canEditMetadata.value) return;
+  editName.value = api.value?.name || '';
+  editingName.value = true;
+  await nextTick();
+  nameInput.value?.focus();
+};
+
+const saveName = async () => {
+  if (!api.value || !editName.value.trim()) {
+    cancelEditName();
+    return;
+  }
+  try {
+    await registry.updateApi(api.value.id, { name: editName.value.trim() });
+    api.value.name = editName.value.trim();
+    editingName.value = false;
+  } catch (err: any) {
+    error.value = err.message;
+  }
+};
+
+const cancelEditName = () => {
+  editingName.value = false;
+  editName.value = '';
+};
+
+const startEditDesc = async () => {
+  if (!canEditMetadata.value) return;
+  editDesc.value = api.value?.description || '';
+  editingDesc.value = true;
+  await nextTick();
+  descInput.value?.focus();
+};
+
+const saveDesc = async () => {
+  if (!api.value) {
+    cancelEditDesc();
+    return;
+  }
+  try {
+    await registry.updateApi(api.value.id, { description: editDesc.value.trim() });
+    api.value.description = editDesc.value.trim();
+    editingDesc.value = false;
+  } catch (err: any) {
+    error.value = err.message;
+  }
+};
+
+const cancelEditDesc = () => {
+  editingDesc.value = false;
+  editDesc.value = '';
+};
+
+// Create version handler
+const handleCreateVersion = async () => {
+  if (!api.value || !newVersionNumber.value) return;
+  try {
+    await registry.createVersion(api.value.id, newVersionNumber.value);
+    showNewVersionModal.value = false;
+    newVersionNumber.value = '';
+    await fetchData();
+  } catch (err: any) {
+    error.value = err.message;
+  }
+};
 
 const fetchData = async () => {
   loading.value = true;
