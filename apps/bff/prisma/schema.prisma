@@ -68,6 +68,30 @@ model APIVersion {
   approver    User?     @relation("VersionApprover", fields: [approvedBy], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+  endpoints   APIEndpoint[]
 
   @@unique([apiId, version])
+}
+
+model Environment {
+  id        String        @id @default(uuid())
+  slug      String        @unique
+  name      String
+  tags      String[]      // Array of tags for filtering
+  endpoints APIEndpoint[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model APIEndpoint {
+  id             String      @id @default(uuid())
+  versionId       String
+  version         APIVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  environmentId   String
+  environment     Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  baseUrl        String
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  @@unique([versionId, environmentId])
 }

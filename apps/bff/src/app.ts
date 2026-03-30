@@ -5,6 +5,7 @@ import prismaPlugin from './plugins/prisma.js';
 import authPlugin from './plugins/auth.js';
 import healthRoutes from './routes/health.js';
 import apiRoutes from './routes/apis.js';
+import environmentRoutes from './routes/environments.js';
 
 const schema = {
   type: 'object',
@@ -45,6 +46,7 @@ await fastify.register(authPlugin);
 // Register routes after auth is established
 fastify.register(healthRoutes);
 fastify.register(apiRoutes);
+fastify.register(environmentRoutes);
 
 const start = async () => {
   try {

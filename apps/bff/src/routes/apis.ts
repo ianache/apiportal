@@ -22,6 +22,15 @@ const createVersionSchema = z.object({
   })
 });
 
+const createEndpointSchema = z.object({
+  environmentId: z.string().uuid(),
+  baseUrl: z.string().url()
+});
+
+const updateEndpointSchema = z.object({
+  baseUrl: z.string().url()
+});
+
 const updateStatusSchema = z.object({
   status: z.nativeEnum({
     DESIGN: 'DESIGN',
@@ -61,7 +70,16 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
     const { id } = request.params as { id: string };
     const api = await fastify.prisma.aPI.findUnique({
       where: { id },
-      include: { versions: true }
+      include: { 
+        versions: {
+          orderBy: { createdAt: 'desc' },
+          include: {
+            endpoints: {
+              include: { environment: true }
+            }
+          }
+        }
+      }
     });
     if (!api) return reply.code(404).send({ error: 'Not Found' });
     return api;
@@ -259,6 +277,82 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     return updated;
+  });
+
+  // Create endpoint for a version (POST /apis/:id/versions/:version/endpoints)
+  fastify.post('/apis/:id/versions/:version/endpoints', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+
+      // RBAC: Developers cannot manage endpoints
+      if (request.user.role === 'API_DEVELOPER') {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Developers cannot manage endpoints' });
+      }
+
+      const { id, version } = request.params as { id: string, version: string };
+      const { environmentId, baseUrl } = createEndpointSchema.parse(request.body);
+
+      const apiVersion = await fastify.prisma.aPIVersion.findUnique({
+        where: { apiId_version: { apiId: id, version } }
+      });
+      if (!apiVersion) return reply.code(404).send({ error: 'Version Not Found' });
+
+      // Verify environment exists
+      const env = await fastify.prisma.environment.findUnique({ where: { id: environmentId } });
+      if (!env) return reply.code(404).send({ error: 'Environment Not Found' });
+
+      // Check for existing endpoint
+      const existing = await fastify.prisma.aPIEndpoint.findFirst({
+        where: { versionId: apiVersion.id, environmentId }
+      });
+      if (existing) {
+        return reply.code(409).send({ error: 'Conflict', message: 'Endpoint for this environment already exists' });
+      }
+
+      const endpoint = await fastify.prisma.aPIEndpoint.create({
+        data: {
+          versionId: apiVersion.id,
+          environmentId,
+          baseUrl
+        },
+        include: { environment: true }
+      });
+
+      fastify.log.info({ apiId: id, version, environmentId }, 'Endpoint created');
+      return endpoint;
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to create endpoint');
+      throw err;
+    }
+  });
+
+  // Delete endpoint (DELETE /apis/:id/versions/:version/endpoints/:endpointId)
+  fastify.delete('/apis/:id/versions/:version/endpoints/:endpointId', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+
+      // RBAC: Developers cannot manage endpoints
+      if (request.user.role === 'API_DEVELOPER') {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Developers cannot manage endpoints' });
+      }
+
+      const { endpointId } = request.params as { endpointId: string };
+
+      const endpoint = await fastify.prisma.aPIEndpoint.findUnique({ where: { id: endpointId } });
+      if (!endpoint) return reply.code(404).send({ error: 'Endpoint Not Found' });
+
+      await fastify.prisma.aPIEndpoint.delete({ where: { id: endpointId } });
+
+      fastify.log.info({ endpointId }, 'Endpoint deleted');
+      return { success: true };
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to delete endpoint');
+      throw err;
+    }
   });
 
 };

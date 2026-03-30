@@ -39,4 +39,24 @@ export interface APIVersion {
   approvedBy?: string;
   createdAt: string;
   updatedAt: string;
+  endpoints?: APIEndpoint[];
+}
+
+export interface Environment {
+  id: string;
+  slug: string;
+  name: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface APIEndpoint {
+  id: string;
+  versionId: string;
+  environmentId: string;
+  environment?: Environment;
+  baseUrl: string;
+  createdAt: string;
+  updatedAt: string;
 }
