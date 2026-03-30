@@ -68,6 +68,7 @@ Plan: 0 of TBD
 - **Implement New Version creation in ProjectDetail** (`ui`) — Create button in modal has no handler; needs BFF route, store action, and view wiring. See `.planning/todos/pending/2026-03-30-implement-new-version-creation-in-projectdetail.md`
 - **Rename Projects to APIs Catalog in nav and workspace label** (`ui`) — Sidebar nav label → "APIs Catalog"; page heading → "APIs"; breadcrumb → consistent. See `.planning/todos/pending/2026-03-30-rename-projects-to-apis-catalog-in-nav-and-workspace-label.md`
 - **Add version status filter and sort to ProjectDetail sidebar** (`ui`) — Status filter (default: PUBLISHED) + descending date sort left of "+ New" button. Client-side only. See `.planning/todos/pending/2026-03-30-add-version-status-filter-and-sort-to-projectdetail-sidebar.md`
+- **Inline edit API name and description in ProjectDetail with auto-save** (`ui`) — Click-to-edit h1/p fields, save on blur, locked when version is PUBLISHED. Needs PATCH /apis/:id BFF route + store action. See `.planning/todos/pending/2026-03-30-inline-edit-api-name-and-description-in-projectdetail-with-auto-save.md`
 
 ### Blockers / Risks
 
