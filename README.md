@@ -11,3 +11,10 @@ npm run dev:bff
 ```
 npm run dev:portal
 ```
+
+
+# Steps
+
+- gsd:verify-work
+- gsd:ui-review
+- gsd:code-review
