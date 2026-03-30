@@ -63,11 +63,15 @@ Exceptions:
 |------|------|--------|-------------|
 | Body | 14px (text-sm) | 400 (regular) | 1.5 |
 | Label | 12px (text-xs) | 600 (semibold) | 1.4 |
-| Heading | 20px | 700 (bold) | 1.2 |
-| Display | 48px (text-5xl) | 800 (extrabold) | 1.1 |
+| Heading | 20px | 600 (semibold) | 1.2 |
+| Display | 48px (text-5xl) | 400 (regular) | 1.1 |
 
-**Source:** Detected from `Projects.vue` (text-5xl font-extrabold for page title,
-text-sm font-medium for body labels, text-xs font-bold for section eyebrows).
+**Weights:** Exactly 2 — 400 (regular) for Body and Display roles; 600 (semibold) for Label and
+Heading roles. Display prominence is achieved through size (48px) alone, not weight. Weights 700
+and 800 are not used in this phase.
+
+**Source:** Detected from `Projects.vue` (text-5xl for page title, text-sm for body labels,
+text-xs for section eyebrows). Weight scale reduced to 2 to comply with typography contract rules.
 
 Phase-specific typography notes:
 - Node labels inside Vue Flow nodes: 12px, weight 600, line-height 1.2
@@ -123,11 +127,16 @@ VETRO node colors follow the existing API status badge color convention
 
 **Layout:** Standard Shell layout (sidebar + header + main content) matching `Projects.vue`.
 
+**Primary visual anchor:** Card grid (`grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6`) is the
+dominant surface. The "New Integration Flow" CTA button (top-right, accent blue) is the single
+highest-contrast interactive element on screen — it must remain visually distinct at all viewport
+sizes.
+
 | Zone | Specification |
 |------|---------------|
 | Page container | `p-8 max-w-7xl mx-auto` |
 | Page eyebrow | 12px semibold uppercase tracking-widest, color `#0058bc` — "Integration Flows" |
-| Page title | 48px extrabold, color `#1a1b1f` — "Integrations" |
+| Page title | 48px regular, color `#1a1b1f` — "Integrations" |
 | Page subtitle | 14px regular, max-w-md, color `#414755` |
 | View toggle | Card/Table toggle — identical pattern to `Projects.vue` grid/table toggle |
 | Primary CTA | "New Integration Flow" button, accent blue, top-right of header |
@@ -143,6 +152,9 @@ VETRO node colors follow the existing API status badge color convention
 - Columns: Name, Description, Tags, Status, Actions
 - Row hover: `bg-white/70` background
 - Actions column: Edit icon button + Delete icon button
+- Icon-only buttons in the Actions column MUST include `aria-label` and a visible `title` tooltip:
+  - Edit button: `aria-label="Edit [flow name]"` / `title="Edit"`
+  - Delete button: `aria-label="Delete [flow name]"` / `title="Delete"`
 
 ---
 
@@ -151,6 +163,10 @@ VETRO node colors follow the existing API status badge color convention
 **Route:** `/integrations/:id/designer`
 
 **Layout:** Full-screen override — NO Shell sidebar/header chrome. The designer occupies 100vw × 100vh.
+
+**Primary visual anchor:** The canvas area (`flex-1`, bg `#faf9fe`) is the dominant visual surface.
+The canvas must occupy all remaining horizontal space after the 240px toolbox and 280px properties
+panel. The Vue Flow instance fills the canvas entirely — no internal scrollbars.
 
 | Zone | Position | Width | Specification |
 |------|----------|-------|---------------|
@@ -212,7 +228,7 @@ Each VETRO node component renders:
 |-------------|---------|----------|
 | Open designer | Click card / click Edit button | Navigate to `/integrations/:id/designer` |
 | Create flow | Click "New Integration Flow" | Open create modal (name, description, tags) → POST → navigate to designer |
-| Delete flow | Click delete button on card/row | Show inline confirmation: "Delete [name]? This cannot be undone." with red "Delete" + "Cancel" |
+| Delete flow | Click delete button on card/row | Show inline confirmation: "Delete [name]? This cannot be undone." with red "Delete Flow" + "Keep Flow" |
 | Filter by tag | Click tag chip in filter bar | Toggle chip active state, filter list client-side |
 | Switch view mode | Click Grid / Table toggle | Immediate — no reload |
 | Search/filter | Tag chips only (no free-text search in this phase) | Client-side filter by selected tags |
@@ -227,7 +243,7 @@ Each VETRO node component renders:
 | Select node | Click node | Highlight node border accent blue; populate Properties panel |
 | Deselect node | Click canvas background | Clear selection; Properties panel shows "Select a node to configure it" |
 | Connect nodes (pipe) | Drag from source handle to target handle | `onConnect` → `addEdges()` — creates directed pipe edge |
-| Delete node | Select node → Delete key OR delete button in Properties panel | `removeNodes([nodeId])` — removes node and connected edges |
+| Delete node | Select node → Delete key OR delete button in Properties panel | Show inline confirmation in Properties panel: "Remove this filter from the flow?" with "Remove Filter" + "Keep Filter" actions; on confirm: `removeNodes([nodeId])` — removes node and connected edges |
 | Delete edge/pipe | Click edge → Delete key | `removeEdges([edgeId])` |
 | Save flow | Click "Save" in toolbar | PUT `/api/flows/:id` with full sub-flow JSON — show success toast / error banner |
 | Back to catalog | Click back link in toolbar | `router.push('/integrations')` — warn if unsaved changes |
@@ -238,7 +254,7 @@ Each VETRO node component renders:
 
 | Location | Trigger | Display |
 |----------|---------|---------|
-| Canvas (no nodes) | Sub-flow has zero nodes | Centered overlay: icon `hub` (48px, `#a0a7b5`) + "Drag a filter here to start building" (14px `#714755`) |
+| Canvas (no nodes) | Sub-flow has zero nodes | Centered overlay: icon `hub` (48px, `#a0a7b5`) + "Drag a filter here to start building" (14px `#717786`) |
 | Catalog (no flows) | Zero flows in store | Dashed border card identical to `Projects.vue` empty state pattern: icon `schema`, heading "No integration flows yet", body + CTA |
 | Properties panel (nothing selected) | No node selected | "Select a node to configure it" — 14px `#a0a7b5`, centered in panel |
 
@@ -274,8 +290,8 @@ Each VETRO node component renders:
 | Delete flow confirmation heading | "Delete integration flow?" |
 | Delete flow confirmation body | "This will permanently delete "[flow name]" and all its filter configurations. This cannot be undone." |
 | Delete flow confirm button | "Delete Flow" |
-| Delete flow cancel button | "Cancel" |
-| Delete node confirmation | Not modal — inline: "Remove this filter from the flow?" with "Remove" + "Keep" actions in Properties panel |
+| Delete flow cancel button | "Keep Flow" |
+| Delete node confirmation | Not modal — inline in Properties panel: "Remove this filter from the flow?" with "Remove Filter" + "Keep Filter" actions |
 | Sub-flow tabs | "Incoming" / "Response" / "Exception" |
 | Toolbox section heading | "Filters" |
 | Toolbox node type labels | "Validate" / "Enrich" / "Transform" / "Route" / "Operate" |
