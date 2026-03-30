@@ -23,8 +23,8 @@
       <!-- Header -->
       <header class="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
-          <span class="text-xs font-bold tracking-widest uppercase mb-2 block" style="color: #0058bc;">Workspace</span>
-          <h1 class="text-5xl font-extrabold tracking-tight" style="color: #1a1b1f;">Projects</h1>
+          <span class="text-xs font-bold tracking-widest uppercase mb-2 block" style="color: #0058bc;">APIs Catalog</span>
+          <h1 class="text-5xl font-extrabold tracking-tight" style="color: #1a1b1f;">APIs</h1>
           <p class="mt-2 max-w-md text-sm" style="color: #414755;">
             Manage your API registry and track their lifecycle from design to publication.
           </p>

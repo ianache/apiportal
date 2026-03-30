@@ -30,7 +30,7 @@
           to="/projects"
           class="transition-colors hover:underline"
           style="color: #717786;"
-        >Projects</router-link>
+        >APIs Catalog</router-link>
         <span class="material-symbols-outlined text-sm" style="color: #a0a7b5;">chevron_right</span>
         <span class="font-semibold" style="color: #1a1b1f;">{{ api.name }}</span>
       </nav>
