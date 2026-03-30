@@ -58,46 +58,61 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
 
   // Create new API
   fastify.post('/apis', async (request, reply) => {
-    // RBAC: Only Designers or Managers can create
-    if (request.user.role === 'API_DEVELOPER') {
-      return reply.code(403).send({ error: 'Forbidden', message: 'Only Designers can create APIs' });
-    }
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+      
+      // RBAC: Only Designers or Managers can create
+      if (request.user.role === 'API_DEVELOPER') {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Only Designers can create APIs' });
+      }
 
-    const { name, description, initialVersion } = createApiSchema.parse(request.body);
+      const { name, description, initialVersion } = createApiSchema.parse(request.body);
+      fastify.log.info({ name, user: request.user.email }, 'Attempting to create new API');
 
-    // Check if user exists in our DB (synced from Keycloak sub)
-    let dbUser = await fastify.prisma.user.findUnique({
-      where: { sub: request.user.sub }
-    });
-
-    if (!dbUser) {
-      dbUser = await fastify.prisma.user.create({
-        data: {
-          sub: request.user.sub,
-          email: request.user.email,
-          name: request.user.name,
-          role: request.user.role as any
-        }
+      // Check if user exists in our DB (synced from Keycloak sub)
+      let dbUser = await fastify.prisma.user.findUnique({
+        where: { sub: request.user.sub }
       });
-    }
 
-    const api = await fastify.prisma.aPI.create({
-      data: {
-        name,
-        description,
-        ownerId: dbUser.id,
-        versions: {
-          create: {
-            version: initialVersion,
-            status: 'DESIGN',
-            createdBy: dbUser.id
+      if (!dbUser) {
+        fastify.log.info({ sub: request.user.sub }, 'User not found in DB, creating sync record');
+        dbUser = await fastify.prisma.user.create({
+          data: {
+            sub: request.user.sub,
+            email: request.user.email,
+            name: request.user.name,
+            role: request.user.role as any
           }
-        }
-      },
-      include: { versions: true }
-    });
+        });
+      }
 
-    return api;
+      const api = await fastify.prisma.aPI.create({
+        data: {
+          name,
+          description,
+          ownerId: dbUser.id,
+          versions: {
+            create: {
+              version: initialVersion,
+              status: 'DESIGN',
+              createdBy: dbUser.id
+            }
+          }
+        },
+        include: { versions: true }
+      });
+
+      fastify.log.info({ apiId: api.id }, 'API created successfully');
+      return api;
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to create API');
+      if (err.code === 'P2002') {
+        return reply.code(409).send({ error: 'Conflict', message: 'An API with this name already exists' });
+      }
+      throw err;
+    }
   });
 
   // Update version status (Lifecycle)

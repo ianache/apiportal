@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { useAuthStore } from './auth';
-import { API, APIVersion, APIStatus } from 'shared-types';
+import type { API, APIVersion, APIStatus } from 'shared-types';
 
 export const useRegistryStore = defineStore('registry', {
   state: () => ({
@@ -15,11 +15,10 @@ export const useRegistryStore = defineStore('registry', {
       this.error = null;
       try {
         const auth = useAuthStore();
+        const token = await auth.getToken();
         const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis`, {
-          headers: {
-            'Authorization': `Bearer ${auth.keycloak?.token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Failed to fetch APIs');
         this.apis = await res.json();
@@ -35,11 +34,10 @@ export const useRegistryStore = defineStore('registry', {
       this.error = null;
       try {
         const auth = useAuthStore();
+        const token = await auth.getToken();
         const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${auth.keycloak?.token}`
-          }
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Failed to fetch API details');
         return await res.json() as API;
@@ -56,12 +54,13 @@ export const useRegistryStore = defineStore('registry', {
       this.error = null;
       try {
         const auth = useAuthStore();
+        const token = await auth.getToken();
         const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${auth.keycloak?.token}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify(payload)
         });
@@ -85,12 +84,13 @@ export const useRegistryStore = defineStore('registry', {
       this.error = null;
       try {
         const auth = useAuthStore();
+        const token = await auth.getToken();
         const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/status`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${auth.keycloak?.token}`
+            'Authorization': `Bearer ${token}`
           },
           body: JSON.stringify({ status })
         });

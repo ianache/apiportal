@@ -39,13 +39,11 @@ fastify.register(cors, {
   origin: true // In production, this should be more restrictive
 });
 
-// Register Auth plugin
-fastify.register(authPlugin);
+// Register Auth plugin and wait for it
+await fastify.register(authPlugin);
 
-// Register Health check routes
+// Register routes after auth is established
 fastify.register(healthRoutes);
-
-// Register API Registry routes
 fastify.register(apiRoutes);
 
 const start = async () => {

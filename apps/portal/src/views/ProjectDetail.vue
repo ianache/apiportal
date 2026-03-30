@@ -189,7 +189,7 @@ import { useRoute } from 'vue-router';
 import Shell from '../components/layout/Shell.vue';
 import { useRegistryStore } from '../stores/registry';
 import { useAuthStore } from '../stores/auth';
-import { API, APIVersion, APIStatus } from 'shared-types';
+import type { API, APIVersion, APIStatus } from 'shared-types';
 
 const route = useRoute();
 const registry = useRegistryStore();
