@@ -69,6 +69,7 @@ Plan: 0 of TBD
 - **Rename Projects to APIs Catalog in nav and workspace label** (`ui`) — Sidebar nav label → "APIs Catalog"; page heading → "APIs"; breadcrumb → consistent. See `.planning/todos/pending/2026-03-30-rename-projects-to-apis-catalog-in-nav-and-workspace-label.md`
 - **Add version status filter and sort to ProjectDetail sidebar** (`ui`) — Status filter (default: PUBLISHED) + descending date sort left of "+ New" button. Client-side only. See `.planning/todos/pending/2026-03-30-add-version-status-filter-and-sort-to-projectdetail-sidebar.md`
 - **Inline edit API name and description in ProjectDetail with auto-save** (`ui`) — Click-to-edit h1/p fields, save on blur, locked when version is PUBLISHED. Needs PATCH /apis/:id BFF route + store action. See `.planning/todos/pending/2026-03-30-inline-edit-api-name-and-description-in-projectdetail-with-auto-save.md`
+- **API endpoint URLs per environment with tagged environment catalog** (`api`) — Global Environment catalog (slug, name, tags[]). APIEndpoint table linking APIVersion + Environment + baseUrl. New BFF routes, shared types, portal catalog page, and endpoint panel in ProjectDetail. See `.planning/todos/pending/2026-03-30-api-endpoint-urls-per-environment-with-tagged-environment-catalog.md`
 
 ### Blockers / Risks
 
