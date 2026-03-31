@@ -209,7 +209,7 @@
           <mxGeometry height="50" width="50" x="330" y="180" as="geometry" />
         </mxCell>
         <mxCell id="iTCSFuT2H3dCCLxEmxa--1" parent="1" style="ellipse;shape=umlEntity;html=1;aspect=fixed;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;labelBackgroundColor=default;" value="&lt;b&gt;Consumer (Product)&lt;/b&gt;&lt;br&gt;&lt;div&gt;+ name&lt;/div&gt;&lt;div&gt;+ description&lt;/div&gt;&lt;div&gt;+ user (owner)&lt;/div&gt;" vertex="1">
-          <mxGeometry height="50" width="50" x="70" y="600" as="geometry" />
+          <mxGeometry height="50" width="50" x="90" y="600" as="geometry" />
         </mxCell>
         <mxCell id="iTCSFuT2H3dCCLxEmxa--2" parent="1" style="ellipse;shape=umlEntity;html=1;aspect=fixed;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;labelBackgroundColor=default;" value="&lt;b&gt;Consumer Version&lt;/b&gt;&lt;br&gt;&lt;div&gt;+ version&lt;/div&gt;&lt;div&gt;+ description&lt;/div&gt;" vertex="1">
           <mxGeometry height="50" width="50" x="330" y="600" as="geometry" />
