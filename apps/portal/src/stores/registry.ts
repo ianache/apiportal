@@ -40,7 +40,11 @@ export const useRegistryStore = defineStore('registry', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Failed to fetch API details');
-        return await res.json() as API;
+        const api = await res.json() as API;
+        // Keep the local list cache in sync
+        const idx = this.apis.findIndex(a => a.id === id);
+        if (idx !== -1) this.apis[idx] = api; else this.apis.unshift(api);
+        return api;
       } catch (err: any) {
         this.error = err.message;
         throw err;

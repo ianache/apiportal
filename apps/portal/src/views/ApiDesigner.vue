@@ -23,10 +23,13 @@
         <div class="toolbar-divider"></div>
         <!-- Import / Export -->
         <input ref="fileInputRef" type="file" accept=".yaml,.yml" class="sr-only" @change="onFileImport" />
-        <button @click="fileInputRef?.click()" class="toolbar-icon-btn" title="Import OpenAPI YAML">
+        <button @click="fileInputRef?.click()" class="toolbar-icon-btn" title="Import YAML (OpenAPI or Design)">
           <span class="material-symbols-outlined" style="font-size:19px;">upload_file</span>
         </button>
-        <button @click="exportYaml" class="toolbar-icon-btn" title="Export OpenAPI YAML">
+        <button @click="exportDesignYaml" class="toolbar-icon-btn" title="Export Visual Design YAML">
+          <span class="material-symbols-outlined" style="font-size:19px;">device_hub</span>
+        </button>
+        <button @click="exportYaml" class="toolbar-icon-btn" title="Export OpenAPI 3.1 YAML">
           <span class="material-symbols-outlined" style="font-size:19px;">download</span>
         </button>
         <div class="toolbar-divider"></div>
@@ -80,31 +83,47 @@
 
           <!-- Schema list -->
           <div v-for="schema in components" :key="schema.id" class="schema-card">
-            <div class="schema-card-header">
-              <input v-model="schema.name" class="schema-name-input" placeholder="SchemaName" />
-              <button @click="removeSchema(schema.id)" class="panel-close" title="Remove schema">
+            <!-- Card header — always visible -->
+            <div class="schema-card-header" @click="toggleSchema(schema.id)" style="cursor:pointer;">
+              <span
+                class="material-symbols-outlined schema-chevron"
+                :class="{ 'schema-chevron--open': !collapsedSchemas.has(schema.id) }"
+                style="font-size:18px;color:#a0a7b5;flex-shrink:0;"
+              >chevron_right</span>
+              <input
+                v-model="schema.name"
+                class="schema-name-input"
+                placeholder="SchemaName"
+                @click.stop
+              />
+              <span v-if="schema.properties.length" class="schema-prop-count">{{ schema.properties.length }}</span>
+              <button @click.stop="removeSchema(schema.id)" class="panel-close" title="Remove schema">
                 <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
               </button>
             </div>
-            <input v-model="schema.description" class="panel-input mt-1" placeholder="Description…" />
 
-            <!-- Properties -->
-            <div class="mt-2 space-y-1">
-              <div v-for="prop in schema.properties" :key="prop.id" class="prop-row">
-                <input v-model="prop.name" class="prop-input" placeholder="field" />
-                <select v-model="prop.type" class="prop-select">
-                  <option v-for="t in OPENAPI_TYPES" :key="t" :value="t">{{ t }}</option>
-                </select>
-                <label class="prop-req" :title="prop.required ? 'Required' : 'Optional'">
-                  <input type="checkbox" v-model="prop.required" class="sr-only" />
-                  <span :style="{ color: prop.required ? '#0058bc' : '#a0a7b5' }" class="material-symbols-outlined" style="font-size:16px;">asterisk</span>
-                </label>
-                <button @click="removeProp(schema, prop.id)" class="panel-close">
-                  <span class="material-symbols-outlined" style="font-size:14px;">close</span>
-                </button>
+            <!-- Collapsible body -->
+            <div v-if="!collapsedSchemas.has(schema.id)" class="schema-body">
+              <input v-model="schema.description" class="panel-input mt-1" placeholder="Description…" />
+
+              <!-- Properties -->
+              <div class="mt-2 space-y-1">
+                <div v-for="prop in schema.properties" :key="prop.id" class="prop-row">
+                  <input v-model="prop.name" class="prop-input" placeholder="field" />
+                  <select v-model="prop.type" class="prop-select">
+                    <option v-for="t in OPENAPI_TYPES" :key="t" :value="t">{{ t }}</option>
+                  </select>
+                  <label class="prop-req" :title="prop.required ? 'Required' : 'Optional'">
+                    <input type="checkbox" v-model="prop.required" class="sr-only" />
+                    <span :style="{ color: prop.required ? '#0058bc' : '#a0a7b5' }" class="material-symbols-outlined" style="font-size:16px;">asterisk</span>
+                  </label>
+                  <button @click="removeProp(schema, prop.id)" class="panel-close">
+                    <span class="material-symbols-outlined" style="font-size:14px;">close</span>
+                  </button>
+                </div>
               </div>
+              <button @click="addProp(schema)" class="btn-add-small mt-2">+ property</button>
             </div>
-            <button @click="addProp(schema)" class="btn-add-small mt-2">+ property</button>
           </div>
 
           <div v-if="!components.length" class="px-4 py-6 text-center text-xs" style="color:#a0a7b5;">
@@ -359,12 +378,27 @@ const edges = ref<Edge[]>([]);
 // ── Components catalog ───────────────────────────────
 const components = ref<ComponentSchema[]>([]);
 const showComponents = ref(false);
+const collapsedSchemas = ref<Set<string>>(new Set());
 
 function addSchema() {
-  components.value.push({ id: uid(), name: 'NewSchema', description: '', properties: [] });
+  const schema = { id: uid(), name: 'NewSchema', description: '', properties: [] };
+  components.value.push(schema);
+  collapsedSchemas.value = new Set([...collapsedSchemas.value, schema.id]);
 }
 function removeSchema(id: string) {
   components.value = components.value.filter(s => s.id !== id);
+  const next = new Set(collapsedSchemas.value); next.delete(id);
+  collapsedSchemas.value = next;
+}
+
+function toggleSchema(id: string) {
+  const next = new Set(collapsedSchemas.value);
+  next.has(id) ? next.delete(id) : next.add(id);
+  collapsedSchemas.value = next;
+}
+
+function collapseAllSchemas() {
+  collapsedSchemas.value = new Set(components.value.map(s => s.id));
 }
 function addProp(schema: ComponentSchema) {
   schema.properties.push({ id: uid(), name: '', type: 'string', required: false });
@@ -541,10 +575,10 @@ async function saveFlow() {
 
 // ── Load ─────────────────────────────────────────────
 onMounted(async () => {
-  let api = registry.apis.find((a: any) => a.id === apiId);
-  if (!api) api = await registry.fetchApiById(apiId) as any;
-  if (api) apiName.value = (api as any).name ?? '';
-  const ver = (api as any)?.versions?.find((v: any) => v.version === version);
+  // Always fetch fresh to get the latest saved definition
+  const api = await registry.fetchApiById(apiId) as any;
+  if (api) apiName.value = api.name ?? '';
+  const ver = api?.versions?.find((v: any) => v.version === version);
   const def = ver?.definition;
   if (def) {
     try {
@@ -553,6 +587,7 @@ onMounted(async () => {
         nodes.value = parsed.nodes;
         edges.value = parsed.edges ?? [];
         components.value = parsed.components ?? [];
+        collapseAllSchemas();
         return;
       }
     } catch { /* fall through */ }
@@ -633,6 +668,61 @@ function exportYaml() {
   a.click(); URL.revokeObjectURL(url);
 }
 
+// ── Visual Design YAML export ─────────────────────────
+function exportDesignYaml() {
+  const apiSlug = (apiName.value || 'api').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const filename = `${apiSlug}-${version}-DESIGN.yaml`;
+
+  const doc: any = {
+    nexusDesign: '1.0',
+    meta: { api: apiName.value || '', version, exportedAt: new Date().toISOString() },
+    nodes: nodes.value.map(n => {
+      const out: any = {
+        id: n.id,
+        position: { x: Math.round(n.position.x), y: Math.round(n.position.y) },
+        path: n.data.path,
+      };
+      if (n.data.isRoot) out.isRoot = true;
+      if (n.data.description) out.description = n.data.description;
+      const methods = (n.data.methods as string[] | undefined) ?? [];
+      if (methods.length) {
+        out.methods = methods.map(verb => {
+          const spec: OperationSpec = (n.data.operationSpecs as any)?.[verb] ?? defaultOpSpec(verb);
+          const m: any = { verb };
+          if (spec.summary)     m.summary     = spec.summary;
+          if (spec.description) m.description = spec.description;
+          if (spec.parameters.length) m.parameters = spec.parameters.map(p => ({ name: p.name, type: p.type, required: p.required }));
+          if (spec.requestBody.enabled) m.requestBody = { contentType: spec.requestBody.contentType, ...(spec.requestBody.schemaRef ? { schemaRef: spec.requestBody.schemaRef } : {}) };
+          if (spec.responses.length) m.responses = spec.responses.map(r => ({ statusCode: r.statusCode, description: r.description, ...(r.schemaRef ? { schemaRef: r.schemaRef } : {}) }));
+          return m;
+        });
+      }
+      return out;
+    }),
+    connections: edges.value.map(e => {
+      const conn: any = { id: e.id, source: e.source, target: e.target };
+      if (e.sourceHandle) conn.sourceHandle = e.sourceHandle;
+      if (e.targetHandle) conn.targetHandle = e.targetHandle;
+      const p = e.data?.pathParam;
+      if (p?.name) conn.pathParam = { name: p.name, type: p.type ?? 'string', ...(p.description ? { description: p.description } : {}) };
+      return conn;
+    }),
+  };
+
+  if (components.value.length) {
+    doc.components = components.value.map(s => ({
+      name: s.name,
+      ...(s.description ? { description: s.description } : {}),
+      ...(s.properties.length ? { properties: s.properties.map(p => ({ name: p.name, type: p.type, required: p.required })) } : {}),
+    }));
+  }
+
+  const blob = new Blob([yaml.dump(doc, { indent: 2, lineWidth: -1 })], { type: 'text/yaml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── YAML import ───────────────────────────────────────
 function onFileImport(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0];
@@ -641,49 +731,109 @@ function onFileImport(event: Event) {
   reader.onload = (e) => {
     try {
       const doc = yaml.load(e.target?.result as string) as any;
-      if (!doc?.paths) return;
-      const newNodes: Node[] = []; const newEdges: Edge[] = [];
-      const pathToId: Record<string, string> = {};
-      Object.keys(doc.paths).sort((a, b) => a.split('/').length - b.split('/').length)
-        .forEach((fullPath, i) => {
-          const pathItem = doc.paths[fullPath];
-          const id = i === 0 ? 'root' : `imported-${i}`;
-          pathToId[fullPath] = id;
-          const verbs = ['get','post','put','patch','delete'].filter(m => pathItem[m]).map(m => m.toUpperCase());
-          const operationSpecs: Record<string, OperationSpec> = {};
-          verbs.forEach(verb => {
-            const op = pathItem[verb.toLowerCase()];
-            operationSpecs[verb] = {
-              summary: op.summary || '', description: op.description || '',
-              parameters: (op.parameters || []).filter((p: any) => p.in === 'query').map((p: any) => ({ id: uid(), name: p.name, type: p.schema?.type || 'string', required: !!p.required })),
-              requestBody: op.requestBody ? { enabled: true, contentType: Object.keys(op.requestBody.content || {})[0] || 'application/json', schemaRef: '' } : { enabled: false, contentType: 'application/json', schemaRef: '' },
-              responses: Object.entries(op.responses || {}).map(([code, r]: [string, any]) => ({ id: uid(), statusCode: code, description: r.description || '', schemaRef: '' })),
-            };
-          });
-          const segs = fullPath.split('/').filter(Boolean);
-          const parentPath = segs.length <= 1 ? null : '/' + segs.slice(0, -1).join('/');
-          const col = segs.length - 1;
-          const row = newNodes.filter((n: any) => n._col === col).length;
-          const node: any = { id, type: 'resource', position: { x: col * 340, y: row * 140 }, _col: col, data: { path: '/' + (segs[segs.length - 1] || ''), methods: verbs, operationSpecs, description: '', isRoot: i === 0 } };
-          newNodes.push(node);
-          if (parentPath && pathToId[parentPath]) {
-            const params = (pathItem.parameters || []).filter((p: any) => p.in === 'path');
-            const param = params[0];
-            newEdges.push({ id: `e-${pathToId[parentPath]}-${id}`, source: pathToId[parentPath], target: id, type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: '#0058bc' }, style: { stroke: '#0058bc', strokeWidth: 2 }, ...(param ? { label: `:${param.name}`, labelStyle: { fill: '#7c3aed', fontWeight: 700, fontSize: 11 }, labelBgStyle: { fill: '#f5f3ff', fillOpacity: 0.95 }, labelBgPadding: [4, 6] as [number, number], labelBgBorderRadius: 4, data: { pathParam: { name: param.name, type: param.schema?.type || 'string', description: param.description || '' } } } : {}) });
-          }
-        });
-      nodes.value = newNodes; edges.value = newEdges;
-      // Import components/schemas
-      const schemas = doc.components?.schemas || {};
-      components.value = Object.entries(schemas).map(([name, s]: [string, any]) => ({
-        id: uid(), name, description: s.description || '',
-        properties: Object.entries(s.properties || {}).map(([pname, p]: [string, any]) => ({ id: uid(), name: pname, type: p.type || 'string', required: (s.required || []).includes(pname) })),
-      }));
-      selectedNode.value = null; selectedEdge.value = null;
+      if (doc?.nexusDesign) {
+        importNexusDesign(doc);
+      } else if (doc?.paths) {
+        importOpenApiDoc(doc);
+      }
     } catch { /* invalid yaml */ }
     if (fileInputRef.value) fileInputRef.value.value = '';
   };
   reader.readAsText(file);
+}
+
+function importNexusDesign(doc: any) {
+  const newNodes: Node[] = (doc.nodes ?? []).map((n: any) => ({
+    id: n.id,
+    type: 'resource',
+    position: { x: n.position?.x ?? 0, y: n.position?.y ?? 0 },
+    data: {
+      path: n.path ?? '/resource',
+      isRoot: !!n.isRoot,
+      description: n.description ?? '',
+      methods: (n.methods ?? []).map((m: any) => m.verb),
+      operationSpecs: Object.fromEntries((n.methods ?? []).map((m: any) => [m.verb, {
+        summary: m.summary ?? '',
+        description: m.description ?? '',
+        parameters: (m.parameters ?? []).map((p: any) => ({ id: uid(), name: p.name, type: p.type ?? 'string', required: !!p.required })),
+        requestBody: m.requestBody
+          ? { enabled: true, contentType: m.requestBody.contentType ?? 'application/json', schemaRef: m.requestBody.schemaRef ?? '' }
+          : { enabled: false, contentType: 'application/json', schemaRef: '' },
+        responses: (m.responses ?? []).map((r: any) => ({ id: uid(), statusCode: r.statusCode, description: r.description ?? '', schemaRef: r.schemaRef ?? '' })),
+      } satisfies OperationSpec])),
+    },
+  }));
+
+  const newEdges: Edge[] = (doc.connections ?? []).map((c: any) => {
+    const p = c.pathParam;
+    return {
+      id: c.id,
+      source: c.source,
+      target: c.target,
+      sourceHandle: c.sourceHandle,
+      targetHandle: c.targetHandle,
+      type: 'smoothstep',
+      animated: false,
+      markerEnd: { type: MarkerType.ArrowClosed, color: '#0058bc' },
+      style: { stroke: '#0058bc', strokeWidth: 2 },
+      ...(p?.name ? {
+        label: `:${p.name}`,
+        labelStyle: { fill: '#7c3aed', fontWeight: 700, fontSize: 11, fontFamily: 'Inter, monospace' },
+        labelBgStyle: { fill: '#f5f3ff', fillOpacity: 0.95 },
+        labelBgPadding: [4, 6] as [number, number],
+        labelBgBorderRadius: 4,
+        data: { pathParam: { name: p.name, type: p.type ?? 'string', description: p.description ?? '' } },
+      } : {}),
+    } as Edge;
+  });
+
+  nodes.value = newNodes;
+  edges.value = newEdges;
+  components.value = (doc.components ?? []).map((s: any) => ({
+    id: uid(), name: s.name, description: s.description ?? '',
+    properties: (s.properties ?? []).map((p: any) => ({ id: uid(), name: p.name, type: p.type ?? 'string', required: !!p.required })),
+  }));
+  collapseAllSchemas();
+  selectedNode.value = null; selectedEdge.value = null;
+}
+
+function importOpenApiDoc(doc: any) {
+  const newNodes: Node[] = []; const newEdges: Edge[] = [];
+  const pathToId: Record<string, string> = {};
+  Object.keys(doc.paths).sort((a, b) => a.split('/').length - b.split('/').length)
+    .forEach((fullPath, i) => {
+      const pathItem = doc.paths[fullPath];
+      const id = i === 0 ? 'root' : `imported-${i}`;
+      pathToId[fullPath] = id;
+      const verbs = ['get','post','put','patch','delete'].filter(m => pathItem[m]).map(m => m.toUpperCase());
+      const operationSpecs: Record<string, OperationSpec> = {};
+      verbs.forEach(verb => {
+        const op = pathItem[verb.toLowerCase()];
+        operationSpecs[verb] = {
+          summary: op.summary || '', description: op.description || '',
+          parameters: (op.parameters || []).filter((p: any) => p.in === 'query').map((p: any) => ({ id: uid(), name: p.name, type: p.schema?.type || 'string', required: !!p.required })),
+          requestBody: op.requestBody ? { enabled: true, contentType: Object.keys(op.requestBody.content || {})[0] || 'application/json', schemaRef: '' } : { enabled: false, contentType: 'application/json', schemaRef: '' },
+          responses: Object.entries(op.responses || {}).map(([code, r]: [string, any]) => ({ id: uid(), statusCode: code, description: r.description || '', schemaRef: '' })),
+        };
+      });
+      const segs = fullPath.split('/').filter(Boolean);
+      const parentPath = segs.length <= 1 ? null : '/' + segs.slice(0, -1).join('/');
+      const col = segs.length - 1; const row = newNodes.filter((n: any) => n._col === col).length;
+      const node: any = { id, type: 'resource', position: { x: col * 340, y: row * 140 }, _col: col, data: { path: '/' + (segs[segs.length - 1] || ''), methods: verbs, operationSpecs, description: '', isRoot: i === 0 } };
+      newNodes.push(node);
+      if (parentPath && pathToId[parentPath]) {
+        const param = (pathItem.parameters || []).filter((p: any) => p.in === 'path')[0];
+        newEdges.push({ id: `e-${pathToId[parentPath]}-${id}`, source: pathToId[parentPath], target: id, type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: '#0058bc' }, style: { stroke: '#0058bc', strokeWidth: 2 }, ...(param ? { label: `:${param.name}`, labelStyle: { fill: '#7c3aed', fontWeight: 700, fontSize: 11 }, labelBgStyle: { fill: '#f5f3ff', fillOpacity: 0.95 }, labelBgPadding: [4, 6] as [number, number], labelBgBorderRadius: 4, data: { pathParam: { name: param.name, type: param.schema?.type || 'string', description: param.description || '' } } } : {}) });
+      }
+    });
+  nodes.value = newNodes; edges.value = newEdges;
+  const schemas = doc.components?.schemas || {};
+  components.value = Object.entries(schemas).map(([name, s]: [string, any]) => ({
+    id: uid(), name, description: s.description || '',
+    properties: Object.entries(s.properties || {}).map(([pname, p]: [string, any]) => ({ id: uid(), name: pname, type: p.type || 'string', required: (s.required || []).includes(pname) })),
+  }));
+  collapseAllSchemas();
+  selectedNode.value = null; selectedEdge.value = null;
 }
 
 function goBack() { router.push(`/projects/${apiId}`); }
@@ -722,10 +872,15 @@ function goBack() { router.push(`/projects/${apiId}`); }
 .panel-hint code { font-family:monospace;background:#f4f3f8;padding:1px 4px;border-radius:4px; }
 
 /* ── Schema card ─────────────── */
-.schema-card { padding:12px 16px;border-bottom:1px solid #f0eff5; }
-.schema-card-header { display:flex;align-items:center;justify-content:space-between;gap:8px; }
-.schema-name-input { flex:1;padding:4px 8px;border:1px solid #e3e2e7;border-radius:6px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;color:#1a1b1f;background:#faf9fe;outline:none; }
+.schema-card { border-bottom:1px solid #f0eff5; }
+.schema-card-header { display:flex;align-items:center;gap:6px;padding:10px 16px;user-select:none;transition:background 0.1s; }
+.schema-card-header:hover { background:#faf9fe; }
+.schema-chevron { transition:transform 0.18s cubic-bezier(0.4,0,0.2,1); }
+.schema-chevron--open { transform:rotate(90deg); }
+.schema-body { padding:0 16px 12px 16px; }
+.schema-name-input { flex:1;padding:4px 8px;border:1px solid #e3e2e7;border-radius:6px;font-size:13px;font-weight:600;font-family:'Inter',sans-serif;color:#1a1b1f;background:#faf9fe;outline:none;min-width:0; }
 .schema-name-input:focus { border-color:#0058bc; }
+.schema-prop-count { flex-shrink:0;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;background:#eff6ff;color:#0058bc;font-family:'Inter',sans-serif; }
 .prop-row,.param-row { display:flex;align-items:center;gap:4px;margin-bottom:4px;flex-wrap:wrap; }
 .response-row { display:flex;align-items:center;gap:4px;margin-bottom:8px;flex-wrap:wrap; }
 .prop-input { flex:1;min-width:0;padding:4px 7px;border:1px solid #e3e2e7;border-radius:6px;font-size:12px;font-family:'Inter',monospace;color:#1a1b1f;background:#faf9fe;outline:none; }

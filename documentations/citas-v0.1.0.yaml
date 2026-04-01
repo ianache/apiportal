@@ -11,43 +11,12 @@ paths:
         '200':
           description: Success
     post:
-      summary: POST /citas
+      summary: Registrar cita
       operationId: post_root
       responses:
         '200':
           description: Success
-  /citas/{id}/equipos:
-    parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-        description: Identificador único de la cita (GUID)
-    get:
-      summary: GET /citas/{id}/equipos
-      operationId: get_res_1775015470206
-      responses:
-        '200':
-          description: Success
-    post:
-      summary: POST /citas/{id}/equipos
-      operationId: post_res_1775015470206
-      responses:
-        '200':
-          description: Success
-    put:
-      summary: PUT /citas/{id}/equipos
-      operationId: put_res_1775015470206
-      responses:
-        '200':
-          description: Success
-    delete:
-      summary: DELETE /citas/{id}/equipos
-      operationId: delete_res_1775015470206
-      responses:
-        '200':
-          description: Success
+      description: Registro de una nueva cita de instalación, mantenimiento o retiro.
   /citas/{id}/estados:
     parameters:
       - name: id
@@ -58,10 +27,84 @@ paths:
         description: Identificador unico de la cita (GUID)
     get:
       summary: GET /citas/{id}/estados
-      operationId: get_res_1775015474445
+      operationId: get_res_1775018871753
       responses:
         '200':
           description: Success
+        '500':
+          description: Internal Server Error
+    put:
+      summary: PUT /citas/{id}/estados
+      operationId: put_res_1775018871753
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+  /citas/{id}/equipos:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Identificador unico de la cita (GUID)
+    get:
+      summary: GET /citas/{id}/equipos
+      operationId: get_res_1775018890079
+      responses:
+        '200':
+          description: Success
+        '500':
+          description: Internal Server Error
+    post:
+      summary: POST /citas/{id}/equipos
+      operationId: post_res_1775018890079
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+    put:
+      summary: PUT /citas/{id}/equipos
+      operationId: put_res_1775018890079
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+    delete:
+      summary: DELETE /citas/{id}/equipos
+      operationId: delete_res_1775018890079
+      responses:
+        '200':
+          description: Success
+        '500':
+          description: Internal Server Error
   /citas/{id}/accesorios:
     parameters:
       - name: id
@@ -69,35 +112,180 @@ paths:
         required: true
         schema:
           type: string
-        description: Identificador único de la cita (GUID)
+        description: Identificador unico de la cita (GUID)
     get:
       summary: GET /citas/{id}/accesorios
-      operationId: get_res_1775015653624
+      operationId: get_res_1775018946141
       responses:
         '200':
           description: Success
+        '500':
+          description: Internal Server Error
     post:
       summary: POST /citas/{id}/accesorios
-      operationId: post_res_1775015653624
+      operationId: post_res_1775018946141
       responses:
         '200':
           description: Success
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
     put:
       summary: PUT /citas/{id}/accesorios
-      operationId: put_res_1775015653624
+      operationId: put_res_1775018946141
       responses:
         '200':
           description: Success
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
     delete:
       summary: DELETE /citas/{id}/accesorios
-      operationId: delete_res_1775015653624
+      operationId: delete_res_1775018946141
       responses:
         '200':
           description: Success
+        '500':
+          description: Internal Server Error
+  /citas/{id}/vehiculos:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Identificador unico de la cita (GUID)
+    get:
+      summary: GET /citas/{id}/vehiculos
+      operationId: get_res_1775019058162
+      responses:
+        '200':
+          description: Success
+        '500':
+          description: Internal Server Error
+    put:
+      summary: Establecer el vehiculo
+      operationId: put_res_1775019058162
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      description: Establecer el vehiculo para el que se realizará la cita
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VehiculoView'
   /citas/cliente:
     get:
       summary: GET /citas/cliente
-      operationId: get_res_1775016738343
+      operationId: get_res_1775019100654
       responses:
         '200':
           description: Success
+        '500':
+          description: Internal Server Error
+    put:
+      summary: PUT /citas/cliente
+      operationId: put_res_1775019100654
+      responses:
+        '200':
+          description: Success
+        '400':
+          description: Bad Request
+        '500':
+          description: Internal Server Error
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+components:
+  schemas:
+    CitaView:
+      type: object
+      description: Informacion de la Cita
+      properties:
+        fecha_inicio:
+          type: string
+        fecha_fin:
+          type: string
+        hora_inicio:
+          type: string
+        hora_fin:
+          type: string
+        estado_actual:
+          type: integer
+      required:
+        - fecha_inicio
+        - fecha_fin
+        - hora_inicio
+        - hora_fin
+        - estado_actual
+    Error:
+      type: object
+      description: Definicion de mensaje estandarizado de error
+      properties:
+        code:
+          type: integer
+        title:
+          type: string
+        detail:
+          type: object
+      required: []
+    AccesorioView:
+      type: object
+      description: Datos del accesorio
+      properties:
+        codigo:
+          type: string
+        descripcion:
+          type: string
+        cantidad:
+          type: string
+      required: []
+    EquipoView:
+      type: object
+      description: Equipo para instalar, mantener o retirar
+      properties:
+        codigo:
+          type: string
+        descripcion:
+          type: string
+        obc:
+          type: string
+      required: []
+    VehiculoView:
+      type: object
+      description: Datos basico del vehiculo
+      properties:
+        id:
+          type: string
+      required: []
