@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>API Designer</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-editor-dist@4/swagger-editor.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    #swagger-editor { height: 100vh; }
+    /* Hide swagger editor top bar (we manage save in the parent) */
+    .topbar { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="swagger-editor"></div>
+
+  <script src="https://unpkg.com/swagger-editor-dist@4/swagger-editor-bundle.js"></script>
+  <script src="https://unpkg.com/swagger-editor-dist@4/swagger-editor-standalone-preset.js"></script>
+  <script>
+    const DEFAULT_SPEC = [
+      'openapi: 3.1.0',
+      'info:',
+      '  title: New API',
+      '  version: 0.1.0',
+      '  description: API description',
+      'paths: {}',
+      'components:',
+      '  schemas: {}',
+      '  securitySchemes: {}',
+    ].join('\n');
+
+    const editor = SwaggerEditorBundle({
+      dom_id: '#swagger-editor',
+      layout: 'StandaloneLayout',
+      presets: [SwaggerEditorStandalonePreset],
+      spec: DEFAULT_SPEC,
+    });
+
+    // Listen for spec from parent frame
+    window.addEventListener('message', (event) => {
+      if (!event.data || typeof event.data !== 'object') return;
+
+      if (event.data.type === 'SET_SPEC') {
+        const spec = event.data.spec;
+        if (spec) editor.specActions.updateSpec(
+          typeof spec === 'string' ? spec : JSON.stringify(spec, null, 2)
+        );
+      }
+
+      if (event.data.type === 'GET_SPEC') {
+        const state = editor.getState();
+        const content = state.toJS().spec.content;
+        window.parent.postMessage({ type: 'SPEC_CONTENT', spec: content }, '*');
+      }
+    });
+
+    // Notify parent when ready
+    window.parent.postMessage({ type: 'EDITOR_READY' }, '*');
+  </script>
+</body>
+</html>

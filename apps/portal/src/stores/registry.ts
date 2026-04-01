@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { useAuthStore } from './auth';
-import type { API, APIVersion, APIStatus } from 'shared-types';
+import type { API, APIStatus } from 'shared-types';
 
 export const useRegistryStore = defineStore('registry', {
   state: () => ({
@@ -199,6 +199,31 @@ export const useRegistryStore = defineStore('registry', {
       }
     },
 
+    async updateEndpoint(apiId: string, version: string, endpointId: string, payload: { baseUrl: string }) {
+      this.error = null;
+      try {
+        const auth = useAuthStore();
+        const token = await auth.getToken();
+        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/endpoints/${endpointId}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Failed to update endpoint');
+        }
+        return await res.json();
+      } catch (err: any) {
+        this.error = err.message;
+        throw err;
+      }
+    },
+
     async deleteEndpoint(apiId: string, version: string, endpointId: string) {
       this.loading = true;
       this.error = null;
@@ -220,6 +245,31 @@ export const useRegistryStore = defineStore('registry', {
         throw err;
       } finally {
         this.loading = false;
+      }
+    },
+
+    async saveDefinition(apiId: string, version: string, spec: string) {
+      try {
+        const auth = useAuthStore();
+        const token = await auth.getToken();
+        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        // Store YAML as-is in a wrapper so the BFF receives { definition: "..." }
+        const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/definition`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ definition: spec })
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Failed to save definition');
+        }
+        return await res.json();
+      } catch (err: any) {
+        this.error = err.message;
+        throw err;
       }
     }
   }

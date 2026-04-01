@@ -135,9 +135,9 @@
             </div>
             <span
               class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full"
-              :style="getStatusStyle(api.versions[0]?.status)"
+              :style="getStatusStyle(api.versions?.[0]?.status)"
             >
-              {{ api.versions[0]?.status || 'N/A' }}
+              {{ api.versions?.[0]?.status || 'N/A' }}
             </span>
           </div>
 
@@ -151,7 +151,7 @@
           <div class="pt-4 border-t flex items-center justify-between" style="border-color: #e3e2e7;">
             <span class="text-xs font-semibold flex items-center gap-1" style="color: #717786;">
               <span class="material-symbols-outlined" style="font-size: 14px;">tag</span>
-              v{{ api.versions[0]?.version || '0.0.0' }}
+              v{{ api.versions?.[0]?.version || '0.0.0' }}
             </span>
             <span
               class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity group-hover:opacity-80"
@@ -196,15 +196,15 @@
                   {{ api.name }}
                 </div>
               </td>
-              <td class="px-6 py-4 text-sm font-medium" style="color: #414755;">
-                v{{ api.versions[0]?.version || '0.0.0' }}
+                <td class="px-6 py-4 text-sm font-medium" style="color: #414755;">
+                v{{ api.versions?.[0]?.version || '0.0.0' }}
               </td>
               <td class="px-6 py-4">
                 <span
                   class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full inline-block"
-                  :style="getStatusStyle(api.versions[0]?.status)"
+                  :style="getStatusStyle(api.versions?.[0]?.status)"
                 >
-                  {{ api.versions[0]?.status || 'N/A' }}
+                  {{ api.versions?.[0]?.status || 'N/A' }}
                 </span>
               </td>
               <td class="px-6 py-4 text-sm" style="color: #414755;">{{ formatDate(api.updatedAt) }}</td>
@@ -366,7 +366,7 @@ const formatDate = (date: string) =>
   new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
 /** Inline style object for status badges — WCAG AA contrast on each bg */
-const getStatusStyle = (status: string): Record<string, string> => {
+const getStatusStyle = (status: string | undefined): Record<string, string> => {
   switch (status) {
     case 'DESIGN':     return { background: '#dbeafe', color: '#1e40af' }; // blue-100 / blue-800
     case 'REVIEW':     return { background: '#fef9c3', color: '#854d0e' }; // yellow-100 / yellow-800

@@ -328,6 +328,72 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
+  // Save OpenAPI definition (PUT /apis/:id/versions/:version/definition)
+  fastify.put('/apis/:id/versions/:version/definition', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+      if (request.user.role === 'API_DEVELOPER') {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Developers cannot edit API definitions' });
+      }
+
+      const { id, version } = request.params as { id: string; version: string };
+      const { definition } = request.body as { definition: unknown };
+
+      const apiVersion = await fastify.prisma.aPIVersion.findFirst({
+        where: { apiId: id, version }
+      });
+      if (!apiVersion) return reply.code(404).send({ error: 'Version not found' });
+      if (apiVersion.status !== 'DESIGN') {
+        return reply.code(422).send({ error: 'Unprocessable', message: 'Only DESIGN versions can be edited' });
+      }
+
+      const updated = await fastify.prisma.aPIVersion.update({
+        where: { id: apiVersion.id },
+        data: { definition: definition as any }
+      });
+
+      fastify.log.info({ apiId: id, version }, 'API definition saved');
+      return { id: updated.id, version: updated.version, definition: updated.definition };
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to save API definition');
+      throw err;
+    }
+  });
+
+  // Update endpoint (PATCH /apis/:id/versions/:version/endpoints/:endpointId)
+  fastify.patch('/apis/:id/versions/:version/endpoints/:endpointId', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+
+      // RBAC: Developers cannot manage endpoints
+      if (request.user.role === 'API_DEVELOPER') {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Developers cannot manage endpoints' });
+      }
+
+      const { endpointId } = request.params as { endpointId: string };
+      const { baseUrl } = request.body as { baseUrl: string };
+
+      const endpoint = await fastify.prisma.aPIEndpoint.findUnique({ where: { id: endpointId } });
+      if (!endpoint) return reply.code(404).send({ error: 'Endpoint Not Found' });
+
+      const updated = await fastify.prisma.aPIEndpoint.update({
+        where: { id: endpointId },
+        data: { baseUrl },
+        include: { environment: true }
+      });
+
+      fastify.log.info({ endpointId, baseUrl }, 'Endpoint updated');
+      return updated;
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to update endpoint');
+      throw err;
+    }
+  });
+
   // Delete endpoint (DELETE /apis/:id/versions/:version/endpoints/:endpointId)
   fastify.delete('/apis/:id/versions/:version/endpoints/:endpointId', async (request, reply) => {
     try {

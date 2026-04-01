@@ -1,0 +1,103 @@
+openapi: 3.1.0
+info:
+  title: Citas
+  version: 0.1.0
+paths:
+  /citas:
+    get:
+      summary: GET /citas
+      operationId: get_root
+      responses:
+        '200':
+          description: Success
+    post:
+      summary: POST /citas
+      operationId: post_root
+      responses:
+        '200':
+          description: Success
+  /citas/{id}/equipos:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Identificador único de la cita (GUID)
+    get:
+      summary: GET /citas/{id}/equipos
+      operationId: get_res_1775015470206
+      responses:
+        '200':
+          description: Success
+    post:
+      summary: POST /citas/{id}/equipos
+      operationId: post_res_1775015470206
+      responses:
+        '200':
+          description: Success
+    put:
+      summary: PUT /citas/{id}/equipos
+      operationId: put_res_1775015470206
+      responses:
+        '200':
+          description: Success
+    delete:
+      summary: DELETE /citas/{id}/equipos
+      operationId: delete_res_1775015470206
+      responses:
+        '200':
+          description: Success
+  /citas/{id}/estados:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Identificador unico de la cita (GUID)
+    get:
+      summary: GET /citas/{id}/estados
+      operationId: get_res_1775015474445
+      responses:
+        '200':
+          description: Success
+  /citas/{id}/accesorios:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Identificador único de la cita (GUID)
+    get:
+      summary: GET /citas/{id}/accesorios
+      operationId: get_res_1775015653624
+      responses:
+        '200':
+          description: Success
+    post:
+      summary: POST /citas/{id}/accesorios
+      operationId: post_res_1775015653624
+      responses:
+        '200':
+          description: Success
+    put:
+      summary: PUT /citas/{id}/accesorios
+      operationId: put_res_1775015653624
+      responses:
+        '200':
+          description: Success
+    delete:
+      summary: DELETE /citas/{id}/accesorios
+      operationId: delete_res_1775015653624
+      responses:
+        '200':
+          description: Success
+  /citas/cliente:
+    get:
+      summary: GET /citas/cliente
+      operationId: get_res_1775016738343
+      responses:
+        '200':
+          description: Success

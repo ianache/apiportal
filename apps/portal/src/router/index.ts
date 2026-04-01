@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import Dashboard from '../views/Dashboard.vue';
 import Projects from '../views/Projects.vue';
 import ProjectDetail from '../views/ProjectDetail.vue';
+import ApiDesigner from '../views/ApiDesigner.vue';
 import Landing from '../views/Landing.vue';
 import { useAuthStore } from '../stores/auth';
 
@@ -25,12 +26,12 @@ const routes = [
     component: ProjectDetail,
     meta: { requiresAuth: true }
   },
-  // Placeholder routes
   {
-    path: '/analytics',
-    component: Dashboard,
+    path: '/projects/:id/design/:version',
+    component: ApiDesigner,
     meta: { requiresAuth: true }
   },
+  // Placeholder routes
   {
     path: '/integrations',
     component: Dashboard,
@@ -43,7 +44,8 @@ const routes = [
     children: [
       { path: 'environments', component: () => import('../views/settings/SettingsEnvironments.vue') },
       { path: 'preferences', component: () => import('../views/settings/SettingsPreferences.vue') },
-      { path: 'platform', component: () => import('../views/settings/SettingsPlatform.vue') }
+      { path: 'platform', component: () => import('../views/settings/SettingsPlatform.vue') },
+      { path: 'status', component: Dashboard }
     ]
   }
 ];

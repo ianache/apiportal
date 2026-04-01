@@ -217,6 +217,7 @@
                 <!-- Design Flow -->
                 <button
                   v-if="selectedVersion.status === 'DESIGN'"
+                  @click="router.push(`/projects/${api.id}/design/${selectedVersion.version}`)"
                   class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-opacity hover:opacity-80 active:scale-95"
                   style="background: #0058bc; color: #ffffff; box-shadow: 0 4px 12px rgba(0,88,188,0.25);"
                 >
@@ -290,25 +291,70 @@
                 <div
                   v-for="endpoint in selectedVersion.endpoints"
                   :key="endpoint.id"
-                  class="flex items-center justify-between p-4 rounded-xl border"
-                  style="background: #ffffff; border-color: #e3e2e7;"
+                  class="flex items-center justify-between p-4 rounded-xl border transition-colors"
+                  :style="editingEndpointId === endpoint.id
+                    ? 'background: #f0f7ff; border-color: #0058bc;'
+                    : 'background: #ffffff; border-color: #e3e2e7;'"
                 >
-                  <div class="flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: #eff4ff;">
+                  <div class="flex items-center gap-4 flex-1 min-w-0">
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style="background: #eff4ff;">
                       <span class="material-symbols-outlined" style="color: #0058bc;">http</span>
                     </div>
-                    <div>
-                      <p class="font-semibold" style="color: #1a1b1f;">{{ endpoint.environment?.name || 'Unknown' }}</p>
-                      <p class="text-sm font-mono" style="color: #717786;">{{ endpoint.baseUrl }}</p>
+                    <div class="flex-1 min-w-0">
+                      <p class="font-semibold text-sm" style="color: #1a1b1f;">{{ endpoint.environment?.name || 'Unknown' }}</p>
+
+                      <!-- Inline URL edit mode -->
+                      <div v-if="editingEndpointId === endpoint.id" class="flex items-center gap-2 mt-1">
+                        <input
+                          :ref="el => { if (el) endpointInputRefs[endpoint.id] = el as HTMLInputElement }"
+                          v-model="editEndpointUrl"
+                          type="url"
+                          @keydown.enter="saveEndpointUrl(endpoint.id)"
+                          @keydown.escape="cancelEditEndpoint"
+                          class="flex-1 text-sm font-mono px-2 py-1 rounded border outline-none"
+                          style="border-color: #0058bc; color: #1a1b1f;"
+                          placeholder="https://api.example.com"
+                        />
+                        <button
+                          @click="saveEndpointUrl(endpoint.id)"
+                          :disabled="endpointSaving"
+                          class="p-1 rounded hover:bg-green-100 disabled:opacity-50"
+                          style="color: #047857;"
+                          title="Save (Enter)"
+                        >
+                          <span v-if="endpointSaving" class="material-symbols-outlined text-xl animate-spin">progress_activity</span>
+                          <span v-else class="material-symbols-outlined text-xl">check</span>
+                        </button>
+                        <button
+                          @click="cancelEditEndpoint"
+                          class="p-1 rounded hover:bg-red-100"
+                          style="color: #991b1b;"
+                          title="Cancel (Escape)"
+                        >
+                          <span class="material-symbols-outlined text-xl">close</span>
+                        </button>
+                      </div>
+
+                      <!-- Display mode: click URL to edit -->
+                      <p
+                        v-else
+                        class="text-sm font-mono truncate mt-0.5"
+                        :class="canManageEndpoints ? 'cursor-pointer hover:text-blue-600 hover:underline' : ''"
+                        style="color: #717786;"
+                        :title="canManageEndpoints ? 'Click to edit URL' : endpoint.baseUrl"
+                        @click="canManageEndpoints && startEditEndpoint(endpoint.id, endpoint.baseUrl)"
+                      >{{ endpoint.baseUrl }}</p>
+
+                      <p v-if="endpointError && editingEndpointId === endpoint.id" class="text-xs mt-1" style="color: #991b1b;">{{ endpointError }}</p>
                     </div>
                   </div>
-                  <div class="flex items-center gap-2">
+                  <div class="flex items-center gap-2 shrink-0 ml-4">
                     <span
                       class="px-2 py-0.5 text-[10px] font-semibold rounded-full"
                       style="background: #e0f2fe; color: #075985;"
                     >{{ endpoint.environment?.slug }}</span>
                     <button
-                      v-if="canManageEndpoints"
+                      v-if="canManageEndpoints && editingEndpointId !== endpoint.id"
                       @click="handleDeleteEndpoint(endpoint.id)"
                       class="p-2 rounded-lg transition-colors hover:bg-red-50"
                       title="Delete endpoint"
@@ -477,14 +523,15 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import Shell from '../components/layout/Shell.vue';
 import { useRegistryStore } from '../stores/registry';
 import { useEnvironmentStore } from '../stores/environments';
 import { useAuthStore } from '../stores/auth';
-import type { API, APIVersion, APIStatus, Environment } from 'shared-types';
+import type { API, APIVersion, APIStatus } from 'shared-types';
 
 const route = useRoute();
+const router = useRouter();
 const registry = useRegistryStore();
 const environmentStore = useEnvironmentStore();
 const auth = useAuthStore();
@@ -499,6 +546,13 @@ const newVersionNumber = ref('');
 // Endpoint modal state
 const showEndpointModal = ref(false);
 const newEndpoint = ref({ environmentId: '', baseUrl: '' });
+
+// Inline endpoint URL editing state
+const editingEndpointId = ref<string | null>(null);
+const editEndpointUrl = ref('');
+const endpointSaving = ref(false);
+const endpointError = ref<string | null>(null);
+const endpointInputRefs: Record<string, HTMLInputElement> = {};
 
 const environments = computed(() => environmentStore.environments);
 const canManageEndpoints = computed(() => userRole.value !== 'API_DEVELOPER');
@@ -621,6 +675,42 @@ const handleCreateVersion = async () => {
     await fetchData();
   } catch (err: any) {
     error.value = err.message;
+  }
+};
+
+// Inline endpoint URL editing
+const startEditEndpoint = async (id: string, currentUrl: string) => {
+  editingEndpointId.value = id;
+  editEndpointUrl.value = currentUrl;
+  endpointError.value = null;
+  await nextTick();
+  endpointInputRefs[id]?.focus();
+  endpointInputRefs[id]?.select();
+};
+
+const cancelEditEndpoint = () => {
+  editingEndpointId.value = null;
+  editEndpointUrl.value = '';
+  endpointError.value = null;
+};
+
+const saveEndpointUrl = async (endpointId: string) => {
+  if (!api.value || !selectedVersion.value || !editEndpointUrl.value.trim()) return;
+  endpointSaving.value = true;
+  endpointError.value = null;
+  try {
+    await registry.updateEndpoint(
+      api.value.id,
+      selectedVersion.value.version,
+      endpointId,
+      { baseUrl: editEndpointUrl.value.trim() }
+    );
+    await fetchData();
+    cancelEditEndpoint();
+  } catch (err: any) {
+    endpointError.value = err.message || 'Failed to save URL';
+  } finally {
+    endpointSaving.value = false;
   }
 };
 
