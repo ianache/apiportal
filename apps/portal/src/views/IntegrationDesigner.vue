@@ -52,6 +52,7 @@
         :node-types="nodeTypes"
         :default-edge-options="defaultEdgeOptions"
         :connect-on-click="false"
+        :connection-mode="ConnectionMode.Loose"
         :delete-key-code="['Delete', 'Backspace']"
         fit-view-on-init
         class="flow-canvas"
@@ -279,7 +280,7 @@
 <script setup lang="ts">
 import { ref, markRaw, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { VueFlow, useVueFlow, MarkerType } from '@vue-flow/core';
+import { VueFlow, useVueFlow, MarkerType, ConnectionMode } from '@vue-flow/core';
 import type { Node, Edge, Connection, NodeMouseEvent, NodeChange } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import ProtocolNode from '../components/integration/ProtocolNode.vue';
@@ -424,25 +425,16 @@ function onNodesChange(changes: NodeChange[]) {
 }
 
 // ── Connect handler ───────────────────────────────────────
+// ConnectionMode.Loose lets any handle connect to any other handle.
+// In this mode, drag direction always determines source → target,
+// so no swap logic is needed.
 function onConnect(connection: Connection) {
-  // FilterNode overlaps source+target handles at the same position.
-  // When the drag starts from a target handle (id ends in '-t'), Vue Flow
-  // reports source/target in reverse — swap them back to get the correct direction.
-  let src       = connection.source;
-  let srcHandle = connection.sourceHandle ?? undefined;
-  let tgt       = connection.target;
-  let tgtHandle = connection.targetHandle ?? undefined;
-
-  if (srcHandle?.endsWith('-t')) {
-    [src, srcHandle, tgt, tgtHandle] = [tgt, tgtHandle, src, srcHandle];
-  }
-
   addEdges([{
-    id: `e-${src}-${srcHandle ?? 'src'}-${tgt}-${tgtHandle ?? 'tgt'}-${Date.now()}`,
-    source: src!,
-    sourceHandle: srcHandle,
-    target: tgt!,
-    targetHandle: tgtHandle,
+    id: `e-${connection.source}-${connection.sourceHandle ?? 'src'}-${connection.target}-${connection.targetHandle ?? 'tgt'}-${Date.now()}`,
+    source: connection.source,
+    sourceHandle: connection.sourceHandle ?? undefined,
+    target: connection.target,
+    targetHandle: connection.targetHandle ?? undefined,
     type: 'smoothstep',
     style: { stroke: '#0058bc', strokeWidth: 2 },
     markerEnd: { type: MarkerType.ArrowClosed, color: '#0058bc' },

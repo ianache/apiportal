@@ -2,15 +2,11 @@
   <div class="filter-node" :class="{ 'filter-node--selected': selected }"
     :style="selected ? { borderColor: nodeType?.color ?? '#e3e2e7', boxShadow: `0 0 0 3px ${hexToRgba(nodeType?.color ?? '#0058bc', 0.18)}` } : {}">
 
-    <!-- Handles: all four directions, source + target -->
+    <!-- Handles: one per direction (connectionMode Loose allows any-to-any) -->
     <Handle id="top"    type="source" :position="Position.Top"    class="filter-handle" :style="{ background: nodeType?.color ?? '#a0a7b5' }" />
-    <Handle id="top-t"  type="target" :position="Position.Top"    class="filter-handle" :style="{ background: nodeType?.color ?? '#a0a7b5' }" />
     <Handle id="right"  type="source" :position="Position.Right"  class="filter-handle" :style="{ background: nodeType?.color ?? '#a0a7b5' }" />
-    <Handle id="right-t" type="target" :position="Position.Right" class="filter-handle" :style="{ background: nodeType?.color ?? '#a0a7b5' }" />
     <Handle id="bottom" type="source" :position="Position.Bottom" class="filter-handle" :style="{ background: nodeType?.color ?? '#a0a7b5' }" />
-    <Handle id="bottom-t" type="target" :position="Position.Bottom" class="filter-handle" :style="{ background: nodeType?.color ?? '#a0a7b5' }" />
     <Handle id="left"   type="source" :position="Position.Left"   class="filter-handle" :style="{ background: nodeType?.color ?? '#a0a7b5' }" />
-    <Handle id="left-t" type="target" :position="Position.Left"   class="filter-handle" :style="{ background: nodeType?.color ?? '#a0a7b5' }" />
 
     <!-- Icon -->
     <div class="filter-icon" :style="{ background: nodeType?.color ?? '#a0a7b5' }">
