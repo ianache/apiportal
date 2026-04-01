@@ -187,6 +187,7 @@ const mainNav = [
 
 const settingsNav = [
   { path: '/settings/environments', icon: 'dns',             label: 'Environments' },
+  { path: '/settings/domains',      icon: 'category',        label: 'Domains'      },
   { path: '/settings/preferences',  icon: 'manage_accounts', label: 'Preferences'  },
   { path: '/settings/platform',     icon: 'tune',            label: 'Platform'     },
   { path: '/settings/status',       icon: 'analytics',       label: 'Status'       },

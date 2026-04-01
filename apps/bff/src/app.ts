@@ -6,6 +6,9 @@ import authPlugin from './plugins/auth.js';
 import healthRoutes from './routes/health.js';
 import apiRoutes from './routes/apis.js';
 import environmentRoutes from './routes/environments.js';
+import aiRoutes from './routes/ai.js';
+import domainRoutes from './routes/domains.js';
+import integrationRoutes from './routes/integrations.js';
 
 const schema = {
   type: 'object',
@@ -47,6 +50,9 @@ await fastify.register(authPlugin);
 fastify.register(healthRoutes);
 fastify.register(apiRoutes);
 fastify.register(environmentRoutes);
+fastify.register(aiRoutes);
+fastify.register(domainRoutes);
+fastify.register(integrationRoutes);
 
 const start = async () => {
   try {

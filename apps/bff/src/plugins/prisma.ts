@@ -1,6 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import fp from 'fastify-plugin';
 import { PrismaClient } from '@prisma/client';
+import 'dotenv/config';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -9,7 +10,7 @@ declare module 'fastify' {
 }
 
 const prismaPlugin: FastifyPluginAsync = async (fastify) => {
-  const prisma = new PrismaClient();
+  const prisma = new PrismaClient({ datasourceUrl: process.env.DATABASE_URL });
 
   await prisma.$connect();
 

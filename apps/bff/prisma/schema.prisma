@@ -43,6 +43,13 @@ enum APIStatus {
   RETIRED
 }
 
+enum IntegrationStatus {
+  ACTIVE
+  INACTIVE
+  DRAFT
+  ERROR
+}
+
 model API {
   id          String       @id @default(uuid())
   name        String       @unique
@@ -81,6 +88,31 @@ model Environment {
   endpoints APIEndpoint[]
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
+}
+
+model Domain {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  title        String
+  description  String?
+  labels       String[]
+  integrations Integration[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Integration {
+  id          String            @id @default(uuid())
+  name        String
+  type        String
+  description String?
+  status      IntegrationStatus @default(DRAFT)
+  icon        String?
+  linkedApis  Int               @default(0)
+  domainId    String?
+  domain      Domain?           @relation(fields: [domainId], references: [id], onDelete: SetNull)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 }
 
 model APIEndpoint {

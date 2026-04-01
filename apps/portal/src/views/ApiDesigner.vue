@@ -16,6 +16,11 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
+        <!-- AI Designer -->
+        <button @click="showAiPanel = !showAiPanel" class="toolbar-icon-btn ai-btn" :class="{ 'toolbar-icon-btn--active': showAiPanel }" title="AI Designer">
+          <span class="material-symbols-outlined" style="font-size:19px;">auto_awesome</span>
+        </button>
+        <div class="toolbar-divider"></div>
         <!-- Components catalog -->
         <button @click="showComponents = !showComponents" class="toolbar-icon-btn" :class="{ 'toolbar-icon-btn--active': showComponents }" title="Components Catalog">
           <span class="material-symbols-outlined" style="font-size:19px;">dataset</span>
@@ -322,18 +327,91 @@
 
         </aside>
       </Transition>
+
+      <!-- ── BOTTOM: AI Designer panel ──────────────────── -->
+      <Transition name="panel-bottom-slide">
+        <aside v-if="showAiPanel" class="ai-panel" @click.stop>
+
+          <!-- Header -->
+          <div class="ai-panel-header">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#7c3aed;">auto_awesome</span>
+              <span class="text-sm font-bold" style="color:#1a1b1f;">AI Designer</span>
+              <span v-if="llmPrefs.isConfigured" class="ai-model-badge">{{ llmPrefs.model }}</span>
+            </div>
+            <button @click="showAiPanel = false" class="panel-close">
+              <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+            </button>
+          </div>
+
+          <!-- Not configured -->
+          <div v-if="!llmPrefs.isConfigured" class="ai-empty">
+            <span class="material-symbols-outlined" style="font-size:32px;color:#d4d2db;">key</span>
+            <p class="text-sm font-semibold" style="color:#1a1b1f;margin:8px 0 4px;">No LLM configured</p>
+            <p class="text-xs" style="color:#a0a7b5;margin-bottom:12px;">Set your API key in Settings → Preferences.</p>
+            <button @click="router.push('/settings/preferences')" class="ai-setup-btn">Go to Preferences</button>
+          </div>
+
+          <!-- Chat -->
+          <template v-else>
+            <div ref="chatScrollRef" class="ai-messages">
+              <!-- Empty state -->
+              <div v-if="!aiMessages.length" class="ai-welcome">
+                <span class="material-symbols-outlined" style="font-size:28px;color:#7c3aed;opacity:0.4;">auto_awesome</span>
+                <p class="text-xs" style="color:#a0a7b5;margin-top:8px;text-align:center;max-width:280px;">
+                  Describe the API you want to design and I'll generate the visual model for you.
+                </p>
+              </div>
+
+              <!-- Messages -->
+              <div v-for="(msg, i) in aiMessages" :key="i" class="ai-msg-row" :class="`ai-msg-row--${msg.role}`">
+                <div class="ai-bubble" :class="`ai-bubble--${msg.role}`">{{ msg.text }}</div>
+                <button v-if="msg.design" @click="applyAiDesign(msg.design)" class="ai-apply-btn">
+                  <span class="material-symbols-outlined" style="font-size:15px;">auto_fix_high</span>
+                  Apply to Canvas
+                </button>
+              </div>
+
+              <!-- Loading -->
+              <div v-if="aiLoading" class="ai-msg-row ai-msg-row--assistant">
+                <div class="ai-bubble ai-bubble--assistant ai-bubble--loading">
+                  <span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Input -->
+            <div class="ai-input-row">
+              <textarea
+                v-model="aiInput"
+                class="ai-textarea"
+                rows="2"
+                placeholder="Describe your API… (⌘↵ to send)"
+                @keydown.meta.enter.prevent="sendAiMessage"
+                @keydown.ctrl.enter.prevent="sendAiMessage"
+              />
+              <button @click="sendAiMessage" :disabled="aiLoading || !aiInput.trim()" class="ai-send-btn">
+                <span class="material-symbols-outlined" style="font-size:18px;">send</span>
+              </button>
+            </div>
+          </template>
+
+        </aside>
+      </Transition>
+
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, markRaw, onMounted, computed, watch } from 'vue';
+import { ref, markRaw, onMounted, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VueFlow, useVueFlow, MarkerType } from '@vue-flow/core';
 import type { Node, Edge, NodeMouseEvent, EdgeMouseEvent } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import ResourceNode from '../components/designer/ResourceNode.vue';
 import { useRegistryStore } from '../stores/registry';
+import { useLLMPreferencesStore } from '../stores/preferences';
 import yaml from 'js-yaml';
 
 // ── Types ────────────────────────────────────────────
@@ -351,9 +429,10 @@ interface ComponentSchema { id: string; name: string; description: string; prope
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 // ── Router / Store ───────────────────────────────────
-const route    = useRoute();
-const router   = useRouter();
-const registry = useRegistryStore();
+const route      = useRoute();
+const router     = useRouter();
+const registry   = useRegistryStore();
+const llmPrefs   = useLLMPreferencesStore();
 const apiId    = route.params.id as string;
 const version  = route.params.version as string;
 const apiName  = ref('');
@@ -836,6 +915,144 @@ function importOpenApiDoc(doc: any) {
   selectedNode.value = null; selectedEdge.value = null;
 }
 
+// ── AI Designer ──────────────────────────────────────
+interface AiChatMsg { role: 'user' | 'assistant'; text: string; design?: any; }
+
+const showAiPanel   = ref(false);
+const aiMessages    = ref<AiChatMsg[]>([]);
+const aiInput       = ref('');
+const aiLoading     = ref(false);
+const chatScrollRef = ref<HTMLElement | null>(null);
+
+const AI_SYSTEM_PROMPT = `You are an AI API Designer for Nexus API Manager.
+When the user requests an API design or modifications, respond with a brief explanation followed by a JSON code block.
+The JSON must use EXACTLY this structure:
+
+\`\`\`json
+{
+  "type": "api-flow",
+  "nodes": [
+    {
+      "id": "root",
+      "type": "resource",
+      "position": { "x": 0, "y": 0 },
+      "data": {
+        "path": "/resource",
+        "isRoot": true,
+        "description": "",
+        "methods": ["GET"],
+        "operationSpecs": {
+          "GET": {
+            "summary": "", "description": "",
+            "parameters": [{ "id": "p1", "name": "param", "type": "string", "required": false }],
+            "requestBody": { "enabled": false, "contentType": "application/json", "schemaRef": "" },
+            "responses": [{ "id": "r1", "statusCode": "200", "description": "Success", "schemaRef": "" }]
+          }
+        }
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-root-child",
+      "source": "root", "target": "child",
+      "sourceHandle": "bottom", "targetHandle": "top",
+      "type": "smoothstep", "animated": false,
+      "data": { "pathParam": { "name": "id", "type": "string", "description": "" } }
+    }
+  ],
+  "components": [
+    {
+      "id": "s1", "name": "SchemaName", "description": "",
+      "properties": [{ "id": "prop1", "name": "field", "type": "string", "required": false }]
+    }
+  ]
+}
+\`\`\`
+
+Layout rules: root node at {x:0,y:0}; each child level adds 160 to y; siblings spaced 300px on x.
+Use "bottom"→"top" handles for vertical trees. Always include operationSpecs for every method listed.
+Omit edges/components arrays only if empty. All ids must be unique strings.`;
+
+function buildSystemPrompt() {
+  const state = JSON.stringify({ nodes: nodes.value, edges: edges.value, components: components.value });
+  return `${AI_SYSTEM_PROMPT}\n\nCurrent canvas: ${state}`;
+}
+
+function parseAiContent(content: string): { text: string; design: any | null } {
+  const match = content.match(/```json\s*([\s\S]*?)```/);
+  if (match) {
+    try {
+      const design = JSON.parse(match[1]);
+      if (design?.type === 'api-flow') {
+        const text = content.replace(/```json[\s\S]*?```/, '').trim() || 'Design generated.';
+        return { text, design };
+      }
+    } catch { /* not valid JSON */ }
+  }
+  return { text: content, design: null };
+}
+
+async function sendAiMessage() {
+  const msg = aiInput.value.trim();
+  if (!msg || aiLoading.value) return;
+  aiInput.value = '';
+  aiMessages.value.push({ role: 'user', text: msg });
+  aiLoading.value = true;
+  await scrollChat();
+
+  try {
+    const auth = (await import('../stores/auth')).useAuthStore();
+    const token = await auth.getToken();
+    const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+    const history = aiMessages.value
+      .slice(0, -1)                    // exclude just-added user msg (will be sent below)
+      .map(m => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.text }));
+
+    const messages = [
+      { role: 'system',    content: buildSystemPrompt() },
+      ...history,
+      { role: 'user',      content: msg },
+    ];
+
+    const res = await fetch(`${bffBase}/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ provider: llmPrefs.provider, apiKey: llmPrefs.apiKey, model: llmPrefs.model, messages }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+      aiMessages.value.push({ role: 'assistant', text: `Error: ${err.error}` });
+    } else {
+      const data = await res.json();
+      const { text, design } = parseAiContent(data.content ?? '');
+      aiMessages.value.push({ role: 'assistant', text, design: design ?? undefined });
+    }
+  } catch (e: any) {
+    aiMessages.value.push({ role: 'assistant', text: `Error: ${e.message}` });
+  } finally {
+    aiLoading.value = false;
+    await scrollChat();
+  }
+}
+
+function applyAiDesign(design: any) {
+  if (!design) return;
+  nodes.value      = design.nodes      ?? [];
+  edges.value      = design.edges      ?? [];
+  components.value = design.components ?? [];
+  collapseAllSchemas();
+  selectedNode.value = null;
+  selectedEdge.value = null;
+}
+
+async function scrollChat() {
+  await nextTick();
+  if (chatScrollRef.value) chatScrollRef.value.scrollTop = chatScrollRef.value.scrollHeight;
+}
+
 function goBack() { router.push(`/projects/${apiId}`); }
 </script>
 
@@ -917,4 +1134,108 @@ function goBack() { router.push(`/projects/${apiId}`); }
 /* ── Danger button ───────────── */
 .btn-danger { display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#991b1b;padding:7px 12px;border-radius:10px;border:1.5px solid #fecaca;background:#fff;cursor:pointer;transition:background 0.12s;width:100%;justify-content:center; }
 .btn-danger:hover { background:#fef2f2; }
+
+/* ── AI toolbar button ───────── */
+.ai-btn { color:#7c3aed !important; }
+.ai-btn:hover,.ai-btn.toolbar-icon-btn--active { background:#f5f3ff !important;color:#7c3aed !important; }
+
+/* ── AI panel ────────────────── */
+.ai-panel {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 360px;
+  background: #ffffff;
+  border-top: 1px solid #e3e2e7;
+  display: flex; flex-direction: column;
+  z-index: 25;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+}
+.panel-bottom-slide-enter-active,.panel-bottom-slide-leave-active { transition: transform 0.22s cubic-bezier(0.4,0,0.2,1); }
+.panel-bottom-slide-enter-from,.panel-bottom-slide-leave-to { transform: translateY(100%); }
+
+.ai-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid #f0eff5;
+  flex-shrink: 0;
+}
+.ai-model-badge {
+  font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 10px;
+  background: #f5f3ff; color: #7c3aed; font-family: 'Inter', sans-serif;
+}
+
+/* Not-configured empty state */
+.ai-empty {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.ai-setup-btn {
+  padding: 7px 18px; border-radius: 10px; font-size: 13px; font-weight: 700;
+  background: #7c3aed; color: #fff; border: none; cursor: pointer; transition: opacity 0.15s;
+}
+.ai-setup-btn:hover { opacity: 0.85; }
+
+/* Messages area */
+.ai-messages {
+  flex: 1; overflow-y: auto; padding: 12px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.ai-welcome {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  opacity: 0.7;
+}
+
+.ai-msg-row { display: flex; flex-direction: column; gap: 4px; }
+.ai-msg-row--user  { align-items: flex-end; }
+.ai-msg-row--assistant { align-items: flex-start; }
+
+.ai-bubble {
+  max-width: 85%; padding: 8px 12px; border-radius: 12px;
+  font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+  font-family: 'Inter', sans-serif;
+}
+.ai-bubble--user      { background: #0058bc; color: #fff; border-radius: 12px 12px 2px 12px; }
+.ai-bubble--assistant { background: #f4f3f8; color: #1a1b1f; border-radius: 12px 12px 12px 2px; }
+.ai-bubble--loading   { padding: 12px 16px; display: flex; gap: 5px; align-items: center; }
+
+/* Typing dots */
+.ai-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #a0a7b5;
+  animation: ai-bounce 1.2s infinite ease-in-out;
+}
+.ai-dot:nth-child(2) { animation-delay: 0.2s; }
+.ai-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ai-bounce {
+  0%,80%,100% { transform: scale(0.7); opacity: 0.5; }
+  40%          { transform: scale(1);   opacity: 1; }
+}
+
+/* Apply button */
+.ai-apply-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 700;
+  background: #7c3aed; color: #fff; border: none; cursor: pointer;
+  transition: opacity 0.15s; align-self: flex-start; margin-top: 2px;
+}
+.ai-apply-btn:hover { opacity: 0.85; }
+
+/* Input row */
+.ai-input-row {
+  display: flex; gap: 8px; padding: 10px 16px;
+  border-top: 1px solid #f0eff5; flex-shrink: 0;
+}
+.ai-textarea {
+  flex: 1; resize: none; padding: 8px 12px; border: 1px solid #e3e2e7;
+  border-radius: 10px; font-size: 13px; font-family: 'Inter', sans-serif;
+  color: #1a1b1f; background: #faf9fe; outline: none; line-height: 1.5;
+  transition: border-color 0.15s;
+}
+.ai-textarea:focus { border-color: #7c3aed; }
+.ai-send-btn {
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
+  background: #7c3aed; color: #fff; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.15s; align-self: flex-end;
+}
+.ai-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.ai-send-btn:not(:disabled):hover { opacity: 0.85; }
 </style>

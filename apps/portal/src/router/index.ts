@@ -3,6 +3,7 @@ import Dashboard from '../views/Dashboard.vue';
 import Projects from '../views/Projects.vue';
 import ProjectDetail from '../views/ProjectDetail.vue';
 import ApiDesigner from '../views/ApiDesigner.vue';
+import Integrations from '../views/Integrations.vue';
 import Landing from '../views/Landing.vue';
 import { useAuthStore } from '../stores/auth';
 
@@ -31,10 +32,9 @@ const routes = [
     component: ApiDesigner,
     meta: { requiresAuth: true }
   },
-  // Placeholder routes
   {
     path: '/integrations',
-    component: Dashboard,
+    component: Integrations,
     meta: { requiresAuth: true }
   },
   {
@@ -43,9 +43,10 @@ const routes = [
     meta: { requiresAuth: true },
     children: [
       { path: 'environments', component: () => import('../views/settings/SettingsEnvironments.vue') },
-      { path: 'preferences', component: () => import('../views/settings/SettingsPreferences.vue') },
-      { path: 'platform', component: () => import('../views/settings/SettingsPlatform.vue') },
-      { path: 'status', component: Dashboard }
+      { path: 'preferences',  component: () => import('../views/settings/SettingsPreferences.vue') },
+      { path: 'platform',     component: () => import('../views/settings/SettingsPlatform.vue') },
+      { path: 'domains',      component: () => import('../views/settings/SettingsDomains.vue') },
+      { path: 'status',       component: Dashboard }
     ]
   }
 ];
