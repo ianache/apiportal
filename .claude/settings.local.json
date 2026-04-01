@@ -11,7 +11,8 @@
       "Skill(gsd:add-phase)",
       "Skill(gsd:plan-phase)",
       "Bash(npx prisma:*)",
-      "Bash(npx vue-tsc:*)"
+      "Bash(npx vue-tsc:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

@@ -4,6 +4,7 @@ import Projects from '../views/Projects.vue';
 import ProjectDetail from '../views/ProjectDetail.vue';
 import ApiDesigner from '../views/ApiDesigner.vue';
 import Integrations from '../views/Integrations.vue';
+import IntegrationDesigner from '../views/IntegrationDesigner.vue';
 import Landing from '../views/Landing.vue';
 import { useAuthStore } from '../stores/auth';
 
@@ -38,6 +39,11 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/integrations/:id/design',
+    component: IntegrationDesigner,
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/settings',
     redirect: '/settings/environments',
     meta: { requiresAuth: true },
@@ -46,6 +52,7 @@ const routes = [
       { path: 'preferences',  component: () => import('../views/settings/SettingsPreferences.vue') },
       { path: 'platform',     component: () => import('../views/settings/SettingsPlatform.vue') },
       { path: 'domains',      component: () => import('../views/settings/SettingsDomains.vue') },
+      { path: 'node-types',   component: () => import('../views/settings/SettingsNodeTypes.vue') },
       { path: 'status',       component: Dashboard }
     ]
   }

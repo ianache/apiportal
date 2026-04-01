@@ -9,6 +9,7 @@ import environmentRoutes from './routes/environments.js';
 import aiRoutes from './routes/ai.js';
 import domainRoutes from './routes/domains.js';
 import integrationRoutes from './routes/integrations.js';
+import nodeTypesCatalogRoutes from './routes/nodeTypesCatalog.js';
 
 const schema = {
   type: 'object',
@@ -53,6 +54,7 @@ fastify.register(environmentRoutes);
 fastify.register(aiRoutes);
 fastify.register(domainRoutes);
 fastify.register(integrationRoutes);
+fastify.register(nodeTypesCatalogRoutes);
 
 const start = async () => {
   try {

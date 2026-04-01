@@ -115,6 +115,15 @@ model Integration {
   updatedAt   DateTime          @updatedAt
 }
 
+model NodeTypeCatalog {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  properties  Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 model APIEndpoint {
   id             String      @id @default(uuid())
   versionId       String
