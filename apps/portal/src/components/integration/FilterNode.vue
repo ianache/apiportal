@@ -1,6 +1,9 @@
 <template>
   <div class="filter-node" :class="{ 'filter-node--selected': selected }"
-    :style="selected ? { borderColor: nodeType?.color ?? '#e3e2e7', boxShadow: `0 0 0 3px ${hexToRgba(nodeType?.color ?? '#0058bc', 0.18)}` } : {}">
+    :style="selected ? { borderColor: nodeType?.color ?? '#e3e2e7', boxShadow: `0 0 0 3px ${hexToRgba(nodeType?.color ?? '#0058bc', 0.18)}` } : {}"
+    draggable="true"
+    @dragstart="onDragStart"
+  >
 
     <!-- Handles: one per direction (connectionMode Loose allows any-to-any) -->
     <Handle id="top"    type="source" :position="Position.Top"    class="filter-handle" :style="{ background: nodeType?.color ?? '#a0a7b5' }" />
@@ -64,6 +67,14 @@ function hexToRgba(hex: string, alpha: number): string {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) return `rgba(0,0,0,${alpha})`;
   return `rgba(${parseInt(result[1], 16)},${parseInt(result[2], 16)},${parseInt(result[3], 16)},${alpha})`;
+}
+
+function onDragStart(e: DragEvent) {
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('nodeId', props.id);
+    e.dataTransfer.setData('nodeTypeId', props.data.typeId);
+  }
 }
 </script>
 

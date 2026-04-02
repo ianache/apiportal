@@ -38,6 +38,7 @@
       v-if="data.collapsedNodes?.length"
       class="sf-chips nodrag"
       @dragover.prevent
+      @drop.stop.prevent="onPaletteDrop"
     >
       <div
         v-for="(n, i) in data.collapsedNodes"
@@ -72,9 +73,9 @@
       </div>
     </div>
 
-    <div v-else-if="!data.collapsedNodes?.length" class="sf-empty">
+    <div v-else-if="!data.collapsedNodes?.length" class="sf-empty nodrag" @dragover.prevent @drop.stop.prevent="onPaletteDrop">
       <span class="material-symbols-outlined" style="font-size:20px;color:#c7c6d1;">layers</span>
-      <span>No nodes</span>
+      <span>Drop nodes here</span>
     </div>
   </div>
 </template>
@@ -99,6 +100,9 @@ const { updateNode } = useVueFlow();
 
 // Injected by IntegrationDesigner to open collapsed-node properties panel
 const onChipSelect = inject<(subflowId: string, index: number) => void>('subflowChipClick', () => {});
+
+// Injected by IntegrationDesigner to add a node from palette to this subflow
+const addNodeToSubflow = inject<(subflowId: string, typeId: string) => void>('addNodeToSubflow', () => {});
 
 // ── Type config ───────────────────────────────────────────
 const TYPE_CONFIG = {
@@ -145,6 +149,20 @@ function onChipDragEnd() {
   dragIndex.value = null;
   overIndex.value = null;
 }
+
+// ── Drop from palette or canvas node ─────────────────────────
+function onPaletteDrop(e: DragEvent) {
+  const nodeId = e.dataTransfer?.getData('nodeId');
+  const typeId = e.dataTransfer?.getData('nodeTypeId');
+  
+  if (nodeId && typeId) {
+    moveNodeToSubflow(nodeId, typeId);
+  } else if (typeId) {
+    addNodeToSubflow(props.id, typeId);
+  }
+}
+
+const moveNodeToSubflow = inject<(subflowId: string, nodeId: string, typeId: string) => void>('moveNodeToSubflow', () => {});
 
 // ── Remove node ───────────────────────────────────────────
 function removeNode(i: number) {

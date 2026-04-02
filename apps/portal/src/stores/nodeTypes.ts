@@ -191,6 +191,20 @@ export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
     color: '#0f766e',
     properties: [],
   },
+  {
+    id: 'ip-bw-list@v1',
+    name: 'IP b/w List',
+    description: 'Filters or validates IP addresses against a configurable allowlist or blocklist.',
+    category: 'Catalog',
+    icon: 'phonelink_lock',
+    color: '#0f766e',
+    properties: [
+      { key: 'mode', label: 'Mode', type: 'select', required: true, defaultValue: 'allow', options: ['allow', 'block'] },
+      { key: 'ipList', label: 'IP List', type: 'textarea', required: true, defaultValue: '192.168.1.0/24\n10.0.0.0/8' },
+      { key: 'checkType', label: 'Check Type', type: 'select', required: true, defaultValue: 'cidr', options: ['cidr', 'range', 'exact'] },
+      { key: 'sourceField', label: 'Source Field', type: 'string', required: false, defaultValue: 'clientIp' },
+    ],
+  },
 
   // ── Control ────────────────────────────────────────────────
   {

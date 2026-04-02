@@ -32,6 +32,11 @@
         <span v-else-if="saveStatus === 'saved'" class="flex items-center gap-1 text-xs font-medium" style="color:#047857;">
           <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>Saved
         </span>
+        <button @click="exportFlow"
+          class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-80"
+          style="background:#f4f3f8;color:#414755;">
+          <span class="material-symbols-outlined" style="font-size:16px;">download</span>Export
+        </button>
         <button @click="saveFlow" :disabled="saveStatus === 'saving'"
           class="flex items-center gap-2 px-4 py-1.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-80 disabled:opacity-40"
           style="background:#0058bc;color:#ffffff;">
@@ -60,6 +65,7 @@
         fit-view-on-init
         class="flow-canvas"
         @node-click="onNodeClick"
+        @edge-click="onEdgeClick"
         @pane-click="onPaneClick"
         @nodes-change="onNodesChange"
         @connect="onConnect">
@@ -137,6 +143,11 @@
 
       <!-- ── LEFT: Floating Node Palette ────────────────── -->
       <div class="palette-wrapper" :class="{ 'palette-wrapper--open': paletteOpen }">
+        <!-- Export button -->
+        <button class="palette-export" @click="exportFlow" title="Export to file">
+          <span class="material-symbols-outlined" style="font-size:18px;">download</span>
+        </button>
+
         <!-- Toggle button -->
         <button class="palette-toggle" @click="paletteOpen = !paletteOpen"
           :title="paletteOpen ? 'Close palette' : 'Open node palette'">
@@ -154,23 +165,32 @@
             </div>
 
             <div v-for="cat in CATEGORIES" :key="cat" class="palette-category">
-              <p class="palette-cat-label" :style="{ color: CATEGORY_COLORS[cat] }">{{ cat }}</p>
-              <div
-                v-for="type in typesByCategory(cat)" :key="type.id"
-                class="palette-item"
-                :style="{ borderLeftColor: type.color }"
-                draggable="true"
-                @dragstart="onDragStart($event, type.id)">
-                <div class="palette-item__icon" :style="{ background: type.color }">
-                  <span class="material-symbols-outlined" style="font-size:14px;color:#fff;font-variation-settings:'FILL' 1;">
-                    {{ type.icon }}
-                  </span>
-                </div>
-                <div class="palette-item__text">
-                  <p class="palette-item__name">{{ type.name }}</p>
-                  <p class="palette-item__desc">{{ type.description }}</p>
-                </div>
+              <div class="palette-cat-header" @click="toggleCategory(cat)">
+                <span class="material-symbols-outlined palette-cat-toggle" :class="{ 'palette-cat-toggle--collapsed': isCategoryCollapsed(cat) }">
+                  expand_more
+                </span>
+                <p class="palette-cat-label" :style="{ color: CATEGORY_COLORS[cat] }">{{ cat }}</p>
               </div>
+              <Transition name="palette-category">
+                <div v-if="!isCategoryCollapsed(cat)" class="palette-cat-items">
+                  <div
+                    v-for="type in typesByCategory(cat)" :key="type.id"
+                    class="palette-item"
+                    :style="{ borderLeftColor: type.color }"
+                    draggable="true"
+                    @dragstart="onDragStart($event, type.id)">
+                    <div class="palette-item__icon" :style="{ background: type.color }">
+                      <span class="material-symbols-outlined" style="font-size:14px;color:#fff;font-variation-settings:'FILL' 1;">
+                        {{ type.icon }}
+                      </span>
+                    </div>
+                    <div class="palette-item__text">
+                      <p class="palette-item__name">{{ type.name }}</p>
+                      <p class="palette-item__desc">{{ type.description }}</p>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
             </div>
           </div>
         </Transition>
@@ -457,7 +477,7 @@
 import { ref, markRaw, reactive, computed, watch, provide, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VueFlow, useVueFlow, MarkerType, ConnectionMode } from '@vue-flow/core';
-import type { Node, Edge, Connection, NodeMouseEvent, NodeChange } from '@vue-flow/core';
+import type { Node, Edge, Connection, NodeMouseEvent, NodeChange, EdgeMouseEvent } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import ProtocolNode from '../components/integration/ProtocolNode.vue';
 import FlowNode from '../components/integration/FlowNode.vue';
@@ -510,9 +530,22 @@ const canvasRef = ref<HTMLElement | null>(null);
 
 // ── Palette ───────────────────────────────────────────────
 const paletteOpen = ref(true);
+const collapsedCategories = ref<Set<string>>(new Set(['Protocol', 'Transform', 'Routing', 'Connector', 'Control']));
 
 function typesByCategory(cat: string) {
   return NODE_TYPE_CATALOG.filter(t => t.category === cat);
+}
+
+function toggleCategory(cat: string) {
+  if (collapsedCategories.value.has(cat)) {
+    collapsedCategories.value.delete(cat);
+  } else {
+    collapsedCategories.value.add(cat);
+  }
+}
+
+function isCategoryCollapsed(cat: string) {
+  return collapsedCategories.value.has(cat);
 }
 
 const protocolTypes = computed(() => NODE_TYPE_CATALOG.filter(t => t.category === 'Protocol'));
@@ -615,6 +648,44 @@ provide('subflowChipClick', (subflowId: string, index: number) => {
   selectedCollapsedNode.value = { subflowId, index, node };
 });
 
+provide('addNodeToSubflow', (subflowId: string, typeId: string) => {
+  const nt = findNodeType(typeId);
+  const sfNode = nodes.value.find(n => n.id === subflowId);
+  if (!sfNode) return;
+
+  const newNode = {
+    id: `filter-${Date.now()}`,
+    type: 'filter',
+    typeId,
+    label: nt?.name ?? typeId,
+    props: {},
+  };
+
+  const list = [...(sfNode.data.collapsedNodes ?? []), newNode];
+  updateNode(subflowId, { data: { ...sfNode.data, collapsedNodes: list } });
+});
+
+provide('moveNodeToSubflow', (subflowId: string, nodeId: string, typeId: string) => {
+  const sfNode = nodes.value.find(n => n.id === subflowId);
+  const node = nodes.value.find(n => n.id === nodeId);
+  if (!sfNode || !node) return;
+
+  const newNode = {
+    id: node.id,
+    type: 'filter',
+    typeId: node.data.typeId,
+    label: node.data.label,
+    description: node.data.description,
+    props: { ...node.data.props },
+  };
+
+  const list = [...(sfNode.data.collapsedNodes ?? []), newNode];
+  updateNode(subflowId, { data: { ...sfNode.data, collapsedNodes: list } });
+
+  nodes.value = nodes.value.filter(n => n.id !== nodeId);
+  edges.value = edges.value.filter(e => e.source !== nodeId && e.target !== nodeId);
+});
+
 const selectedCatalogEntry = computed(() => {
   if (!selectedNode.value) return null;
   const catalogTypeId = selectedNode.value.data.props?.catalogTypeId;
@@ -638,6 +709,25 @@ function onNodeClick(event: NodeMouseEvent) {
   }
   selectedNode.value = event.node;
 }
+
+function onEdgeClick(event: EdgeMouseEvent) {
+  const edge = event.edge;
+  edge.style = { ...edge.style, strokeDasharray: '5,5', strokeWidth: 3 };
+  tempSelectedEdge.value = edge;
+  document.addEventListener('mouseup', onEdgeMouseUp, { once: true });
+}
+
+function onEdgeMouseUp() {
+  if (tempSelectedEdge.value) {
+    const edge = edges.value.find(e => e.id === tempSelectedEdge.value?.id);
+    if (edge) {
+      edge.style = { stroke: '#0058bc', strokeWidth: 2, strokeDasharray: undefined };
+    }
+    tempSelectedEdge.value = null;
+  }
+}
+
+const tempSelectedEdge = ref<Edge | null>(null);
 
 function onPaneClick() {
   selectedNode.value = null;
@@ -874,6 +964,29 @@ function saveFlow() {
   }
 }
 
+function exportFlow() {
+  const name = integration.value?.name ?? 'unknown';
+  const safeName = name.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase();
+  const filename = `integrationflow-design-${safeName}.json`;
+  
+  const payload = {
+    type: 'integration-flow',
+    integrationId: integrationId.value,
+    integrationName: name,
+    exportedAt: new Date().toISOString(),
+    nodes: nodes.value,
+    edges: edges.value,
+  };
+  
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── Load saved flow or create defaults ────────────────────
 function loadOrInitFlow() {
   const key = `integration-flow:${integrationId.value}`;
@@ -960,6 +1073,23 @@ onMounted(async () => {
 }
 .palette-toggle:hover { background: #f4f3f8; }
 
+.palette-export {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #0058bc;
+  border: 1px solid #0058bc;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #ffffff;
+  flex-shrink: 0;
+  transition: background 0.12s, opacity 0.12s;
+}
+.palette-export:hover { background: #004699; }
+
 .palette-card {
   width: 220px;
   max-height: calc(100vh - 80px);
@@ -982,7 +1112,38 @@ onMounted(async () => {
 }
 
 .palette-category {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+}
+
+.palette-cat-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px 0;
+  user-select: none;
+}
+.palette-cat-header:hover .palette-cat-label { opacity: 0.8; }
+
+.palette-cat-toggle {
+  font-size: 16px;
+  color: #717786;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.palette-cat-toggle--collapsed { transform: rotate(-90deg); }
+
+.palette-cat-items {
+  overflow: hidden;
+}
+
+.palette-category-enter-active,
+.palette-category-leave-active {
+  transition: opacity 0.15s, max-height 0.2s ease;
+}
+.palette-category-enter-from,
+.palette-category-leave-to {
+  opacity: 0;
 }
 
 .palette-cat-label {
