@@ -141,60 +141,47 @@
         </div>
       </Transition>
 
-      <!-- ── LEFT: Floating Node Palette ────────────────── -->
-      <div class="palette-wrapper" :class="{ 'palette-wrapper--open': paletteOpen }">
-        <!-- Export button -->
-        <button class="palette-export" @click="exportFlow" title="Export to file">
-          <span class="material-symbols-outlined" style="font-size:18px;">download</span>
-        </button>
-
-        <!-- Toggle button -->
-        <button class="palette-toggle" @click="paletteOpen = !paletteOpen"
-          :title="paletteOpen ? 'Close palette' : 'Open node palette'">
-          <span class="material-symbols-outlined" style="font-size:20px;">
-            {{ paletteOpen ? 'close' : 'drag_indicator' }}
-          </span>
-        </button>
-
-        <!-- Palette card -->
-        <Transition name="palette-slide">
-          <div v-if="paletteOpen" class="palette-card">
-            <div class="palette-header">
-              <span class="material-symbols-outlined" style="font-size:16px;color:#0058bc;">widgets</span>
-              <span style="font-size:12px;font-weight:700;color:#1a1b1f;">Node Types</span>
+      <!-- ── LEFT: Node Types Sidebar ───────────────────────── -->
+      <aside class="node-types-sidebar" :class="{ 'node-types-sidebar--open': paletteOpen }">
+        <div class="sidebar-header">
+          <button class="sidebar-toggle" @click="paletteOpen = !paletteOpen">
+            <span class="material-symbols-outlined" style="font-size:18px;">{{ paletteOpen ? 'chevron_left' : 'chevron_right' }}</span>
+          </button>
+          <span v-if="paletteOpen" class="material-symbols-outlined" style="font-size:16px;color:#0058bc;">widgets</span>
+          <span v-if="paletteOpen" style="font-size:12px;font-weight:700;color:#1a1b1f;">Node Types</span>
+        </div>
+        
+        <div v-show="paletteOpen" class="sidebar-content">
+          <div v-for="cat in CATEGORIES" :key="cat" class="sidebar-category">
+            <div class="sidebar-cat-header" @click="toggleCategory(cat)">
+              <span class="material-symbols-outlined sidebar-cat-toggle" :class="{ 'sidebar-cat-toggle--collapsed': isCategoryCollapsed(cat) }">
+                expand_more
+              </span>
+              <p class="sidebar-cat-label" :style="{ color: CATEGORY_COLORS[cat] }">{{ cat }}</p>
             </div>
-
-            <div v-for="cat in CATEGORIES" :key="cat" class="palette-category">
-              <div class="palette-cat-header" @click="toggleCategory(cat)">
-                <span class="material-symbols-outlined palette-cat-toggle" :class="{ 'palette-cat-toggle--collapsed': isCategoryCollapsed(cat) }">
-                  expand_more
-                </span>
-                <p class="palette-cat-label" :style="{ color: CATEGORY_COLORS[cat] }">{{ cat }}</p>
-              </div>
-              <Transition name="palette-category">
-                <div v-if="!isCategoryCollapsed(cat)" class="palette-cat-items">
-                  <div
-                    v-for="type in typesByCategory(cat)" :key="type.id"
-                    class="palette-item"
-                    :style="{ borderLeftColor: type.color }"
-                    draggable="true"
-                    @dragstart="onDragStart($event, type.id)">
-                    <div class="palette-item__icon" :style="{ background: type.color }">
-                      <span class="material-symbols-outlined" style="font-size:14px;color:#fff;font-variation-settings:'FILL' 1;">
-                        {{ type.icon }}
-                      </span>
-                    </div>
-                    <div class="palette-item__text">
-                      <p class="palette-item__name">{{ type.name }}</p>
-                      <p class="palette-item__desc">{{ type.description }}</p>
-                    </div>
+            <Transition name="sidebar-category">
+              <div v-if="!isCategoryCollapsed(cat)" class="sidebar-cat-items">
+                <div
+                  v-for="type in typesByCategory(cat)" :key="type.id"
+                  class="sidebar-item"
+                  :style="{ borderLeftColor: type.color }"
+                  draggable="true"
+                  @dragstart="onDragStart($event, type.id)">
+                  <div class="sidebar-item__icon" :style="{ background: type.color }">
+                    <span class="material-symbols-outlined" style="font-size:14px;color:#fff;font-variation-settings:'FILL' 1;">
+                      {{ type.icon }}
+                    </span>
+                  </div>
+                  <div class="sidebar-item__text">
+                    <p class="sidebar-item__name">{{ type.name }}</p>
+                    <p class="sidebar-item__desc">{{ type.description }}</p>
                   </div>
                 </div>
-              </Transition>
-            </div>
+              </div>
+            </Transition>
           </div>
-        </Transition>
-      </div>
+        </div>
+      </aside>
 
       <!-- ── RIGHT: Properties Panel ─────────────────────── -->
       <Transition name="panel-slide">
@@ -1206,6 +1193,150 @@ onMounted(async () => {
 .palette-slide-leave-active { transition: opacity 0.15s, transform 0.15s; }
 .palette-slide-enter-from,
 .palette-slide-leave-to { opacity: 0; transform: translateX(-8px); }
+
+/* ── Node Types Sidebar ── */
+.node-types-sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 44px;
+  background: #ffffff;
+  border-right: 1px solid #e3e2e7;
+  box-shadow: 4px 0 20px rgba(0,0,0,0.08);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.node-types-sidebar--open {
+  width: 240px;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  border-bottom: 1px solid #e3e2e7;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: #f4f3f8;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #414755;
+  transition: background 0.12s;
+  flex-shrink: 0;
+}
+.sidebar-toggle:hover { background: #e3e2e7; }
+
+.sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  scrollbar-width: thin;
+}
+
+.sidebar-category {
+  margin-bottom: 8px;
+}
+
+.sidebar-cat-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 6px 4px;
+  user-select: none;
+  border-radius: 8px;
+}
+.sidebar-cat-header:hover { background: #f4f3f8; }
+
+.sidebar-cat-toggle {
+  font-size: 16px;
+  color: #717786;
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.sidebar-cat-toggle--collapsed { transform: rotate(-90deg); }
+
+.sidebar-cat-items {
+  overflow: hidden;
+}
+
+.sidebar-category-enter-active,
+.sidebar-category-leave-active {
+  transition: opacity 0.15s, max-height 0.2s ease;
+}
+.sidebar-category-enter-from,
+.sidebar-category-leave-to {
+  opacity: 0;
+}
+
+.sidebar-cat-label {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  border-left: 3px solid transparent;
+  cursor: grab;
+  transition: background 0.1s;
+  margin-bottom: 2px;
+}
+.sidebar-item:hover { background: #f4f3f8; }
+.sidebar-item:active { cursor: grabbing; }
+
+.sidebar-item__icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-item__text { flex: 1; min-width: 0; }
+
+.sidebar-item__name {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1a1b1f;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-item__desc {
+  font-size: 9px;
+  color: #a0a7b5;
+  margin: 1px 0 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 /* ── Properties Panel ── */
 .props-panel {

@@ -87,7 +87,7 @@
         <div v-for="item in filtered" :key="item.id"
           class="group rounded-2xl border p-6 cursor-pointer transition-all duration-200 hover:-translate-y-1"
           style="background:#fff;border-color:#e3e2e7;box-shadow:0 1px 4px rgba(0,0,0,0.06);"
-          @click="router.push('/integrations/' + item.id + '/design')">
+          @click="openIntegration(item.id)">
 
           <div class="flex justify-between items-start mb-4">
             <div class="w-12 h-12 rounded-xl flex items-center justify-center" style="background:#f0fdf4;">
@@ -135,7 +135,7 @@
           <tbody>
             <tr v-for="item in filtered" :key="item.id"
               class="transition-colors cursor-pointer border-t hover:bg-gray-50" style="border-color:#e3e2e7;"
-              @click="router.push('/integrations/' + item.id + '/design')">
+              @click="openIntegration(item.id)">
               <td class="px-6 py-4 font-semibold" style="color:#1a1b1f;">
                 <div class="flex items-center gap-3">
                   <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:#f0fdf4;">
@@ -281,6 +281,10 @@ const filtered = computed(() => {
 
 function domainTitle(id: string | null) {
   return id ? (domainsStore.byId(id)?.title ?? '') : '';
+}
+
+function openIntegration(id: string) {
+  router.push(`/integrations/${id}`);
 }
 
 function openCreateModal() {
