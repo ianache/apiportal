@@ -1,18 +1,13 @@
 <template>
   <Shell>
-    <div class="max-w-5xl mx-auto" style="font-family: 'Inter', sans-serif;">
+    <div class="p-8 max-w-7xl mx-auto w-full" style="font-family: 'Inter', sans-serif;">
 
-      <!-- Welcome Header -->
-      <header class="mb-10">
-        <span class="text-xs font-bold uppercase tracking-widest block mb-1" style="color: #0058bc;">
-          Phase 1 — Foundation
-        </span>
-        <h1 class="text-4xl font-bold tracking-tight" style="color: #1a1b1f;">
-          Welcome, {{ displayName }}
-        </h1>
-        <p class="mt-1 text-sm" style="color: #717786;">
-          {{ welcomeMessage }}
-        </p>
+      <!-- Header -->
+      <header class="flex justify-between items-center mb-8">
+        <div>
+          <h1 class="text-3xl font-bold" style="color: #1a1b1f;">Status</h1>
+          <p class="mt-1 text-sm" style="color: #717786;">{{ welcomeMessage }}</p>
+        </div>
       </header>
 
       <!-- Status Cards -->

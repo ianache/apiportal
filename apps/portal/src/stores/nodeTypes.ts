@@ -170,6 +170,17 @@ export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
     ],
   },
 
+  // ── Composition ────────────────────────────────────────────
+  {
+    id: 'subflow-node@v1',
+    name: 'Sub Flow',
+    description: 'Groups a set of steps into a named, reusable composite node.',
+    category: 'Composition',
+    icon: 'layers',
+    color: '#6b21a8',
+    properties: [],
+  },
+
   // ── Catalog ────────────────────────────────────────────────
   {
     id: 'catalog-node@v1',
@@ -208,15 +219,16 @@ export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
   },
 ];
 
-export const CATEGORIES = ['Protocol', 'Transform', 'Routing', 'Connector', 'Catalog', 'Control'] as const;
+export const CATEGORIES = ['Protocol', 'Transform', 'Routing', 'Connector', 'Composition', 'Catalog', 'Control'] as const;
 
 export const CATEGORY_COLORS: Record<string, string> = {
-  Protocol:  '#0058bc',
-  Transform: '#7c3aed',
-  Routing:   '#9e3d00',
-  Connector: '#047857',
-  Catalog:   '#0f766e',
-  Control:   '#414755',
+  Protocol:    '#0058bc',
+  Transform:   '#7c3aed',
+  Routing:     '#9e3d00',
+  Connector:   '#047857',
+  Composition: '#6b21a8',
+  Catalog:     '#0f766e',
+  Control:     '#414755',
 };
 
 export function findNodeType(id: string): NodeTypeDef | undefined {

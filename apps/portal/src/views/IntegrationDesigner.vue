@@ -53,6 +53,9 @@
         :default-edge-options="defaultEdgeOptions"
         :connect-on-click="false"
         :connection-mode="ConnectionMode.Loose"
+        :selection-on-drag="true"
+        :pan-on-drag="[2]"
+        :multi-selection-key-code="'Control'"
         :delete-key-code="['Delete', 'Backspace']"
         fit-view-on-init
         class="flow-canvas"
@@ -62,6 +65,75 @@
         @connect="onConnect">
         <Background :gap="24" :size="1.5" pattern-color="#d4d2db" variant="dots" />
       </VueFlow>
+
+      <!-- ── Selection action bar ───────────────────────── -->
+      <Transition name="action-bar">
+        <div v-if="multiSelected.length >= 1" class="selection-bar">
+          <span class="material-symbols-outlined" style="font-size:15px;color:#414755;">select_all</span>
+          <span class="selection-bar__count">{{ multiSelected.length }} node{{ multiSelected.length > 1 ? 's' : '' }} selected</span>
+          <button class="selection-bar__btn" @click="showSubflowModal = true">
+            <span class="material-symbols-outlined" style="font-size:14px;">layers</span>
+            Group as Subflow
+          </button>
+        </div>
+      </Transition>
+
+      <!-- ── Subflow creation modal ─────────────────────── -->
+      <Transition name="modal-fade">
+        <div v-if="showSubflowModal" class="modal-backdrop" @click.self="showSubflowModal = false">
+          <div class="modal-card" @click.stop>
+
+            <div class="modal-header">
+              <span class="material-symbols-outlined" style="font-size:20px;color:#0058bc;font-variation-settings:'FILL' 1;">layers</span>
+              <span class="modal-title">Create Subflow</span>
+              <button class="modal-close" @click="showSubflowModal = false">
+                <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+              </button>
+            </div>
+
+            <div class="modal-body">
+              <div class="props-field">
+                <label class="props-label">Name <span style="color:#991b1b;">*</span></label>
+                <input v-model="subflowForm.name" type="text" class="props-input" placeholder="Subflow name…" />
+              </div>
+              <div class="props-field">
+                <label class="props-label">Description</label>
+                <textarea v-model="subflowForm.description" class="props-input props-textarea" rows="3" placeholder="Optional description…" />
+              </div>
+              <div class="props-field">
+                <label class="props-label">Type <span style="color:#991b1b;">*</span></label>
+                <div class="sf-type-grid">
+                  <label
+                    v-for="t in SF_TYPES" :key="t.value"
+                    class="sf-type-opt"
+                    :style="subflowForm.type === t.value
+                      ? { borderColor: t.color, background: t.bg }
+                      : {}"
+                  >
+                    <input type="radio" v-model="subflowForm.type" :value="t.value" style="display:none" />
+                    <span class="material-symbols-outlined"
+                      :style="{ color: subflowForm.type === t.value ? t.color : '#a0a7b5', fontSize: '20px', fontVariationSettings: '\'FILL\' 1' }">
+                      {{ t.icon }}
+                    </span>
+                    <span class="sf-type-opt__label"
+                      :style="{ color: subflowForm.type === t.value ? t.color : '#414755', fontWeight: subflowForm.type === t.value ? '700' : '500' }">
+                      {{ t.label }}
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn-secondary" @click="showSubflowModal = false">Cancel</button>
+              <button class="btn-primary" :disabled="!subflowForm.name.trim()" @click="confirmCreateSubflow">
+                <span class="material-symbols-outlined" style="font-size:14px;">layers</span>
+                Create Subflow
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
 
       <!-- ── LEFT: Floating Node Palette ────────────────── -->
       <div class="palette-wrapper" :class="{ 'palette-wrapper--open': paletteOpen }">
@@ -106,10 +178,31 @@
 
       <!-- ── RIGHT: Properties Panel ─────────────────────── -->
       <Transition name="panel-slide">
-        <aside v-if="selectedNode" class="props-panel" @click.stop>
+        <aside v-if="selectedNode || selectedCollapsedNode" class="props-panel" @click.stop>
 
-          <!-- Panel header -->
-          <div class="props-header">
+          <!-- Panel header — collapsed node -->
+          <div v-if="selectedCollapsedNode" class="props-header">
+            <button class="props-back" @click="selectedCollapsedNode = null" title="Back to SubFlow">
+              <span class="material-symbols-outlined" style="font-size:16px;">arrow_back</span>
+            </button>
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <div v-if="collapsedNodeType" class="props-header__icon" :style="{ background: collapsedNodeType.color }">
+                <span class="material-symbols-outlined" style="font-size:16px;color:#fff;font-variation-settings:'FILL' 1;">
+                  {{ collapsedNodeType.icon }}
+                </span>
+              </div>
+              <div class="min-w-0">
+                <p class="props-header__name">{{ collapsedNodeType?.name ?? selectedCollapsedNode.node.label }}</p>
+                <p class="props-header__id">{{ selectedCollapsedNode.node.typeId }}</p>
+              </div>
+            </div>
+            <button @click="selectedCollapsedNode = null" class="props-close">
+              <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+            </button>
+          </div>
+
+          <!-- Panel header — normal node -->
+          <div v-else-if="selectedNode" class="props-header">
             <div class="flex items-center gap-2 min-w-0">
               <div v-if="selectedNodeType"
                 class="props-header__icon"
@@ -128,8 +221,91 @@
             </button>
           </div>
 
+          <!-- ── Collapsed node panel ─────────────────────── -->
+          <template v-if="selectedCollapsedNode">
+            <div class="props-section">
+              <p class="props-section-title">General</p>
+              <div class="props-field">
+                <label class="props-label">Name</label>
+                <input type="text" class="props-input"
+                  :value="selectedCollapsedNode.node.label"
+                  @input="updateCollapsedNodeData('label', ($event.target as HTMLInputElement).value)" />
+              </div>
+            </div>
+            <div v-if="collapsedNodeType && collapsedNodeType.properties.length" class="props-section">
+              <p class="props-section-title">Properties</p>
+              <div v-for="prop in collapsedNodeType.properties" :key="prop.key" class="props-field">
+                <label class="props-label">{{ prop.label }}<span v-if="prop.required" style="color:#991b1b;"> *</span></label>
+                <input v-if="prop.type === 'string'" type="text" class="props-input"
+                  :placeholder="prop.defaultValue ?? ''"
+                  :value="selectedCollapsedNode.node.props?.[prop.key] ?? prop.defaultValue ?? ''"
+                  @input="updateCollapsedNodeProp(prop.key, ($event.target as HTMLInputElement).value)" />
+                <input v-else-if="prop.type === 'number'" type="number" class="props-input"
+                  :value="selectedCollapsedNode.node.props?.[prop.key] ?? prop.defaultValue ?? ''"
+                  @input="updateCollapsedNodeProp(prop.key, Number(($event.target as HTMLInputElement).value))" />
+                <label v-else-if="prop.type === 'boolean'" class="props-checkbox-label">
+                  <input type="checkbox"
+                    :checked="selectedCollapsedNode.node.props?.[prop.key] ?? prop.defaultValue ?? false"
+                    @change="updateCollapsedNodeProp(prop.key, ($event.target as HTMLInputElement).checked)" />
+                  {{ prop.label }}
+                </label>
+                <select v-else-if="prop.type === 'select'" class="props-input"
+                  :value="selectedCollapsedNode.node.props?.[prop.key] ?? prop.defaultValue ?? ''"
+                  @change="updateCollapsedNodeProp(prop.key, ($event.target as HTMLSelectElement).value)">
+                  <option v-for="opt in prop.options" :key="opt" :value="opt">{{ opt }}</option>
+                </select>
+                <textarea v-else-if="prop.type === 'textarea'" class="props-input props-textarea" rows="4"
+                  :value="selectedCollapsedNode.node.props?.[prop.key] ?? prop.defaultValue ?? ''"
+                  @input="updateCollapsedNodeProp(prop.key, ($event.target as HTMLTextAreaElement).value)" />
+              </div>
+            </div>
+            <div v-else-if="collapsedNodeType" class="props-empty">No configurable properties.</div>
+          </template>
+
+          <!-- ── Normal node panels ───────────────────────── -->
+          <!-- SubFlow properties -->
+          <div v-if="selectedNode && selectedNode.type === 'subflow'" class="props-section">
+            <p class="props-section-title">Subflow</p>
+            <div class="props-field">
+              <label class="props-label">Name <span style="color:#991b1b;">*</span></label>
+              <input type="text" class="props-input"
+                :value="selectedNode.data.label ?? ''"
+                @input="updateNodeData('label', ($event.target as HTMLInputElement).value)" />
+            </div>
+            <div class="props-field">
+              <label class="props-label">Description</label>
+              <textarea class="props-input props-textarea" rows="2"
+                :value="selectedNode.data.description ?? ''"
+                @input="updateNodeData('description', ($event.target as HTMLTextAreaElement).value)" />
+            </div>
+            <div class="props-field">
+              <label class="props-label">Type <span style="color:#991b1b;">*</span></label>
+              <div class="sf-type-grid">
+                <label
+                  v-for="t in SF_TYPES" :key="t.value"
+                  class="sf-type-opt"
+                  :style="selectedNode.data.flowType === t.value
+                    ? { borderColor: t.color, background: t.bg }
+                    : {}">
+                  <input type="radio"
+                    :checked="selectedNode.data.flowType === t.value"
+                    @change="updateNodeData('flowType', t.value); updateNodeData('color', t.color)"
+                    style="display:none" />
+                  <span class="material-symbols-outlined"
+                    :style="{ color: selectedNode.data.flowType === t.value ? t.color : '#a0a7b5', fontSize: '18px', fontVariationSettings: '\'FILL\' 1' }">
+                    {{ t.icon }}
+                  </span>
+                  <span class="sf-type-opt__label"
+                    :style="{ color: selectedNode.data.flowType === t.value ? t.color : '#414755', fontWeight: selectedNode.data.flowType === t.value ? '700' : '500' }">
+                    {{ t.label }}
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
           <!-- Protocol type selector (only for protocol nodes) -->
-          <div v-if="selectedNode.type === 'protocol'" class="props-section">
+          <div v-if="selectedNode && selectedNode.type === 'protocol'" class="props-section">
             <label class="props-label">Protocol Type</label>
             <select class="props-input" :value="selectedNode.data.typeId" @change="changeProtocolType">
               <option v-for="t in protocolTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
@@ -137,7 +313,7 @@
           </div>
 
           <!-- Catalog Node — name & description -->
-          <div v-if="selectedNode.data.typeId === 'catalog-node@v1'" class="props-section">
+          <div v-if="selectedNode && selectedNode.data.typeId === 'catalog-node@v1'" class="props-section">
             <p class="props-section-title">General</p>
             <div class="props-field">
               <label class="props-label">Name <span style="color:#991b1b;">*</span></label>
@@ -156,7 +332,7 @@
           </div>
 
           <!-- Catalog Node configuration -->
-          <div v-if="selectedNode.data.typeId === 'catalog-node@v1'" class="props-section">
+          <div v-if="selectedNode && selectedNode.data.typeId === 'catalog-node@v1'" class="props-section">
             <p class="props-section-title">Configuration</p>
 
             <!-- Step 1: Node Type selector -->
@@ -220,7 +396,7 @@
           </div>
 
           <!-- Properties form (static node types) -->
-          <div v-else-if="selectedNodeType && selectedNodeType.properties.length" class="props-section">
+          <div v-else-if="selectedNode && selectedNodeType && selectedNodeType.properties.length" class="props-section">
             <p class="props-section-title">Properties</p>
             <div v-for="prop in selectedNodeType.properties" :key="prop.key" class="props-field">
               <label class="props-label">
@@ -267,7 +443,7 @@
             </div>
           </div>
 
-          <div v-else-if="selectedNodeType" class="props-empty">
+          <div v-else-if="selectedNode && selectedNodeType && selectedNode.type !== 'subflow'" class="props-empty">
             No configurable properties for this node type.
           </div>
         </aside>
@@ -278,7 +454,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, markRaw, onMounted, computed } from 'vue';
+import { ref, markRaw, reactive, computed, watch, provide, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VueFlow, useVueFlow, MarkerType, ConnectionMode } from '@vue-flow/core';
 import type { Node, Edge, Connection, NodeMouseEvent, NodeChange } from '@vue-flow/core';
@@ -286,6 +462,7 @@ import { Background } from '@vue-flow/background';
 import ProtocolNode from '../components/integration/ProtocolNode.vue';
 import FlowNode from '../components/integration/FlowNode.vue';
 import FilterNode from '../components/integration/FilterNode.vue';
+import SubFlowNode from '../components/integration/SubFlowNode.vue';
 import { NODE_TYPE_CATALOG, CATEGORIES, CATEGORY_COLORS, findNodeType } from '../stores/nodeTypes';
 import { useIntegrationsStore } from '../stores/integrations';
 import { useDomainsStore } from '../stores/domains';
@@ -312,6 +489,7 @@ const nodeTypes = {
   protocol: markRaw(ProtocolNode),
   flow:     markRaw(FlowNode),
   filter:   markRaw(FilterNode),
+  subflow:  markRaw(SubFlowNode),
 };
 
 // ── Flow state ────────────────────────────────────────────
@@ -382,6 +560,23 @@ function onDrop(event: DragEvent) {
     }
   }
 
+  // Subflow node dropped from palette — create a blank subflow
+  if (typeId === 'subflow-node@v1') {
+    addNodes([{
+      id: `subflow-${Date.now()}`,
+      type: 'subflow',
+      position: dropPos,
+      data: {
+        label:          'Sub Flow',
+        description:    '',
+        flowType:       'inflow',
+        color:          '#0058bc',
+        collapsedNodes: [],
+      },
+    }]);
+    return;
+  }
+
   // Dropped outside the flow node — standalone filter on canvas
   addNodes([{
     id: `filter-${Date.now()}`,
@@ -399,6 +594,27 @@ const selectedNodeType = computed(() => {
   return findNodeType(selectedNode.value.data.typeId);
 });
 
+// ── Collapsed node selection (chip inside SubFlowNode) ────
+interface CollapsedNodeRef {
+  subflowId: string;
+  index:     number;
+  node:      { id: string; type: string; typeId: string; label: string; description?: string; props: Record<string, any> };
+}
+const selectedCollapsedNode = ref<CollapsedNodeRef | null>(null);
+
+const collapsedNodeType = computed(() =>
+  selectedCollapsedNode.value ? findNodeType(selectedCollapsedNode.value.node.typeId) : null
+);
+
+provide('subflowChipClick', (subflowId: string, index: number) => {
+  const sfNode = nodes.value.find(n => n.id === subflowId);
+  if (!sfNode) return;
+  const node = sfNode.data.collapsedNodes?.[index];
+  if (!node) return;
+  selectedNode.value = null;
+  selectedCollapsedNode.value = { subflowId, index, node };
+});
+
 const selectedCatalogEntry = computed(() => {
   if (!selectedNode.value) return null;
   const catalogTypeId = selectedNode.value.data.props?.catalogTypeId;
@@ -406,12 +622,26 @@ const selectedCatalogEntry = computed(() => {
   return catalogStore.byId(catalogTypeId) ?? null;
 });
 
+// ── Multi-selection state ─────────────────────────────────
+const multiSelected = computed(() => nodes.value.filter(n => n.selected));
+
+// Hide props panel when rubber-band selects 2+ nodes
+watch(multiSelected, (sel) => {
+  if (sel.length > 1) selectedNode.value = null;
+});
+
 function onNodeClick(event: NodeMouseEvent) {
+  selectedCollapsedNode.value = null;
+  if (event.event.ctrlKey || event.event.metaKey) {
+    selectedNode.value = null;
+    return;
+  }
   selectedNode.value = event.node;
 }
 
 function onPaneClick() {
   selectedNode.value = null;
+  selectedCollapsedNode.value = null;
 }
 
 function onNodesChange(changes: NodeChange[]) {
@@ -439,6 +669,97 @@ function onConnect(connection: Connection) {
     style: { stroke: '#0058bc', strokeWidth: 2 },
     markerEnd: { type: MarkerType.ArrowClosed, color: '#0058bc' },
   }]);
+}
+
+// ── Subflow grouping ──────────────────────────────────────
+const SF_TYPES = [
+  { value: 'inflow',    label: 'Inflow',    icon: 'input',  color: '#0058bc', bg: '#eff6ff' },
+  { value: 'outflow',   label: 'Outflow',   icon: 'output', color: '#047857', bg: '#f0fdf4' },
+  { value: 'exception', label: 'Exception', icon: 'report', color: '#991b1b', bg: '#fef2f2' },
+] as const;
+
+const SF_COLOR: Record<string, string> = { inflow: '#0058bc', outflow: '#047857', exception: '#991b1b' };
+
+const showSubflowModal = ref(false);
+const subflowForm = reactive({ name: '', description: '', type: 'inflow' as 'inflow' | 'outflow' | 'exception' });
+
+function confirmCreateSubflow() {
+  if (!subflowForm.name.trim()) return;
+
+  const selNodes = nodes.value.filter(n => n.selected);
+  if (!selNodes.length) return;
+
+  const selIds = new Set(selNodes.map(n => n.id));
+
+  // Bounding box of selected nodes
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const n of selNodes) {
+    const w = typeof n.style?.width  === 'string' ? parseInt(n.style.width  as string) : (n.style?.width  as number | undefined ?? 160);
+    const h = typeof n.style?.height === 'string' ? parseInt(n.style.height as string) : (n.style?.height as number | undefined ?? 56);
+    minX = Math.min(minX, n.position.x);
+    minY = Math.min(minY, n.position.y);
+    maxX = Math.max(maxX, n.position.x + w);
+    maxY = Math.max(maxY, n.position.y + h);
+  }
+
+  // Edges that cross the selection boundary (one end inside, one outside)
+  const externalEdges = edges.value.filter(e => {
+    const si = selIds.has(e.source);
+    const ti = selIds.has(e.target);
+    return si !== ti;
+  });
+
+  // Remove selected nodes and all their connected edges
+  nodes.value = nodes.value.filter(n => !selIds.has(n.id));
+  edges.value = edges.value.filter(e => !selIds.has(e.source) && !selIds.has(e.target));
+
+  const sfId = `subflow-${Date.now()}`;
+  const PAD  = 32;
+
+  // Add subflow node positioned at the bounding box
+  nodes.value = [
+    ...nodes.value,
+    {
+      id:   sfId,
+      type: 'subflow',
+      position: { x: minX - PAD, y: minY - PAD },
+      data: {
+        label:       subflowForm.name.trim(),
+        description: subflowForm.description.trim() || undefined,
+        flowType:    subflowForm.type,
+        color:       SF_COLOR[subflowForm.type],
+        collapsedNodes: selNodes.map(n => ({
+          id:          n.id,
+          type:        n.type ?? 'filter',
+          typeId:      n.data?.typeId      ?? n.type ?? '',
+          label:       n.data?.label       ?? '',
+          description: n.data?.description ?? '',
+          props:       { ...(n.data?.props ?? {}) },
+        })),
+      },
+    } as any,
+  ];
+
+  // Reconnect external edges to the subflow node
+  if (externalEdges.length) {
+    edges.value = [
+      ...edges.value,
+      ...externalEdges.map(e => ({
+        ...e,
+        id:           `${e.id}-sf`,
+        source:       selIds.has(e.source) ? sfId : e.source,
+        sourceHandle: selIds.has(e.source) ? 'right' : (e.sourceHandle ?? undefined),
+        target:       selIds.has(e.target) ? sfId : e.target,
+        targetHandle: selIds.has(e.target) ? 'left'  : (e.targetHandle ?? undefined),
+      })),
+    ];
+  }
+
+  // Reset form
+  showSubflowModal.value = false;
+  subflowForm.name        = '';
+  subflowForm.description = '';
+  subflowForm.type        = 'inflow';
 }
 
 // ── Property update ───────────────────────────────────────
@@ -482,6 +803,29 @@ function updateNodeData(key: string, value: any) {
   const newData = { ...node.data, [key]: value };
   updateNode(node.id, { data: newData });
   selectedNode.value = { ...node, data: newData };
+}
+
+// ── Collapsed node prop/data update ──────────────────────
+function updateCollapsedNodeProp(key: string, value: any) {
+  if (!selectedCollapsedNode.value) return;
+  const { subflowId, index } = selectedCollapsedNode.value;
+  const sfNode = nodes.value.find(n => n.id === subflowId);
+  if (!sfNode) return;
+  const list = [...(sfNode.data.collapsedNodes ?? [])];
+  list[index] = { ...list[index], props: { ...list[index].props, [key]: value } };
+  updateNode(subflowId, { data: { ...sfNode.data, collapsedNodes: list } });
+  selectedCollapsedNode.value = { ...selectedCollapsedNode.value, node: list[index] };
+}
+
+function updateCollapsedNodeData(key: string, value: any) {
+  if (!selectedCollapsedNode.value) return;
+  const { subflowId, index } = selectedCollapsedNode.value;
+  const sfNode = nodes.value.find(n => n.id === subflowId);
+  if (!sfNode) return;
+  const list = [...(sfNode.data.collapsedNodes ?? [])];
+  list[index] = { ...list[index], [key]: value };
+  updateNode(subflowId, { data: { ...sfNode.data, collapsedNodes: list } });
+  selectedCollapsedNode.value = { ...selectedCollapsedNode.value, node: list[index] };
 }
 
 // ── Catalog type change (resets property values) ──────────
@@ -753,6 +1097,16 @@ onMounted(async () => {
   font-family: 'Inter', monospace;
 }
 
+.props-back {
+  padding: 4px;
+  border-radius: 8px;
+  color: #717786;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s;
+}
+.props-back:hover { background: #f4f3f8; }
+
 .props-close {
   padding: 4px;
   border-radius: 8px;
@@ -841,4 +1195,160 @@ onMounted(async () => {
 .panel-slide-leave-active { transition: transform 0.2s ease, opacity 0.2s ease; }
 .panel-slide-enter-from,
 .panel-slide-leave-to { transform: translateX(100%); opacity: 0; }
+
+/* ── Selection action bar ── */
+.selection-bar {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: #ffffff;
+  border: 1px solid #e3e2e7;
+  border-radius: 999px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+  white-space: nowrap;
+}
+
+.selection-bar__count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #414755;
+}
+
+.selection-bar__btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #0058bc;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+.selection-bar__btn:hover { opacity: 0.85; }
+
+.action-bar-enter-active, .action-bar-leave-active { transition: opacity 0.15s, transform 0.15s; }
+.action-bar-enter-from, .action-bar-leave-to { opacity: 0; transform: translateX(-50%) translateY(8px); }
+
+/* ── Modal ── */
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.3);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-card {
+  width: 420px;
+  background: #ffffff;
+  border-radius: 20px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  overflow: hidden;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e3e2e7;
+}
+
+.modal-title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1b1f;
+}
+
+.modal-close {
+  padding: 4px;
+  border-radius: 8px;
+  color: #717786;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.modal-close:hover { background: #f4f3f8; }
+
+.modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid #e3e2e7;
+}
+
+.btn-secondary {
+  padding: 7px 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #414755;
+  background: #f4f3f8;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.btn-secondary:hover { background: #e3e2e7; }
+
+.btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  background: #0058bc;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+.btn-primary:hover { opacity: 0.85; }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Subflow type selector */
+.sf-type-grid {
+  display: flex;
+  gap: 8px;
+}
+
+.sf-type-opt {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border: 2px solid #e3e2e7;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+.sf-type-opt:hover { background: #f4f3f8; }
+
+.sf-type-opt__label {
+  font-size: 11px;
+  text-align: center;
+}
+
+.modal-fade-enter-active, .modal-fade-leave-active { transition: opacity 0.15s; }
+.modal-fade-enter-from, .modal-fade-leave-to { opacity: 0; }
 </style>

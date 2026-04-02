@@ -1,7 +1,16 @@
 <template>
-  <div class="p-6 max-w-2xl mx-auto w-full" style="font-family:'Inter',sans-serif;">
-    <h1 class="text-2xl font-bold mb-1" style="color:#1a1b1f;">Preferences</h1>
-    <p class="text-sm mb-8" style="color:#6b7280;">Configure application preferences and integrations.</p>
+  <Shell>
+  <div class="p-8 max-w-7xl mx-auto w-full" style="font-family: 'Inter', sans-serif;">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center mb-8">
+      <div>
+        <h1 class="text-3xl font-bold" style="color: #1a1b1f;">Preferences</h1>
+        <p class="mt-1 text-sm" style="color: #717786;">Configure application preferences and integrations.</p>
+      </div>
+    </header>
+
+    <div class="max-w-2xl">
 
     <!-- AI Designer section -->
     <section class="pref-card">
@@ -65,11 +74,14 @@
         </button>
       </div>
     </section>
+    </div>
   </div>
+  </Shell>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import Shell from '../../components/layout/Shell.vue';
 import { useLLMPreferencesStore, LLM_PROVIDERS } from '../../stores/preferences';
 
 const llmPrefs = useLLMPreferencesStore();
