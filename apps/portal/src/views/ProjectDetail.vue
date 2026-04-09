@@ -86,6 +86,20 @@
           <p v-else @click="startEditDesc" class="text-lg leading-relaxed max-w-2xl cursor-pointer hover:underline" style="color: #414755;" :title="canEditMetadata ? 'Click to edit' : ''">
             {{ api.description || 'No description provided for this API project.' }}
           </p>
+
+          <!-- Domain combobox -->
+          <div class="mt-4 flex items-center gap-2">
+            <span class="material-symbols-outlined" style="font-size:16px;color:#0058bc;">category</span>
+            <select v-if="canEditMetadata" v-model="editDomainId" @change="saveDomain" class="text-sm font-semibold outline-none cursor-pointer" style="color:#0058bc; background:transparent; border:none;">
+              <option :value="null">— No domain assigned —</option>
+              <option v-for="d in domainsStore.domains" :key="d.id" :value="d.id">{{ d.title }}</option>
+            </select>
+            <span v-else class="text-sm font-semibold" style="color:#0058bc;">
+              {{ domainTitle(api.domainId) || '— No domain assigned —' }}
+            </span>
+            <span v-if="savingDomain" class="material-symbols-outlined animate-spin text-sm" style="color:#0058bc;">progress_activity</span>
+          </div>
+
         </div>
 
         <!-- Lifecycle card -->
@@ -528,6 +542,7 @@ import Shell from '../components/layout/Shell.vue';
 import { useRegistryStore } from '../stores/registry';
 import { useEnvironmentStore } from '../stores/environments';
 import { useAuthStore } from '../stores/auth';
+import { useDomainsStore } from '../stores/domains';
 import type { API, APIVersion, APIStatus } from 'shared-types';
 
 const route = useRoute();
@@ -535,6 +550,7 @@ const router = useRouter();
 const registry = useRegistryStore();
 const environmentStore = useEnvironmentStore();
 const auth = useAuthStore();
+const domainsStore = useDomainsStore();
 
 const api = ref<API | null>(null);
 const selectedVersion = ref<APIVersion | null>(null);
@@ -665,6 +681,28 @@ const cancelEditDesc = () => {
   editDesc.value = '';
 };
 
+// Inline Domain Edit
+const editDomainId = ref<string | null>(null);
+const savingDomain = ref(false);
+
+function domainTitle(id: string | null | undefined) {
+  if (!id) return '';
+  return domainsStore.byId(id)?.title ?? '';
+}
+
+const saveDomain = async () => {
+  if (!api.value || savingDomain.value) return;
+  savingDomain.value = true;
+  try {
+    await registry.updateApi(api.value.id, { domainId: editDomainId.value });
+    api.value.domainId = editDomainId.value;
+  } catch (err: any) {
+    error.value = err.message;
+  } finally {
+    savingDomain.value = false;
+  }
+};
+
 // Create version handler
 const handleCreateVersion = async () => {
   if (!api.value || !newVersionNumber.value) return;
@@ -747,6 +785,7 @@ const fetchData = async () => {
     const id = route.params.id as string;
     const data = await registry.fetchApiById(id);
     api.value = data;
+    editDomainId.value = data.domainId ?? null;
     if (data.versions?.length) selectedVersion.value = data.versions[0];
   } catch (err: any) {
     error.value = err.message;
@@ -758,6 +797,7 @@ const fetchData = async () => {
 onMounted(async () => {
   await fetchData();
   await environmentStore.fetchEnvironments();
+  await domainsStore.fetch();
 });
 
 const handleStatusTransition = async (status: APIStatus) => {

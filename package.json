@@ -1,32 +1,33 @@
 {
-    "name":  "nexus-api-manager",
-    "private":  true,
-    "scripts":  {
-                    "dev":  "npm run dev --workspaces --if-present",
-                    "dev:portal": "npm run dev --workspace=apps/portal",
-                    "dev:bff": "npm run dev --workspace=apps/bff",
-                    "build":  "npm run build --workspaces --if-present",
-                    "test":  "npm run test --workspaces --if-present"
-                },
-    "version":  "1.0.0",
-    "description":  "",
-    "main":  "index.js",
-    "repository":  {
-                       "type":  "git",
-                       "url":  "git+https://github.com/ianache/apiportal.git"
-                   },
-    "keywords":  [
-
-                 ],
-    "author":  "",
-    "license":  "ISC",
-    "type":  "commonjs",
-    "bugs":  {
-                 "url":  "https://github.com/ianache/apiportal/issues"
-             },
-    "homepage":  "https://github.com/ianache/apiportal#readme",
-    "workspaces":  [
-                       "apps/*",
-                       "packages/*"
-                   ]
+    "name": "nexus-api-manager",
+    "private": true,
+    "scripts": {
+        "dev": "npm run dev --workspaces --if-present",
+        "dev:portal": "npm run dev --workspace=apps/portal",
+        "dev:bff": "npm run dev --workspace=apps/bff",
+        "build": "npm run build --workspaces --if-present",
+        "test": "npm run test --workspaces --if-present"
+    },
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/ianache/apiportal.git"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "commonjs",
+    "bugs": {
+        "url": "https://github.com/ianache/apiportal/issues"
+    },
+    "homepage": "https://github.com/ianache/apiportal#readme",
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "dependencies": {
+        "vite": "^8.0.7"
+    }
 }

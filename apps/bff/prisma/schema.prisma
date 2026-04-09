@@ -155,3 +155,34 @@ model APIEndpoint {
 
   @@unique([versionId, environmentId])
 }
+
+model LLMProvider {
+  id        String   @id
+  label     String
+  models    String[]
+  apiKeys   UserLLMApiKey[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model UserPreferences {
+  userId            String   @id // Keycloak sub
+  preferredProvider String   @default("openai")
+  preferredModel    String   @default("gpt-4o")
+  customApiUrl      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model UserLLMApiKey {
+  id         String      @id @default(uuid())
+  userId     String      // Keycloak sub
+  providerId String
+  provider   LLMProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  apiKey     String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@unique([userId, providerId])
+}
+

@@ -31,6 +31,9 @@
         <button @click="fileInputRef?.click()" class="toolbar-icon-btn" title="Import YAML (OpenAPI or Design)">
           <span class="material-symbols-outlined" style="font-size:19px;">upload_file</span>
         </button>
+        <button @click="snapToGrid = !snapToGrid" class="toolbar-icon-btn" :class="{ 'toolbar-icon-btn--active': snapToGrid }" title="Toggle snap to grid">
+          <span class="material-symbols-outlined" style="font-size:19px;">grid_on</span>
+        </button>
         <button @click="exportDesignYaml" class="toolbar-icon-btn" title="Export Visual Design YAML">
           <span class="material-symbols-outlined" style="font-size:19px;">device_hub</span>
         </button>
@@ -61,6 +64,7 @@
       <!-- Vue Flow -->
       <VueFlow v-model:nodes="nodes" v-model:edges="edges" :node-types="nodeTypes"
         :default-edge-options="defaultEdgeOptions" :connect-on-click="false"
+        :snap-to-grid="snapToGrid" :snap-grid="[24, 24]"
         fit-view-on-init class="flow-canvas"
         @node-click="onNodeClick" @edge-click="onEdgeClick" @pane-click="onPaneClick">
         <Background :gap="24" :size="1.5" pattern-color="#d4d2db" variant="dots" />
@@ -438,7 +442,7 @@ const version  = route.params.version as string;
 const apiName  = ref('');
 
 // ── Vue Flow ─────────────────────────────────────────
-const { removeNodes, updateNode } = useVueFlow();
+const { removeNodes, updateNode, getViewport, setViewport } = useVueFlow();
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const nodeTypes = { resource: markRaw(ResourceNode) };
 const defaultEdgeOptions = {
@@ -453,6 +457,8 @@ const ROOT_NODE: Node = {
 };
 const nodes = ref<Node[]>([ROOT_NODE]);
 const edges = ref<Edge[]>([]);
+
+const snapToGrid = ref(false);
 
 // ── Components catalog ───────────────────────────────
 const components = ref<ComponentSchema[]>([]);
@@ -642,7 +648,14 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 async function saveFlow() {
   saveStatus.value = 'saving';
   try {
-    const payload = JSON.stringify({ type: 'api-flow', nodes: nodes.value, edges: edges.value, components: components.value });
+    const vp = getViewport();
+    const payload = JSON.stringify({
+      type: 'api-flow',
+      nodes: nodes.value,
+      edges: edges.value,
+      components: components.value,
+      viewport: { x: vp.x, y: vp.y, zoom: vp.zoom },
+    });
     await registry.saveDefinition(apiId, version, payload);
     saveStatus.value = 'saved';
   } catch { saveStatus.value = 'error'; }
@@ -667,6 +680,10 @@ onMounted(async () => {
         edges.value = parsed.edges ?? [];
         components.value = parsed.components ?? [];
         collapseAllSchemas();
+        // Restore saved viewport or apply 75% default
+        const vp = parsed.viewport;
+        await nextTick();
+        setViewport(vp ? { x: vp.x, y: vp.y, zoom: vp.zoom } : { x: 0, y: 0, zoom: 0.75 });
         return;
       }
     } catch { /* fall through */ }
@@ -674,6 +691,8 @@ onMounted(async () => {
   nodes.value = [ROOT_NODE];
   edges.value = [];
   components.value = [];
+  await nextTick();
+  setViewport({ x: 0, y: 0, zoom: 0.75 });
 });
 
 // ── YAML export ───────────────────────────────────────
@@ -1019,7 +1038,7 @@ async function sendAiMessage() {
     const res = await fetch(`${bffBase}/ai/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ provider: llmPrefs.provider, apiKey: llmPrefs.apiKey, model: llmPrefs.model, messages }),
+      body: JSON.stringify({ provider: llmPrefs.provider, apiKey: llmPrefs.currentApiKey, model: llmPrefs.model, messages }),
     });
 
     if (!res.ok) {

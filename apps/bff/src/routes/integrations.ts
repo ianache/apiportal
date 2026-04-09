@@ -11,7 +11,7 @@ const createSchema = z.object({
   status:      IntegrationStatusEnum.default('DRAFT'),
   icon:        z.string().max(60).optional(),
   linkedApis:  z.number().int().min(0).default(0),
-  domainId:    z.string().uuid().optional().nullable(),
+  domainId:    z.string().uuid(),
 });
 
 const createVersionSchema = z.object({

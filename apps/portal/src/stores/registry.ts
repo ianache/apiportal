@@ -112,7 +112,7 @@ export const useRegistryStore = defineStore('registry', {
       }
     },
 
-    async updateApi(id: string, payload: { name?: string; description?: string }) {
+    async updateApi(id: string, payload: { name?: string; description?: string; domainId?: string | null }) {
       this.loading = true;
       this.error = null;
       try {

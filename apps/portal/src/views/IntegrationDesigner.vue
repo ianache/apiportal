@@ -32,6 +32,14 @@
         <span v-else-if="saveStatus === 'saved'" class="flex items-center gap-1 text-xs font-medium" style="color:#047857;">
           <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>Saved
         </span>
+
+        <button @click="snapToGrid = !snapToGrid"
+          class="flex items-center justify-center w-8 h-8 rounded-xl transition-all"
+          :style="{ background: snapToGrid ? '#e0e7ff' : '#f4f3f8', color: snapToGrid ? '#0058bc' : '#a0a7b5' }"
+          :title="snapToGrid ? 'Disable Snap to Grid' : 'Enable Snap to Grid'">
+          <span class="material-symbols-outlined" style="font-size:16px;">grid_on</span>
+        </button>
+
         <button @click="exportFlow"
           class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-80"
           style="background:#f4f3f8;color:#414755;">
@@ -56,10 +64,12 @@
         v-model:edges="edges"
         :node-types="nodeTypes"
         :default-edge-options="defaultEdgeOptions"
+        :snap-to-grid="snapToGrid"
+        :snap-grid="[24, 24]"
         :connect-on-click="false"
         :connection-mode="ConnectionMode.Loose"
-        :selection-on-drag="true"
-        :pan-on-drag="[2]"
+        :selection-on-drag="false"
+        :pan-on-drag="true"
         :multi-selection-key-code="'Control'"
         :delete-key-code="['Delete', 'Backspace']"
         fit-view-on-init
@@ -502,6 +512,8 @@ const nodeTypes = {
 // ── Flow state ────────────────────────────────────────────
 const nodes = ref<Node[]>([]);
 const edges = ref<Edge[]>([]);
+
+const snapToGrid = ref(false);
 
 const defaultEdgeOptions = {
   type: 'smoothstep',

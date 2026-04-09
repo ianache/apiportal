@@ -9,14 +9,16 @@ export const useAuthStore = defineStore('auth', {
   }),
   actions: {
     async init() {
+      const env = (window as any).NEXUS_ENV || import.meta.env;
       this.keycloak = new Keycloak({
-        url: import.meta.env.VITE_KEYCLOAK_URL,
-        realm: import.meta.env.VITE_KEYCLOAK_REALM,
-        clientId: import.meta.env.VITE_KEYCLOAK_CLIENT_ID
+        url: env.KEYCLOAK_URL || env.VITE_KEYCLOAK_URL,
+        realm: env.KEYCLOAK_REALM || env.VITE_KEYCLOAK_REALM,
+        clientId: env.KEYCLOAK_CLIENT_ID || env.VITE_KEYCLOAK_CLIENT_ID
       });
       try {
         this.authenticated = await this.keycloak.init({
-          onLoad: 'check-sso',
+          onLoad: 'login-required',
+          checkLoginIframe: false,
           pkceMethod: 'S256'
         });
         if (this.authenticated) {

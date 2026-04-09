@@ -189,9 +189,9 @@
             <input v-model="newItem.name" type="text" class="modal-input" placeholder="e.g. Stripe Webhook" />
           </div>
           <div>
-            <label class="modal-label">Domain</label>
+            <label class="modal-label">Domain <span style="color:#991b1b;">*</span></label>
             <select v-model="newItem.domainId" class="modal-input">
-              <option value="">— No domain —</option>
+              <option value="" disabled>— Select a Domain —</option>
               <option v-for="d in domainsStore.domains" :key="d.id" :value="d.id">{{ d.title }}</option>
             </select>
             <p v-if="!domainsStore.domains.length" class="modal-hint">
@@ -217,10 +217,10 @@
             style="color:#414755;border-color:#e3e2e7;">
             <span class="material-symbols-outlined text-base">close</span>Cancel
           </button>
-          <button @click="handleCreate" :disabled="!newItem.name"
+          <button @click="handleCreate" :disabled="!newItem.name || !newItem.domainId"
             class="flex-1 py-3 px-6 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
-            :style="newItem.name ? 'background:#006e28;color:#fff;box-shadow:0 4px 14px rgba(0,110,40,0.28);' : 'background:#006e28;color:#fff;opacity:0.4;cursor:not-allowed;'">
-            <span class="material-symbols-outlined text-base">hub</span>Create Integration
+            :style="(newItem.name && newItem.domainId) ? 'background:#006e28;color:#fff;box-shadow:0 4px 14px rgba(0,110,40,0.28);' : 'background:#006e28;color:#fff;opacity:0.4;cursor:not-allowed;'">
+            <span class="material-symbols-outlined text-base">hub</span>Create
           </button>
         </div>
       </div>
@@ -298,7 +298,7 @@ const iconMap: Record<string, string> = {
 };
 
 async function handleCreate() {
-  if (!newItem.value.name.trim()) return;
+  if (!newItem.value.name.trim() || !newItem.value.domainId) return;
   await store.create({
     name:        newItem.value.name,
     type:        newItem.value.type,

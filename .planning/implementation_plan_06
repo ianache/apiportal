@@ -1,0 +1,66 @@
+# AI Designer Preferences + API Keys Management
+
+Persist AI Designer settings (selected provider, model, base URL) and API Keys **per provider** to the database. Add a "Manage API Keys" panel in Settings > Preferences.
+
+## Proposed Changes
+
+---
+
+### BFF — Database Schema ([schema.prisma](file:///c:/Users/ianache/Desktop/DATA/01-DOCUMENTOS/02-PROYECTOS/103-APIManager/apps/bff/prisma/schema.prisma))
+#### [MODIFY] [schema.prisma](file:///c:/Users/ianache/Desktop/DATA/01-DOCUMENTOS/02-PROYECTOS/103-APIManager/apps/bff/prisma/schema.prisma)
+- Add `UserLLMApiKey` model: stores `userId`, `providerId`, `apiKey` (encrypted or plain-text), timestamps. Uses `@@unique([userId, providerId])`.
+- Add `UserPreferences` model: stores `userId`, `preferredProvider`, `preferredModel`, `customApiUrl`, timestamps. `@id` is `userId`.
+
+---
+
+### BFF — New Routes (`src/routes/userPreferences.ts`)
+#### [NEW] [userPreferences.ts](file:///c:/Users/ianache/Desktop/DATA/01-DOCUMENTOS/02-PROYECTOS/103-APIManager/apps/bff/src/routes/userPreferences.ts)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/user-preferences` | Returns current user's `UserPreferences` + all their `UserLLMApiKey` records |
+| `PUT` | `/user-preferences` | Upserts `UserPreferences` (provider, model, apiUrl) for the current user |
+| `PUT` | `/user-api-keys/:providerId` | Upserts a single API Key for the current user + given provider |
+| `DELETE` | `/user-api-keys/:providerId` | Deletes a specific API Key for user+provider |
+
+All routes require a valid JWT (`request.user`).  
+
+---
+
+### BFF — Register Route ([src/app.ts](file:///c:/Users/ianache/Desktop/DATA/01-DOCUMENTOS/02-PROYECTOS/103-APIManager/apps/bff/src/app.ts) or [index.ts](file:///c:/Users/ianache/Desktop/DATA/01-DOCUMENTOS/02-PROYECTOS/103-APIManager/packages/shared-types/index.ts))
+#### [MODIFY] [app.ts](file:///c:/Users/ianache/Desktop/DATA/01-DOCUMENTOS/02-PROYECTOS/103-APIManager/apps/bff/src/app.ts)
+- Register `userPreferencesRoute` at prefix `/user-preferences`.
+
+---
+
+### Portal — Store ([src/stores/preferences.ts](file:///c:/Users/ianache/Desktop/DATA/01-DOCUMENTOS/02-PROYECTOS/103-APIManager/apps/portal/src/stores/preferences.ts))
+#### [MODIFY] [preferences.ts](file:///c:/Users/ianache/Desktop/DATA/01-DOCUMENTOS/02-PROYECTOS/103-APIManager/apps/portal/src/stores/preferences.ts)
+- Add `apiKeys: Record<string, string>` to state (keyed by provider id).
+- Add `fetchFromDB()` action: fetches user prefs + API keys from BFF.
+- Modify [persist()](file:///c:/Users/ianache/Desktop/DATA/01-DOCUMENTOS/02-PROYECTOS/103-APIManager/apps/portal/src/stores/preferences.ts#45-52) to also call `PUT /user-preferences`.
+- Add `saveApiKey(providerId, key)` action: calls `PUT /user-api-keys/:id`.
+- Add `deleteApiKey(providerId)` action: calls `DELETE /user-api-keys/:id`.
+- Keep localStorage fallback for backwards compat.
+
+---
+
+### Portal — View ([src/views/settings/SettingsPreferences.vue](file:///c:/Users/ianache/Desktop/DATA/01-DOCUMENTOS/02-PROYECTOS/103-APIManager/apps/portal/src/views/settings/SettingsPreferences.vue))
+#### [MODIFY] [SettingsPreferences.vue](file:///c:/Users/ianache/Desktop/DATA/01-DOCUMENTOS/02-PROYECTOS/103-APIManager/apps/portal/src/views/settings/SettingsPreferences.vue)
+- Change layout from `max-w-2xl` to a 2-column grid for side-by-side panels.
+- Left panel: existing "AI Designer" settings (no API Key field — moved to right panel).
+- Right panel: **"Manage API Keys"** — for each provider, show an inline editable row with:
+  - Provider name
+  - API Key input (`type="password"` default, toggle with `visibility`/`visibility_off` eye icon)
+  - Save button (calls `saveApiKey`)
+  - Delete button (calls `deleteApiKey`)
+
+## Verification Plan
+
+### Automated Tests
+- Verify BFF GET/PUT/DELETE `/user-api-keys` returns 401 without token and 200/201/204 with valid token.
+
+### Manual Verification
+- Open Settings → Preferences and confirm two panels appear side by side.  
+- Save an API Key for a provider; confirm it persists on reload.  
+- Toggle visibility with the eye icon.  
+- Verify that the AI Designer in ApiDesigner.vue loads the key for the selected provider from the store.

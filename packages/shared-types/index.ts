@@ -22,6 +22,7 @@ export interface API {
   id: string;
   name: string;
   description?: string;
+  domainId?: string | null;
   ownerId: string;
   createdAt: string;
   updatedAt: string;

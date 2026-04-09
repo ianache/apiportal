@@ -45,7 +45,10 @@
                     style="font-variation-settings: 'FILL' 1;">{{ integration.icon }}</span>
             </div>
             <div>
-              <h1 class="text-4xl font-extrabold tracking-tight" style="color: #1a1b1f;">{{ integration.name }}</h1>
+              <div v-if="editingName" class="flex flex-col gap-2 relative z-10 w-full mb-1">
+                <input v-model="editName" @blur="saveName" @keydown.enter="saveName" @keydown.escape="cancelEditName" class="text-2xl font-extrabold tracking-tight px-2 py-1 rounded-lg border outline-none" style="color: #1a1b1f; border-color: #006e28; width: 100%;" autofocus placeholder="Integration Name..." :disabled="savingName" />
+              </div>
+              <h1 v-else @click="startEditName" class="text-4xl font-extrabold tracking-tight cursor-pointer hover:underline" style="color: #1a1b1f;" title="Click to edit">{{ integration.name }}</h1>
               <p class="font-medium text-sm" style="color: #717786;">{{ integration.type }}</p>
             </div>
           </div>
@@ -55,8 +58,18 @@
             <span class="text-sm font-semibold" style="color:#0058bc;">{{ domainTitle(integration.domainId) }}</span>
           </div>
 
-          <p class="text-lg leading-relaxed" style="color: #414755;">
-            {{ integration.description || 'No description provided for this integration.' }}
+          <div v-if="editingDesc" class="flex flex-col gap-2 mb-3 relative z-10">
+            <textarea v-model="editDesc" @blur="saveDesc" @keydown.escape="cancelEditDesc" class="text-lg leading-relaxed px-3 py-2 rounded-lg border outline-none resize-none" style="color: #414755; border-color: #006e28; width: 100%; min-height: 80px;" autofocus placeholder="Enter description..." :disabled="savingDesc" />
+            <div class="flex gap-2">
+              <button @click="saveDesc" class="px-3 py-1 rounded-lg text-sm font-bold" style="background: #047857; color: white;" :disabled="savingDesc">Save</button>
+              <button @click="cancelEditDesc" class="px-3 py-1 rounded-lg text-sm font-bold" style="background: #991b1b; color: white;" :disabled="savingDesc">Cancel</button>
+            </div>
+          </div>
+          <p v-else-if="integration.description" @click="startEditDesc" class="text-lg leading-relaxed cursor-pointer hover:underline" style="color: #414755;" title="Click to edit">
+            {{ integration.description }}
+          </p>
+          <p v-else @click="startEditDesc" class="text-lg italic cursor-pointer hover:underline" style="color: #a0a7b5;" title="Click to add description">
+            No description provided for this integration.
           </p>
         </div>
 
@@ -337,6 +350,69 @@ function startEditVersionDesc() {
   nextTick(() => {
     versionDescInput.value?.focus();
   });
+}
+
+// Inline edit general name and description
+const editingName = ref(false);
+const editName = ref('');
+const savingName = ref(false);
+
+const editingDesc = ref(false);
+const editDesc = ref('');
+const savingDesc = ref(false);
+
+function startEditName() {
+  editName.value = integration.value?.name || '';
+  editingName.value = true;
+}
+
+async function saveName() {
+  if (!integration.value || savingName.value) return;
+  if (!editName.value.trim() || editName.value === integration.value.name) {
+    editingName.value = false;
+    return;
+  }
+  savingName.value = true;
+  try {
+    const updated = await store.update(integration.value.id, { name: editName.value.trim() });
+    integration.value.name = updated.name;
+    editingName.value = false;
+  } catch (e) {
+    console.error('Failed to update name:', e);
+  } finally {
+    savingName.value = false;
+  }
+}
+
+function cancelEditName() {
+  editingName.value = false;
+}
+
+function startEditDesc() {
+  editDesc.value = integration.value?.description || '';
+  editingDesc.value = true;
+}
+
+async function saveDesc() {
+  if (!integration.value || savingDesc.value) return;
+  if (editDesc.value === integration.value.description) {
+    editingDesc.value = false;
+    return;
+  }
+  savingDesc.value = true;
+  try {
+    const updated = await store.update(integration.value.id, { description: editDesc.value });
+    integration.value.description = updated.description;
+    editingDesc.value = false;
+  } catch (e) {
+    console.error('Failed to update description:', e);
+  } finally {
+    savingDesc.value = false;
+  }
+}
+
+function cancelEditDesc() {
+  editingDesc.value = false;
 }
 
 async function saveVersionDesc() {

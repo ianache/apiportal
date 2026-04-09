@@ -238,7 +238,8 @@ async function fetchHealth() {
   healthStatus.value = 'loading';
   healthData.value = null;
   try {
-    const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const env = (window as any).NEXUS_ENV || import.meta.env;
+    const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
     const token = auth.keycloak?.token;
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
