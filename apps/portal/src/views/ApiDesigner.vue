@@ -1038,7 +1038,13 @@ async function sendAiMessage() {
     const res = await fetch(`${bffBase}/ai/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ provider: llmPrefs.provider, apiKey: llmPrefs.currentApiKey, model: llmPrefs.model, messages }),
+      body: JSON.stringify({ 
+        provider: llmPrefs.provider, 
+        apiKey: llmPrefs.currentApiKey, 
+        customApiUrl: llmPrefs.apiUrl,
+        model: llmPrefs.model, 
+        messages 
+      }),
     });
 
     if (!res.ok) {
