@@ -144,47 +144,77 @@
                   style="cursor: pointer; transition: stroke 0.2s ease, stroke-width 0.2s ease;"
                 />
                 <!-- Source role label -->
-                <foreignObject v-if="showLabels && data?.sourceRole" :x="sourceX - 40" :y="sourceY - 40" width="80" height="20" @click="selectEdgeById(id)">
-                  <div class="edge-role clickable-label" 
+                <foreignObject v-if="showLabels && data?.sourceRole" 
+                               :x="getLabelPosition(id, 'sourceRole', sourceX - 40, sourceY - 40).x" 
+                               :y="getLabelPosition(id, 'sourceRole', sourceX - 40, sourceY - 40).y" 
+                               width="80" height="20" 
+                               style="z-index: 1000; pointer-events: all;"
+                               @mousedown.prevent="(e) => startLabelDrag(e, id, 'sourceRole', sourceX - 40, sourceY - 40)">
+                  <div class="edge-role draggable-label" 
                        :style="selectedItem?.type === 'edge' && selectedItem?.id === id 
-                         ? 'background: #fee2e2; border: 1px solid #dc2626; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; color: #dc2626; text-align: center; white-space: nowrap; cursor: pointer;' 
-                         : 'background: #f4f3f8; border: 1px solid #0058bc; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; color: #0058bc; text-align: center; white-space: nowrap; cursor: pointer;'">
+                         ? 'background: #fee2e2; border: 1px solid #dc2626; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; color: #dc2626; text-align: center; white-space: nowrap; cursor: move; user-select: none;' 
+                         : 'background: #f4f3f8; border: 1px solid #0058bc; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; color: #0058bc; text-align: center; white-space: nowrap; cursor: move; user-select: none;'"
+                       @click.stop="selectEdgeById(id)">
                     {{ data.sourceRole }}
                   </div>
                 </foreignObject>
                 <!-- Target role label -->
-                <foreignObject v-if="showLabels && data?.targetRole" :x="targetX - 40" :y="targetY - 40" width="80" height="20" @click="selectEdgeById(id)">
-                  <div class="edge-role clickable-label" 
+                <foreignObject v-if="showLabels && data?.targetRole" 
+                               :x="getLabelPosition(id, 'targetRole', targetX - 40, targetY - 40).x" 
+                               :y="getLabelPosition(id, 'targetRole', targetX - 40, targetY - 40).y" 
+                               width="80" height="20" 
+                               style="z-index: 1000; pointer-events: all;"
+                               @mousedown.prevent="(e) => startLabelDrag(e, id, 'targetRole', targetX - 40, targetY - 40)">
+                  <div class="edge-role draggable-label" 
                        :style="selectedItem?.type === 'edge' && selectedItem?.id === id 
-                         ? 'background: #fee2e2; border: 1px solid #dc2626; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; color: #dc2626; text-align: center; white-space: nowrap; cursor: pointer;' 
-                         : 'background: #f4f3f8; border: 1px solid #0058bc; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; color: #0058bc; text-align: center; white-space: nowrap; cursor: pointer;'">
+                         ? 'background: #fee2e2; border: 1px solid #dc2626; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; color: #dc2626; text-align: center; white-space: nowrap; cursor: move; user-select: none;' 
+                         : 'background: #f4f3f8; border: 1px solid #0058bc; border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: bold; color: #0058bc; text-align: center; white-space: nowrap; cursor: move; user-select: none;'"
+                       @click.stop="selectEdgeById(id)">
                     {{ data.targetRole }}
                   </div>
                 </foreignObject>
                 <!-- Source multiplicity -->
-                <foreignObject v-if="showLabels && data?.sourceMultiplicity" :x="sourceX - 15" :y="sourceY - 15" width="30" height="20" @click="selectEdgeById(id)">
-                  <div class="edge-multiplicity clickable-label" 
+                <foreignObject v-if="showLabels && data?.sourceMultiplicity" 
+                               :x="getLabelPosition(id, 'sourceMultiplicity', sourceX - 15, sourceY - 15).x" 
+                               :y="getLabelPosition(id, 'sourceMultiplicity', sourceX - 15, sourceY - 15).y" 
+                               width="30" height="20" 
+                               style="z-index: 1000; pointer-events: all;"
+                               @mousedown.prevent="(e) => startLabelDrag(e, id, 'sourceMultiplicity', sourceX - 15, sourceY - 15)">
+                  <div class="edge-multiplicity draggable-label" 
                        :style="selectedItem?.type === 'edge' && selectedItem?.id === id 
-                         ? 'background: #ffffff; border: 1px solid #dc2626; border-radius: 4px; padding: 2px 4px; font-size: 10px; font-weight: bold; color: #dc2626; text-align: center; cursor: pointer;' 
-                         : 'background: #ffffff; border: 1px solid #0058bc; border-radius: 4px; padding: 2px 4px; font-size: 10px; font-weight: bold; color: #0058bc; text-align: center; cursor: pointer;'">
+                         ? 'background: #ffffff; border: 1px solid #dc2626; border-radius: 4px; padding: 2px 4px; font-size: 10px; font-weight: bold; color: #dc2626; text-align: center; cursor: move; user-select: none;' 
+                         : 'background: #ffffff; border: 1px solid #0058bc; border-radius: 4px; padding: 2px 4px; font-size: 10px; font-weight: bold; color: #0058bc; text-align: center; cursor: move; user-select: none;'"
+                       @click.stop="selectEdgeById(id)">
                     {{ data.sourceMultiplicity }}
                   </div>
                 </foreignObject>
                 <!-- Target multiplicity -->
-                <foreignObject v-if="showLabels && data?.targetMultiplicity" :x="targetX - 15" :y="targetY - 15" width="30" height="20" @click="selectEdgeById(id)">
-                  <div class="edge-multiplicity clickable-label" 
+                <foreignObject v-if="showLabels && data?.targetMultiplicity" 
+                               :x="getLabelPosition(id, 'targetMultiplicity', targetX - 15, targetY - 15).x" 
+                               :y="getLabelPosition(id, 'targetMultiplicity', targetX - 15, targetY - 15).y" 
+                               width="30" height="20" 
+                               style="z-index: 1000; pointer-events: all;"
+                               @mousedown.prevent="(e) => startLabelDrag(e, id, 'targetMultiplicity', targetX - 15, targetY - 15)">
+                  <div class="edge-multiplicity draggable-label" 
                        :style="selectedItem?.type === 'edge' && selectedItem?.id === id 
-                         ? 'background: #ffffff; border: 1px solid #dc2626; border-radius: 4px; padding: 2px 4px; font-size: 10px; font-weight: bold; color: #dc2626; text-align: center; cursor: pointer;' 
-                         : 'background: #ffffff; border: 1px solid #0058bc; border-radius: 4px; padding: 2px 4px; font-size: 10px; font-weight: bold; color: #0058bc; text-align: center; cursor: pointer;'">
+                         ? 'background: #ffffff; border: 1px solid #dc2626; border-radius: 4px; padding: 2px 4px; font-size: 10px; font-weight: bold; color: #dc2626; text-align: center; cursor: move; user-select: none;' 
+                         : 'background: #ffffff; border: 1px solid #0058bc; border-radius: 4px; padding: 2px 4px; font-size: 10px; font-weight: bold; color: #0058bc; text-align: center; cursor: move; user-select: none;'"
+                       @click.stop="selectEdgeById(id)">
                     {{ data.targetMultiplicity }}
                   </div>
                 </foreignObject>
                 <!-- Relation name in the middle -->
-                <foreignObject v-if="data?.label" :x="(sourceX + targetX) / 2 - 50" :y="(sourceY + targetY) / 2 - 15" width="100" height="30" @click="selectEdgeById(id)">
-                  <div class="edge-relation-name clickable-label" 
+                <foreignObject v-if="data?.label" 
+                               :x="getLabelPosition(id, 'relationName', (sourceX + targetX) / 2 - 50, (sourceY + targetY) / 2 - 15).x" 
+                               :y="getLabelPosition(id, 'relationName', (sourceX + targetX) / 2 - 50, (sourceY + targetY) / 2 - 15).y" 
+                               width="100" height="30" 
+                               style="z-index: 1000; pointer-events: all;"
+                               @mousedown.prevent="(e) => startLabelDrag(e, id, 'relationName', (sourceX + targetX) / 2 - 50, (sourceY + targetY) / 2 - 15)">
+                  <div class="edge-relation-name draggable-label" 
                        :style="selectedItem?.type === 'edge' && selectedItem?.id === id 
-                         ? 'background: #fee2e2; border: 1px solid #dc2626; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: bold; color: #dc2626; text-align: center; cursor: pointer;' 
-                         : 'background: #ffffff; border: 1px solid #7c3aed; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: bold; color: #7c3aed; text-align: center; cursor: pointer;'">
+                         ? 'background: #fee2e2; border: 1px solid #dc2626; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: bold; color: #dc2626; text-align: center; cursor: move; user-select: none;' 
+                         : 'background: #ffffff; border: 1px solid #7c3aed; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: bold; color: #7c3aed; text-align: center; cursor: move; user-select: none;'"
+                       @click.stop="selectEdgeById(id)">
                     {{ data.label }}
                   </div>
                 </foreignObject>
@@ -720,6 +750,13 @@ interface RelationEdge {
     sourceMultiplicity: string;
     targetMultiplicity: string;
     lineStyle: 'straight' | 'step' | 'bezier';
+    labelPositions?: {
+      sourceRole?: { x: number; y: number };
+      targetRole?: { x: number; y: number };
+      sourceMultiplicity?: { x: number; y: number };
+      targetMultiplicity?: { x: number; y: number };
+      relationName?: { x: number; y: number };
+    };
   };
 }
 
@@ -1020,7 +1057,8 @@ function applyAIConcepts(newConcepts: Array<{ name: string; description: string 
             targetRole: rel.targetRole || '',
             sourceMultiplicity: rel.sourceMultiplicity || '1',
             targetMultiplicity: rel.targetMultiplicity || '0..*',
-            lineStyle: rel.lineStyle || 'straight'
+            lineStyle: rel.lineStyle || 'straight',
+            labelPositions: {}
           }
         };
         edges.value = [...edges.value, newEdge];
@@ -1079,7 +1117,8 @@ function handleConnect(params: Connection) {
       targetRole: '',
       sourceMultiplicity: '1',
       targetMultiplicity: '1',
-      lineStyle: 'straight'
+      lineStyle: 'straight',
+      labelPositions: {}
     }
   };
   edges.value = [...edges.value, newEdge];
@@ -1490,6 +1529,87 @@ function selectEdgeById(edgeId: string) {
   }
 }
 
+// Label drag state
+const draggingLabel = ref<{
+  edgeId: string;
+  labelType: 'sourceRole' | 'targetRole' | 'sourceMultiplicity' | 'targetMultiplicity' | 'relationName';
+  startX: number;
+  startY: number;
+  initialOffsetX: number;
+  initialOffsetY: number;
+} | null>(null);
+
+function startLabelDrag(
+  event: MouseEvent,
+  edgeId: string,
+  labelType: 'sourceRole' | 'targetRole' | 'sourceMultiplicity' | 'targetMultiplicity' | 'relationName',
+  currentX: number,
+  currentY: number
+) {
+  event.stopPropagation();
+  event.preventDefault();
+  
+  const edge = edges.value.find(e => e.id === edgeId);
+  if (!edge) return;
+  
+  // Initialize labelPositions if not exists
+  if (!edge.data.labelPositions) {
+    edge.data.labelPositions = {};
+  }
+  
+  const labelPos = edge.data.labelPositions[labelType];
+  const initialOffsetX = labelPos ? labelPos.x : 0;
+  const initialOffsetY = labelPos ? labelPos.y : 0;
+  
+  draggingLabel.value = {
+    edgeId,
+    labelType,
+    startX: event.clientX,
+    startY: event.clientY,
+    initialOffsetX,
+    initialOffsetY
+  };
+  
+  document.addEventListener('mousemove', handleLabelDrag);
+  document.addEventListener('mouseup', stopLabelDrag);
+}
+
+function handleLabelDrag(event: MouseEvent) {
+  if (!draggingLabel.value) return;
+  
+  const { edgeId, labelType, startX, startY, initialOffsetX, initialOffsetY } = draggingLabel.value;
+  const deltaX = (event.clientX - startX) / zoomLevel.value;
+  const deltaY = (event.clientY - startY) / zoomLevel.value;
+  
+  const edge = edges.value.find(e => e.id === edgeId);
+  if (edge && edge.data.labelPositions) {
+    edge.data.labelPositions[labelType] = {
+      x: initialOffsetX + deltaX,
+      y: initialOffsetY + deltaY
+    };
+  }
+}
+
+function stopLabelDrag() {
+  draggingLabel.value = null;
+  document.removeEventListener('mousemove', handleLabelDrag);
+  document.removeEventListener('mouseup', stopLabelDrag);
+}
+
+function getLabelPosition(
+  edgeId: string,
+  labelType: 'sourceRole' | 'targetRole' | 'sourceMultiplicity' | 'targetMultiplicity' | 'relationName',
+  defaultX: number,
+  defaultY: number
+): { x: number; y: number } {
+  const edge = edges.value.find(e => e.id === edgeId);
+  const offset = edge?.data.labelPositions?.[labelType];
+  return {
+    x: defaultX + (offset?.x || 0),
+    y: defaultY + (offset?.y || 0)
+  };
+}
+
 function onEdgeClick(event: any) {
   selectEdgeById(event.edge.id);
 }
@@ -1644,12 +1764,13 @@ async function loadModel() {
         }));
       }
       if (data.edges) {
-        // Ensure all edges have lineStyle
+        // Ensure all edges have lineStyle and labelPositions
         edges.value = data.edges.map((edge: any) => ({
           ...edge,
           data: {
             ...edge.data,
-            lineStyle: edge.data.lineStyle || 'straight'
+            lineStyle: edge.data.lineStyle || 'straight',
+            labelPositions: edge.data.labelPositions || {}
           }
         }));
       }
@@ -1960,5 +2081,51 @@ async function loadModel() {
 .mandatory-badge.optional {
   background: #f4f3f8;
   color: #717786;
+}
+
+/* Draggable Labels Styles */
+.draggable-label {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: box-shadow 0.2s ease, transform 0.1s ease;
+}
+
+.draggable-label:hover {
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  transform: translateY(-1px);
+}
+
+.draggable-label:active {
+  cursor: grabbing !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+/* Ensure edge labels are rendered above nodes */
+:deep(.vue-flow__edges) {
+  z-index: 1000 !important;
+}
+
+:deep(.vue-flow__edge) {
+  z-index: 1001 !important;
+}
+
+:deep(.vue-flow__edge-label) {
+  z-index: 1002 !important;
+}
+
+:deep(.vue-flow__nodes) {
+  z-index: 10 !important;
+}
+
+/* Ensure foreignObjects in edges are above everything */
+.edge-relation foreignObject {
+  z-index: 1010 !important;
+}
+
+/* Prevent text selection during drag */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 </style>
