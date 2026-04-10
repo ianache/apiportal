@@ -5,7 +5,9 @@ import { z } from 'zod';
 
 const createApiSchema = z.object({
   name: z.string().min(3).max(50),
+  label: z.string().max(100).optional(),
   description: z.string().optional(),
+  domainId: z.string().optional(),
   initialVersion: z.string().refine((v) => semver.valid(v), {
     message: "Invalid SemVer version"
   }).default("0.1.0")
@@ -97,7 +99,7 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(403).send({ error: 'Forbidden', message: 'Only Designers can create APIs' });
       }
 
-      const { name, description, initialVersion } = createApiSchema.parse(request.body);
+      const { name, label, description, domainId, initialVersion } = createApiSchema.parse(request.body);
       fastify.log.info({ name, user: request.user.email }, 'Attempting to create new API');
 
       // Check if user exists in our DB (synced from Keycloak sub)
@@ -120,7 +122,9 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
       const api = await fastify.prisma.aPI.create({
         data: {
           name,
+          label,
           description,
+          domainId,
           ownerId: dbUser.id,
           versions: {
             create: {

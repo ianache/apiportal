@@ -50,6 +50,9 @@
               </div>
             </div>
             <div class="flex gap-1 flex-shrink-0">
+              <button @click="openConceptModeler(domain)" class="domain-action-btn" title="Concept Modeler">
+                <span class="material-symbols-outlined" style="font-size:17px;">account_tree</span>
+              </button>
               <button @click="openEdit(domain)" class="domain-action-btn" title="Edit">
                 <span class="material-symbols-outlined" style="font-size:17px;">edit</span>
               </button>
@@ -110,7 +113,20 @@
           </div>
           <!-- Description -->
           <div>
-            <label class="field-label">Description</label>
+            <div class="flex items-center justify-between mb-1">
+              <label class="field-label">Description</label>
+              <button 
+                v-if="form.title"
+                @click="generateDescription" 
+                :disabled="aiGenerating"
+                class="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors"
+                style="background:#f4f3f8;color:#0058bc;"
+              >
+                <span v-if="aiGenerating" class="material-symbols-outlined animate-spin" style="font-size:14px;">progress_activity</span>
+                <span v-else class="material-symbols-outlined" style="font-size:14px;">auto_awesome</span>
+                AI Generate
+              </button>
+            </div>
             <textarea v-model="form.description" class="field-input field-textarea" rows="3" placeholder="Describe what belongs to this domain…" />
           </div>
           <!-- Labels -->
@@ -175,17 +191,24 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import Shell from '../../components/layout/Shell.vue';
 import { useDomainsStore } from '../../stores/domains';
+import { useLLMPreferencesStore } from '../../stores/preferences';
+import { useAuthStore } from '../../stores/auth';
 import type { Domain } from '../../stores/domains';
 
+const router = useRouter();
 const store = useDomainsStore();
+const llmPrefs = useLLMPreferencesStore();
+const auth = useAuthStore();
 onMounted(() => store.fetch());
 
 // ── Form state ───────────────────────────────────────
 const emptyForm = () => ({ name: '', title: '', description: '', labels: [] as string[] });
 const form = reactive(emptyForm());
 const labelInput = ref('');
+const aiGenerating = ref(false);
 
 const modal = reactive<{ open: boolean; editing: string | null; error: string }>({
   open: false, editing: null, error: ''
@@ -208,6 +231,10 @@ function openEdit(domain: Domain) {
   modal.open = true;
 }
 
+function openConceptModeler(domain: Domain) {
+  router.push(`/domains/${domain.id}/concept-modeler`);
+}
+
 function closeModal() { modal.open = false; }
 
 function addLabel() {
@@ -221,6 +248,39 @@ function onLabelKey(e: KeyboardEvent) {
 }
 
 function removeLabel(i: number) { form.labels.splice(i, 1); }
+
+async function generateDescription() {
+  if (!form.title || aiGenerating.value) return;
+  aiGenerating.value = true;
+  try {
+    const token = await auth.getToken();
+    const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const messages = [
+      { role: 'system', content: 'You are a helpful assistant that generates detailed business domain descriptions. Provide a comprehensive description (2-3 paragraphs, MAXIMUM 500 characters) explaining what this domain represents, its purpose, typical integrations, and business value. Keep it concise and under 500 characters.' },
+      { role: 'user', content: `Generate a detailed description for a domain titled "${form.title}". The response MUST be under 500 characters.` }
+    ];
+    const res = await fetch(`${bffBase}/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        provider: llmPrefs.provider,
+        apiKey: llmPrefs.currentApiKey,
+        customApiUrl: llmPrefs.apiUrl,
+        model: llmPrefs.model,
+        messages
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const content = data.content || '';
+      form.description = content.length > 500 ? content.substring(0, 500) : content;
+    }
+  } catch (e) {
+    console.error('AI generate failed:', e);
+  } finally {
+    aiGenerating.value = false;
+  }
+}
 
 async function handleSave() {
   if (labelInput.value.trim()) addLabel();

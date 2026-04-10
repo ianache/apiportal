@@ -1,0 +1,5 @@
+# Feature 4: Modelador Visual Conceptual
+
+# Requerimientos
+
+En la ficha de cada domain incluir un icono que permita ir hacia un Modelador Visual conceptual donde se pueda modelar sobre un lienzo (similar al Integration Designer) se pueda colocar conceptos y relaciones entre los conceptos (incluyendo en cada extremo de la relación una representacion visual de multiplicidades tales como opcional (?), uno mandatorio (ONE), zero/one a muchos (MANY). Las relaciones entre los conceptos permiten conectar cada concepto asegurando sea visible la multiplicidad en cada extremo con posibilidad de que la multiplicidad se pueda mover libremente en lo visual. Al seleccionar el nodo a la derecha debe abrirse un panel para editar las propiedades del nodo. Al seleccionar una relacion permite modificar el valor de multiplicidad en cada extremo, el nombre de la relacion y la descripción de la relacion (incluir un boton "AI Generate" que reciba como contexto el nombre y descripcion de cada nodo (concepto) para generar una descripcion de la relacion.

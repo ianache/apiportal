@@ -144,13 +144,6 @@
       <!-- Bottom: Create + Sign out -->
       <div class="p-3 border-t" style="border-color: #e3e2e7;">
         <button
-          class="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-95 mb-1"
-          style="background: #0058bc;"
-        >
-          <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
-          Create New API
-        </button>
-        <button
           @click="auth.keycloak?.logout()"
           class="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors hover:bg-white/70"
           style="color: #717786;"
@@ -181,13 +174,13 @@ const headerLinks = ['Docs', 'Support', 'Changelog'];
 
 const mainNav = [
   { path: '/dashboard',    icon: 'explore',     label: 'Explorer'     },
-  { path: '/projects',     icon: 'inventory_2', label: 'APIs Catalog' },
+  { path: '/domains',     icon: 'category',    label: 'Domains'      },
+  { path: '/projects',    icon: 'inventory_2', label: 'APIs Catalog' },
   { path: '/integrations', icon: 'hub',         label: 'Integrations' },
 ];
 
 const settingsNav = [
   { path: '/settings/environments', icon: 'dns',             label: 'Environments' },
-  { path: '/settings/domains',      icon: 'category',        label: 'Domains'      },
   { path: '/settings/node-types',   icon: 'widgets',         label: 'Node Types'   },
   { path: '/settings/preferences',  icon: 'manage_accounts', label: 'Preferences'  },
   { path: '/settings/status',       icon: 'analytics',       label: 'Status'       },

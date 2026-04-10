@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@vue-flow/background": "^1.3.2",
+    "@vue-flow/controls": "^1.1.3",
     "@vue-flow/core": "^1.48.2",
+    "@vue-flow/minimap": "^1.5.4",
     "autoprefixer": "^10.4.27",
     "js-yaml": "^4.1.1",
     "keycloak-js": "^26.2.3",

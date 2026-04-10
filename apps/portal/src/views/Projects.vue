@@ -63,7 +63,7 @@
             style="background: #0058bc; color: #ffffff; box-shadow: 0 4px 14px rgba(0,88,188,0.30);"
           >
             <span class="material-symbols-outlined" style="font-size: 18px;">add_circle</span>
-            New Project
+            New API
           </button>
         </div>
       </header>
@@ -277,6 +277,31 @@
           </div>
           <div>
             <label class="block text-xs font-bold uppercase tracking-widest mb-1.5 ml-1" style="color: #414755;">
+              Label (for search)
+            </label>
+            <input
+              v-model="newApi.label"
+              type="text"
+              class="w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all"
+              style="background: #f4f3f8; border-color: #e3e2e7; color: #1a1b1f;"
+              placeholder="e.g. Payments"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-widest mb-1.5 ml-1" style="color: #414755;">
+              Domain
+            </label>
+            <select
+              v-model="newApi.domainId"
+              class="w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all"
+              style="background: #f4f3f8; border-color: #e3e2e7; color: #1a1b1f;"
+            >
+              <option value="">Select a domain...</option>
+              <option v-for="d in domainsStore.domains" :key="d.id" :value="d.id">{{ d.title }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-widest mb-1.5 ml-1" style="color: #414755;">
               Description
             </label>
             <textarea
@@ -326,26 +351,28 @@ import { useRouter } from 'vue-router';
 import Shell from '../components/layout/Shell.vue';
 import { useRegistryStore } from '../stores/registry';
 import { useAuthStore } from '../stores/auth';
+import { useDomainsStore } from '../stores/domains';
 
 const registry = useRegistryStore();
 const auth = useAuthStore();
 const router = useRouter();
+const domainsStore = useDomainsStore();
 
 const viewMode = ref<'grid' | 'table'>('grid');
 const showCreateModal = ref(false);
 
-const newApi = ref({ name: '', description: '' });
+const newApi = ref({ name: '', label: '', description: '', domainId: '' });
 
 const canCreate = computed(() =>
   auth.user?.resource_access?.[import.meta.env.VITE_KEYCLOAK_CLIENT_ID]?.roles?.includes('API-Designer') ||
   auth.user?.resource_access?.[import.meta.env.VITE_KEYCLOAK_CLIENT_ID]?.roles?.includes('API-Admin')
 );
 
-onMounted(() => { registry.fetchApis(); });
+onMounted(() => { registry.fetchApis(); domainsStore.fetch(); });
 
 const openCreateModal = () => {
   registry.error = null;
-  newApi.value = { name: '', description: '' };
+  newApi.value = { name: '', label: '', description: '', domainId: '' };
   showCreateModal.value = true;
 };
 
@@ -356,7 +383,7 @@ const handleCreate = async () => {
   try {
     await registry.createApi(newApi.value);
     showCreateModal.value = false;
-    newApi.value = { name: '', description: '' };
+    newApi.value = { name: '', label: '', description: '', domainId: '' };
   } catch {
     // error handled by store
   }

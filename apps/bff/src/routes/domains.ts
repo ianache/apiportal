@@ -58,6 +58,32 @@ const domainRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(204).send();
   });
 
+  // GET /domains/:id/concept-model
+  fastify.get('/domains/:id/concept-model', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    const { id } = request.params as { id: string };
+    const domain = await fastify.prisma.domain.findUnique({ where: { id } });
+    if (!domain) return reply.code(404).send({ error: 'Not found' });
+    return { nodes: domain.conceptModel ? (domain.conceptModel as any).nodes : [], edges: domain.conceptModel ? (domain.conceptModel as any).edges : [] };
+  });
+
+  // PUT /domains/:id/concept-model
+  fastify.put('/domains/:id/concept-model', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    if (request.user.role === 'API_DEVELOPER')
+      return reply.code(403).send({ error: 'Forbidden' });
+
+    const { id } = request.params as { id: string };
+    const { nodes, edges } = request.body as { nodes: any[]; edges: any[] };
+    const existing = await fastify.prisma.domain.findUnique({ where: { id } });
+    if (!existing) return reply.code(404).send({ error: 'Not found' });
+
+    return fastify.prisma.domain.update({
+      where: { id },
+      data: { conceptModel: { nodes, edges } }
+    });
+  });
+
 };
 
 export default domainRoutes;

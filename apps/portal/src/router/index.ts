@@ -50,13 +50,23 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/domains',
+    component: () => import('../views/settings/SettingsDomains.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/domains/:id/concept-modeler',
+    component: () => import('../views/ConceptModeler.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/settings',
     redirect: '/settings/environments',
     meta: { requiresAuth: true },
     children: [
       { path: 'environments', component: () => import('../views/settings/SettingsEnvironments.vue') },
       { path: 'preferences',  component: () => import('../views/settings/SettingsPreferences.vue') },
-{ path: 'domains',      component: () => import('../views/settings/SettingsDomains.vue') },
+      { path: 'domains',      component: () => import('../views/settings/SettingsDomains.vue') },
       { path: 'node-types',   component: () => import('../views/settings/SettingsNodeTypes.vue') },
       { path: 'status',       component: Dashboard }
     ]

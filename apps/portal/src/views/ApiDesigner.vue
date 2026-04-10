@@ -161,7 +161,7 @@
               <input v-model="selectedNode.data.path" @input="updateNodeData" class="panel-input" placeholder="/resource" />
               <p class="panel-hint">e.g. <code>/users/{id}</code></p>
             </div>
-            <div class="panel-section">
+            <div v-if="!selectedNode.data.isRoot" class="panel-section">
               <label class="panel-label">HTTP Methods</label>
               <div class="space-y-1">
                 <div v-for="m in HTTP_METHODS" :key="m.verb" class="method-row">
@@ -178,6 +178,9 @@
                   </button>
                 </div>
               </div>
+            </div>
+            <div v-else class="panel-section">
+              <p class="panel-hint">Root node is the API entry point. Add child nodes to define resources.</p>
             </div>
             <div class="panel-section">
               <label class="panel-label">Description</label>
@@ -453,7 +456,7 @@ const defaultEdgeOptions = {
 
 const ROOT_NODE: Node = {
   id: 'root', type: 'resource', position: { x: 0, y: 0 },
-  data: { path: '/root', methods: ['GET', 'POST'], operationSpecs: {}, description: 'Root resource', isRoot: true },
+  data: { path: '/', methods: [], operationSpecs: {}, description: 'API Entry Point', isRoot: true },
 };
 const nodes = ref<Node[]>([ROOT_NODE]);
 const edges = ref<Edge[]>([]);
@@ -721,6 +724,7 @@ function exportYaml() {
 
   const paths: Record<string, any> = {};
   nodes.value.forEach(n => {
+    if (n.data.isRoot) return;
     const fullPath = pathMap[n.id] || '/';
     const pathItem: Record<string, any> = {};
     if (nodeParams[n.id]?.length) pathItem.parameters = nodeParams[n.id];
