@@ -17,6 +17,110 @@ interface AiReviewBody {
   spec: any;
 }
 
+interface AiSqlGenerateBody {
+  prompt: string;
+  provider: string;
+  apiKey: string;
+  model: string;
+  customApiUrl?: string;
+}
+
+interface AiERGenerateBody {
+  prompt: string;
+  provider: string;
+  apiKey: string;
+  model: string;
+  customApiUrl?: string;
+  domainId?: string;
+}
+
+function parseERResponse(content: string): { tables: any[]; relationships: any[]; error?: string } {
+  try {
+    let jsonStr = content;
+    if (jsonStr.includes('```json')) {
+      jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+    }
+    jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
+    
+    const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return { tables: [], relationships: [], error: 'No JSON found in response' };
+    }
+    
+    let parsed = JSON.parse(jsonMatch[0]);
+    if (parsed.content) {
+      const innerStr = typeof parsed.content === 'string' ? parsed.content : JSON.stringify(parsed.content);
+      const innerMatch = innerStr.match(/\{[\s\S]*\}/);
+      if (innerMatch) {
+        parsed = JSON.parse(innerMatch[0]);
+      }
+    }
+    
+    const tables = Array.isArray(parsed.tables) ? parsed.tables : 
+                   Array.isArray(parsed.Tables) ? parsed.Tables : 
+                   Array.isArray(parsed.TABLE) ? parsed.TABLE : [];
+    
+    const relationships = Array.isArray(parsed.relationships) ? parsed.relationships :
+                         Array.isArray(parsed.relations) ? parsed.relations :
+                         Array.isArray(parsed.Relations) ? parsed.Relations : [];
+    
+    if (tables.length === 0) {
+      return { tables: [], relationships: [], error: 'No tables found in response' };
+    }
+    
+    return { tables, relationships };
+  } catch (e: any) {
+    return { tables: [], relationships: [], error: `JSON parse error: ${e.message}` };
+  }
+}
+
+const ER_GENERATE_SYSTEM_PROMPT = `You are an expert Entity-Relationship Data Model Designer. Based on the user's description and the Concept Model context provided, generate a structured ER model with tables, columns, and relationships.
+
+## Concept Model Knowledge Base (use as context):
+{conceptModel}
+
+## Response Format - IMPORTANT:
+You MUST respond with ONLY valid JSON, no markdown, no explanations, no code blocks. The JSON must be well-formed and complete.
+
+Example of valid response (no markdown code blocks):
+{"tables":[{"name":"users","columns":[{"name":"id","dataType":"UUID","isPrimaryKey":true,"isForeignKey":false,"isNullable":false},{"name":"email","dataType":"VARCHAR(255)","isPrimaryKey":false,"isForeignKey":false,"isNullable":false}]}],"relationships":[],"explanation":"User entity"}
+
+## Guidelines:
+- Generate tables that represent the entities from the Concept Model
+- Each table should have appropriate columns with data types
+- Include PRIMARY KEYs (usually UUID or auto-incrementing integer)
+- Add FOREIGN KEY columns to represent relationships
+- Use appropriate data types: UUID, VARCHAR(n), TEXT, INTEGER, BIGINT, DECIMAL(p,s), BOOLEAN, DATE, TIMESTAMP, JSONB
+- Use snake_case for table and column names
+- isPrimaryKey: true for primary key columns
+- isForeignKey: true for foreign key columns  
+- isNullable: false for columns that cannot be null
+
+## JSON Structure:
+{
+  "tables": [
+    {
+      "name": "table_name",
+      "columns": [
+        { "name": "id", "dataType": "UUID", "isPrimaryKey": true, "isForeignKey": false, "isNullable": false },
+        { "name": "name", "dataType": "VARCHAR(255)", "isPrimaryKey": false, "isForeignKey": false, "isNullable": false }
+      ]
+    }
+  ],
+  "relationships": [
+    { "source": "parent_table", "sourceColumn": "id", "target": "child_table", "targetColumn": "parent_id", "sourceMultiplicity": "1", "targetMultiplicity": "*" }
+  ]
+}
+
+## Multiplicity:
+- "1" = exactly one
+- "*" = many (zero or more)
+
+## CRITICAL RULES:
+1. Respond with ONLY valid JSON - no markdown code blocks, no explanations
+2. The JSON must be well-formed and complete (all brackets and quotes matched)
+3. If you cannot generate a complete response, return at least the tables array with valid JSON`;
+
 const REVIEW_SYSTEM_PROMPT = `You are an expert REST API Design Reviewer. Analyze the provided OpenAPI specification and produce a formal, structured review report.
 
 ## Evaluation Criteria
@@ -346,6 +450,319 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
 
     } catch (err: any) {
       fastify.log.error(err, 'AI review proxy error');
+      return reply.code(502).send({ error: 'Failed to reach AI provider' });
+    }
+  });
+
+  fastify.post('/ai/sql-generate', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const body = request.body as AiSqlGenerateBody;
+    const { prompt, provider, apiKey, model, customApiUrl } = body;
+
+    if (!model?.trim()) return reply.code(400).send({ error: 'Model is required' });
+    if (!prompt?.trim()) return reply.code(400).send({ error: 'Prompt is required' });
+
+    const needsApiKey = provider !== 'ollama';
+    if (needsApiKey && !apiKey?.trim()) return reply.code(400).send({ error: 'API key is required' });
+
+    const messages = [
+      { role: 'system', content: SQL_GENERATE_SYSTEM_PROMPT },
+      { role: 'user', content: prompt }
+    ];
+
+    try {
+      if (provider === 'openai') {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens: 4096 }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'OpenAI request failed' });
+        }
+        const data: any = await res.json();
+        return { content: data.choices?.[0]?.message?.content ?? '' };
+      }
+
+      if (provider === 'anthropic') {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 4096,
+            system: SQL_GENERATE_SYSTEM_PROMPT,
+            messages: [{ role: 'user', content: prompt }],
+          }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'Anthropic request failed' });
+        }
+        const data: any = await res.json();
+        return { content: data.content?.[0]?.text ?? '' };
+      }
+
+      if (provider === 'groq') {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens: 4096 }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'Groq request failed' });
+        }
+        const data: any = await res.json();
+        return { content: data.choices?.[0]?.message?.content ?? '' };
+      }
+
+      if (provider === 'gemini') {
+        const chatMsgs = [{ role: 'user', parts: [{ text: prompt }] }];
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: chatMsgs,
+            systemInstruction: { parts: [{ text: SQL_GENERATE_SYSTEM_PROMPT }] }
+          }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'Gemini request failed' });
+        }
+        const data: any = await res.json();
+        return { content: data.candidates?.[0]?.content?.parts?.[0]?.text ?? '' };
+      }
+
+      if (provider === 'ollama') {
+        const baseUrl = (customApiUrl || 'http://localhost:11434').replace(/\/$/, '');
+        const useOpenAiFormat = baseUrl.includes('/v1');
+        
+        let url: string;
+        let reqBody: any;
+
+        if (useOpenAiFormat) {
+          url = `${baseUrl}/chat/completions`;
+          reqBody = { model, messages };
+        } else {
+          url = `${baseUrl}/api/chat`;
+          reqBody = { model, messages, stream: false };
+        }
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reqBody),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ status: res.status, err }, 'Ollama sql-generate request failed');
+          return reply.code(res.status).send({ error: err?.error ?? err?.message ?? 'Ollama request failed' });
+        }
+        const data: any = await res.json();
+        const content = useOpenAiFormat 
+          ? data.choices?.[0]?.message?.content ?? ''
+          : data.message?.content ?? '';
+        return { content };
+      }
+
+      return reply.code(400).send({ error: `Unsupported provider: ${provider}` });
+
+    } catch (err: any) {
+      fastify.log.error(err, 'AI sql-generate proxy error');
+      return reply.code(502).send({ error: 'Failed to reach AI provider' });
+    }
+  });
+
+  fastify.post('/ai/er-generate', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const body = request.body as AiERGenerateBody;
+    const { prompt, provider, apiKey, model, customApiUrl, domainId } = body;
+
+    if (!model?.trim()) return reply.code(400).send({ error: 'Model is required' });
+    if (!prompt?.trim()) return reply.code(400).send({ error: 'Prompt is required' });
+
+    const needsApiKey = provider !== 'ollama';
+    if (needsApiKey && !apiKey?.trim()) return reply.code(400).send({ error: 'API key is required' });
+
+    let conceptModelContext = 'No concept model available';
+    
+    if (domainId) {
+      try {
+        const domain = await fastify.prisma.domain.findUnique({ where: { id: domainId } });
+        if (domain?.conceptModel) {
+          const cm = domain.conceptModel as any;
+          const concepts = cm.nodes || [];
+          const relations = cm.edges || [];
+          
+          if (concepts.length > 0) {
+            conceptModelContext = concepts.map((c: any) => {
+              const attrs = (c.data?.attributes || []).map((a: any) => 
+                `${a.name} (${a.dataType?.name || 'String'}${a.mandatory ? ', required' : ''})`
+              ).join('; ');
+              return `- ${c.data?.label}: ${c.data?.description || ''}${attrs ? `\n  Attributes: ${attrs}` : ''}`;
+            }).join('\n');
+            
+            if (relations.length > 0) {
+              conceptModelContext += '\n\nRelationships:\n' + relations.map((r: any) => {
+                const sourceLabel = concepts.find((c: any) => c.id === r.source)?.data?.label || r.source;
+                const targetLabel = concepts.find((c: any) => c.id === r.target)?.data?.label || r.target;
+                return `- ${sourceLabel} "${r.data?.label || 'relates to'}" ${targetLabel}`;
+              }).join('\n');
+            }
+          }
+        }
+      } catch (e) {
+        fastify.log.warn('Could not fetch concept model for ER generation');
+      }
+    }
+
+    const systemPrompt = ER_GENERATE_SYSTEM_PROMPT.replace('{conceptModel}', conceptModelContext);
+
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: prompt }
+    ];
+
+    try {
+      if (provider === 'openai') {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens: 8192 }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'OpenAI request failed' });
+        }
+        const data: any = await res.json();
+        const content = data.choices?.[0]?.message?.content ?? '';
+        fastify.log.info({ content }, 'OpenAI raw response');
+        const result = parseERResponse(content);
+        if (result.error) {
+          fastify.log.error(result.error);
+        }
+        return { tables: result.tables, relationships: result.relationships };
+      }
+
+      if (provider === 'anthropic') {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 8192,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: prompt }],
+          }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'Anthropic request failed' });
+        }
+        const data: any = await res.json();
+        const content = data.content?.[0]?.text ?? '';
+        const result = parseERResponse(content);
+        return { tables: result.tables, relationships: result.relationships };
+      }
+
+      if (provider === 'groq') {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens: 8192 }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'Groq request failed' });
+        }
+        const data: any = await res.json();
+        const content = data.choices?.[0]?.message?.content ?? '';
+        const result = parseERResponse(content);
+        return { tables: result.tables, relationships: result.relationships };
+      }
+
+      if (provider === 'gemini') {
+        const chatMsgs = [{ role: 'user', parts: [{ text: prompt }] }];
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: chatMsgs,
+            systemInstruction: { parts: [{ text: systemPrompt }] }
+          }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'Gemini request failed' });
+        }
+        const data: any = await res.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+        const result = parseERResponse(content);
+        return { tables: result.tables, relationships: result.relationships };
+      }
+
+      if (provider === 'ollama') {
+        const baseUrl = (customApiUrl || 'http://localhost:11434').replace(/\/$/, '');
+        const useOpenAiFormat = baseUrl.includes('/v1');
+        
+        let url: string;
+        let reqBody: any;
+
+        if (useOpenAiFormat) {
+          url = `${baseUrl}/chat/completions`;
+          reqBody = { model, messages };
+        } else {
+          url = `${baseUrl}/api/chat`;
+          reqBody = { model, messages, stream: false };
+        }
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reqBody),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ status: res.status, err }, 'Ollama er-generate request failed');
+          return reply.code(res.status).send({ error: err?.error ?? err?.message ?? 'Ollama request failed' });
+        }
+        const data: any = await res.json();
+        const content = useOpenAiFormat 
+          ? data.choices?.[0]?.message?.content ?? ''
+          : data.message?.content ?? '';
+        const result = parseERResponse(content);
+        return { tables: result.tables, relationships: result.relationships };
+      }
+
+      return reply.code(400).send({ error: `Unsupported provider: ${provider}` });
+
+    } catch (err: any) {
+      fastify.log.error(err, 'AI er-generate proxy error');
       return reply.code(502).send({ error: 'Failed to reach AI provider' });
     }
   });

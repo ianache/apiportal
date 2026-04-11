@@ -898,29 +898,57 @@ async function sendAIMessage() {
     const token = await auth.getToken();
     const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
     
-    // Build context from current model
+    // Build complete context from current Concept Model (nodes and edges)
     const currentConcepts = nodes.value.map(n => ({
       name: n.data.label,
-      description: n.data.description
+      description: n.data.description,
+      attributes: n.data.attributes.map(a => ({
+        name: a.name,
+        description: a.description,
+        dataType: a.dataType.name,
+        mandatory: a.mandatory
+      }))
     }));
     
     const currentRelations = edges.value.map(e => ({
       source: nodes.value.find(n => n.id === e.source)?.data.label || e.source,
       target: nodes.value.find(n => n.id === e.target)?.data.label || e.target,
       label: e.data.label,
+      description: e.data.description,
       sourceRole: e.data.sourceRole,
       targetRole: e.data.targetRole,
       sourceMultiplicity: e.data.sourceMultiplicity,
       targetMultiplicity: e.data.targetMultiplicity
     }));
     
-    const systemPrompt = `You are an expert Conceptual Data Model Designer. Your task is to help users create conceptual models by identifying entities, their attributes, and relationships.
+    const conceptsContext = currentConcepts.length > 0
+      ? currentConcepts.map(c => {
+          const attrsStr = c.attributes.length > 0
+            ? `\n    Attributes: ${c.attributes.map(a => `${a.name} (${a.dataType}${a.mandatory ? ', required' : ', optional'}): ${a.description}`).join('; ')}`
+            : '';
+          return `- ${c.name}: ${c.description}${attrsStr}`;
+        }).join('\n')
+      : 'No concepts defined yet';
+    
+    const relationsContext = currentRelations.length > 0
+      ? currentRelations.map(r => {
+          const roles = [r.sourceRole, r.targetRole].filter(Boolean).join(' - ');
+          return `- ${r.source} "${r.label}" ${r.target} [${r.sourceMultiplicity}..${r.targetMultiplicity}]${roles ? ` (${roles})` : ''}: ${r.description}`;
+        }).join('\n')
+      : 'No relations defined yet';
+    
+    const systemPrompt = `You are an expert Conceptual Data Model Designer. Your task is to help users create conceptual models by identifying entities (concepts), their attributes, and relationships.
 
-Current Model Context:
-${currentConcepts.length > 0 ? `Concepts: ${currentConcepts.map(c => c.name).join(', ')}` : 'No concepts yet'}
-${currentRelations.length > 0 ? `Relations: ${currentRelations.map(r => `${r.source} ${r.label || 'relates to'} ${r.target}`).join(', ')}` : 'No relations yet'}
+## Concept Model Knowledge Base (Use this as context for all your responses):
+${conceptsContext}
 
-When generating concepts, respond with JSON in this format:
+${relationsContext}
+
+## Task:
+Based on the Concept Model above, help the user generate new concepts, attributes, or relationships. You can also suggest modifications to existing elements.
+
+## Response Format:
+When generating new elements, respond with JSON in this format:
 {
   "concepts": [
     { "name": "ConceptName", "description": "Brief description" }
@@ -928,12 +956,19 @@ When generating concepts, respond with JSON in this format:
   "relations": [
     { "source": "SourceConcept", "target": "TargetConcept", "label": "relationship name", "sourceRole": "role", "targetRole": "role", "sourceMultiplicity": "1", "targetMultiplicity": "0..*" }
   ],
-  "explanation": "Brief explanation of the model"
+  "explanation": "Brief explanation of the changes"
 }
 
-Multiplicity options: "?" (optional), "1" (mandatory), "0..*" (zero or more), "1..*" (one or more).
+## Multiplicity Options:
+- "?" (optional)
+- "1" (mandatory)  
+- "0..*" (zero or more)
+- "1..*" (one or more)
 
-Always validate that source and target concepts exist in the concepts array or in the current model.`;
+## Important:
+- Always validate that source and target concepts exist in the Concept Model or in the new concepts array
+- Use the existing Concept Model as knowledge base to maintain consistency
+- Attribute data types should be from: String, Integer, Decimal, Boolean, Date, DateTime, Time, Email, Phone, Currency, Percentage, URL, UUID, Code, Text`;
     
     const messages = [
       { role: 'system', content: systemPrompt },

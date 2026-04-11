@@ -708,22 +708,33 @@ async function generateWithAI() {
     const token = await auth.getToken();
     const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
-    const res = await fetch(`${bffBase}/ai/sql-generate`, {
+    const res = await fetch(`${bffBase}/ai/er-generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({
         prompt: aiPrompt.value,
         provider: llmPrefs.provider,
         apiKey: llmPrefs.currentApiKey,
-        model: llmPrefs.model
+        model: llmPrefs.model,
+        customApiUrl: llmPrefs.apiUrl,
+        domainId: domainId.value
       })
     });
 
     if (res.ok) {
       const data = await res.json();
-      aiGeneratedSQL.value = data.sql || data.content || 'No SQL generated';
+      
+      const tables = data.tables || [];
+      const relationships = data.relationships || [];
+      
+      if (tables.length > 0) {
+        applyGeneratedSchemaFromObjects(tables, relationships);
+        showAIPanel.value = false;
+      } else {
+        aiGeneratedSQL.value = JSON.stringify(data, null, 2) || 'No schema generated';
+      }
     } else {
-      aiGeneratedSQL.value = 'Error generating SQL';
+      aiGeneratedSQL.value = 'Error generating schema';
     }
   } catch (e) {
     aiGeneratedSQL.value = 'Error: ' + (e as Error).message;
@@ -734,6 +745,71 @@ async function generateWithAI() {
 
 function copyGeneratedSQL() {
   navigator.clipboard.writeText(aiGeneratedSQL.value);
+}
+
+function applyGeneratedSchemaFromObjects(generatedTables: any[], generatedRelationships: any[]) {
+  let baseX = 100;
+  let baseY = 100;
+
+  const tableIdMap = new Map<string, string>();
+
+  for (const table of generatedTables) {
+    const tableId = uid();
+    tableIdMap.set(table.name.toLowerCase(), tableId);
+
+    const columns: Column[] = (table.columns || []).map((col: any) => ({
+      id: uid(),
+      name: col.name,
+      dataType: col.dataType || 'VARCHAR(255)',
+      isPrimaryKey: col.isPrimaryKey || false,
+      isForeignKey: col.isForeignKey || false,
+      isNullable: col.isNullable !== false,
+      references: col.references
+    }));
+
+    tables.value.push({
+      id: tableId,
+      name: table.name,
+      x: baseX,
+      y: baseY,
+      columns
+    });
+
+    baseX += 250;
+    if (baseX > 1000) {
+      baseX = 100;
+      baseY += 200;
+    }
+  }
+
+  for (const rel of generatedRelationships) {
+    const sourceTableId = tableIdMap.get(rel.source.toLowerCase());
+    const targetTableId = tableIdMap.get(rel.target.toLowerCase());
+    
+    if (sourceTableId && targetTableId) {
+      const sourceTable = tables.value.find(t => t.id === sourceTableId);
+      const targetTable = tables.value.find(t => t.id === targetTableId);
+      
+      const sourceColumn = sourceTable?.columns.find(c => c.name.toLowerCase() === (rel.sourceColumn || 'id').toLowerCase());
+      const targetColumn = targetTable?.columns.find(c => c.name.toLowerCase() === (rel.targetColumn || 'id').toLowerCase());
+
+      if (sourceColumn && targetColumn) {
+        relationships.value.push({
+          id: uid(),
+          sourceTableId,
+          sourceColumnId: sourceColumn.id,
+          targetTableId,
+          targetColumnId: targetColumn.id,
+          sourceMultiplicity: rel.sourceMultiplicity || '1',
+          targetMultiplicity: rel.targetMultiplicity || '*'
+        });
+      }
+    }
+  }
+
+  showAIPanel.value = false;
+  aiPrompt.value = '';
+  aiGeneratedSQL.value = '';
 }
 
 function applyGeneratedSchema() {
