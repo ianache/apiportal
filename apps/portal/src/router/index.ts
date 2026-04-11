@@ -20,6 +20,11 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/explorer',
+    component: () => import('../views/Explorer.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/projects',
     component: Projects,
     meta: { requiresAuth: true }
