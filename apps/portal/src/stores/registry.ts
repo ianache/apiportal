@@ -144,20 +144,22 @@ export const useRegistryStore = defineStore('registry', {
       }
     },
 
-    async createVersion(apiId: string, version: string) {
+    async createVersion(apiId: string, version: string, baseVersion?: string) {
       this.loading = true;
       this.error = null;
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
         const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const payload: any = { version };
+        if (baseVersion) payload.baseVersion = baseVersion;
         const res = await fetch(`${bffBase}/apis/${apiId}/versions`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({ version })
+          body: JSON.stringify(payload)
         });
         if (!res.ok) {
           const data = await res.json();
@@ -252,12 +254,35 @@ export const useRegistryStore = defineStore('registry', {
       }
     },
 
+    async deleteVersion(apiId: string, version: string) {
+      try {
+        this.loading = true;
+        const auth = useAuthStore();
+        const token = await auth.getToken();
+        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.message || 'Failed to delete version');
+        }
+        await this.fetchApiById(apiId);
+        return { success: true };
+      } catch (err: any) {
+        this.error = err.message;
+        throw err;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     async saveDefinition(apiId: string, version: string, spec: string) {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
         const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-        // Store YAML as-is in a wrapper so the BFF receives { definition: "..." }
         const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/definition`, {
           method: 'PUT',
           headers: {
@@ -274,6 +299,46 @@ export const useRegistryStore = defineStore('registry', {
       } catch (err: any) {
         this.error = err.message;
         throw err;
+      }
+    },
+
+    async saveOpenApiSpec(apiId: string, version: string, spec: any) {
+      try {
+        const auth = useAuthStore();
+        const token = await auth.getToken();
+        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/openapi`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ openapi: spec })
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Failed to save OpenAPI spec');
+        }
+        return await res.json();
+      } catch (err: any) {
+        this.error = err.message;
+        throw err;
+      }
+    },
+
+    async fetchOpenApiSpec(apiId: string, version: string) {
+      try {
+        const auth = useAuthStore();
+        const token = await auth.getToken();
+        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/openapi`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.openapi || null;
+      } catch (err: any) {
+        return null;
       }
     }
   }

@@ -1,0 +1,20 @@
+-- CreateUserAPIFavorite
+CREATE TABLE "UserAPIFavorite" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "apiId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "UserAPIFavorite_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX "UserAPIFavorite_userId_apiId_key" ON "UserAPIFavorite"("userId", "apiId");
+
+-- CreateIndex
+CREATE INDEX "UserAPIFavorite_userId_idx" ON "UserAPIFavorite"("userId");
+
+-- AddForeignKey
+ALTER TABLE "UserAPIFavorite" ADD CONSTRAINT "UserAPIFavorite_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "UserAPIFavorite" ADD CONSTRAINT "UserAPIFavorite_apiId_fkey" FOREIGN KEY ("apiId") REFERENCES "API"("id") ON DELETE CASCADE ON UPDATE CASCADE;

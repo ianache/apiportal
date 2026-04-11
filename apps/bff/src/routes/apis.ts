@@ -196,7 +196,9 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       const { id } = request.params as { id: string };
-      const { version } = createVersionSchema.parse(request.body);
+      const body = request.body as { version: string; baseVersion?: string };
+      const { version } = createVersionSchema.parse(body);
+      const baseVersion = body.baseVersion;
 
       const existingApi = await fastify.prisma.aPI.findUnique({ where: { id } });
       if (!existingApi) return reply.code(404).send({ error: 'API Not Found' });
@@ -225,16 +227,28 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      // Copy definition from base version if provided
+      let definition = null;
+      if (baseVersion) {
+        const baseVer = await fastify.prisma.aPIVersion.findUnique({
+          where: { apiId_version: { apiId: id, version: baseVersion } }
+        });
+        if (baseVer) {
+          definition = baseVer.definition;
+        }
+      }
+
       const newVersion = await fastify.prisma.aPIVersion.create({
         data: {
           apiId: id,
           version,
           status: 'DESIGN',
+          definition,
           createdBy: dbUser.id
         }
       });
 
-      fastify.log.info({ apiId: id, version }, 'API version created successfully');
+      fastify.log.info({ apiId: id, version, baseVersion: baseVersion || 'none' }, 'API version created successfully');
       return newVersion;
     } catch (err: any) {
       fastify.log.error(err, 'Failed to create API version');
@@ -333,6 +347,7 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Save OpenAPI definition (PUT /apis/:id/versions/:version/definition)
+  // NOTE: This stores the visual design flow (nodes/edges) in flowConfig field
   fastify.put('/apis/:id/versions/:version/definition', async (request, reply) => {
     try {
       if (!request.user) {
@@ -353,17 +368,64 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(422).send({ error: 'Unprocessable', message: 'Only DESIGN versions can be edited' });
       }
 
+      // Store visual design in flowConfig
       const updated = await fastify.prisma.aPIVersion.update({
         where: { id: apiVersion.id },
-        data: { definition: definition as any }
+        data: { flowConfig: definition as any }
       });
 
-      fastify.log.info({ apiId: id, version }, 'API definition saved');
-      return { id: updated.id, version: updated.version, definition: updated.definition };
+      fastify.log.info({ apiId: id, version }, 'API flow config saved');
+      return { id: updated.id, version: updated.version, flowConfig: updated.flowConfig };
     } catch (err: any) {
       fastify.log.error(err, 'Failed to save API definition');
       throw err;
     }
+  });
+
+  // Save OpenAPI spec (PUT /apis/:id/versions/:version/openapi)
+  fastify.put('/apis/:id/versions/:version/openapi', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+      if (request.user.role === 'API_DEVELOPER') {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Developers cannot edit API definitions' });
+      }
+
+      const { id, version } = request.params as { id: string; version: string };
+      const { openapi } = request.body as { openapi: unknown };
+
+      const apiVersion = await fastify.prisma.aPIVersion.findFirst({
+        where: { apiId: id, version }
+      });
+      if (!apiVersion) return reply.code(404).send({ error: 'Version not found' });
+      if (apiVersion.status !== 'DESIGN') {
+        return reply.code(422).send({ error: 'Unprocessable', message: 'Only DESIGN versions can be edited' });
+      }
+
+      const updated = await fastify.prisma.aPIVersion.update({
+        where: { id: apiVersion.id },
+        data: { openApiSpec: openapi as any }
+      });
+
+      fastify.log.info({ apiId: id, version }, 'OpenAPI spec saved');
+      return { id: updated.id, version: updated.version, openApiSpec: updated.openApiSpec };
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to save OpenAPI spec');
+      throw err;
+    }
+  });
+
+  // Get OpenAPI spec (GET /apis/:id/versions/:version/openapi)
+  fastify.get('/apis/:id/versions/:version/openapi', async (request, reply) => {
+    const { id, version } = request.params as { id: string; version: string };
+
+    const apiVersion = await fastify.prisma.aPIVersion.findFirst({
+      where: { apiId: id, version }
+    });
+    if (!apiVersion) return reply.code(404).send({ error: 'Version not found' });
+
+    return { openapi: apiVersion.openApiSpec };
   });
 
   // Update endpoint (PATCH /apis/:id/versions/:version/endpoints/:endpointId)
@@ -421,6 +483,45 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
       return { success: true };
     } catch (err: any) {
       fastify.log.error(err, 'Failed to delete endpoint');
+      throw err;
+    }
+  });
+
+  // Delete version (DELETE /apis/:id/versions/:version)
+  fastify.delete('/apis/:id/versions/:version', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+
+      // RBAC: Only API_MANAGER and API_DESIGNER can delete versions
+      if (request.user.role === 'API_DEVELOPER') {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Developers cannot delete versions' });
+      }
+
+      const { id, version } = request.params as { id: string; version: string };
+
+      const apiVersion = await fastify.prisma.aPIVersion.findFirst({
+        where: { apiId: id, version }
+      });
+      if (!apiVersion) {
+        return reply.code(404).send({ error: 'Not Found', message: 'Version not found' });
+      }
+
+      // Check status - only allow delete if not PUBLISHED, APPROVED, or RETIRED
+      if (['PUBLISHED', 'APPROVED', 'RETIRED'].includes(apiVersion.status)) {
+        return reply.code(400).send({ 
+          error: 'Bad Request', 
+          message: `Cannot delete version with status ${apiVersion.status}` 
+        });
+      }
+
+      await fastify.prisma.aPIVersion.delete({ where: { id: apiVersion.id } });
+
+      fastify.log.info({ apiId: id, version }, 'Version deleted');
+      return { success: true };
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to delete version');
       throw err;
     }
   });

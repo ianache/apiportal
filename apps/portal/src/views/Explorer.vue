@@ -258,6 +258,16 @@
               >api</span>
             </div>
             <div class="flex flex-col items-end gap-1">
+              <button
+                @click.stop="toggleFavorite(api.id)"
+                class="p-1 rounded-full transition-colors hover:bg-gray-100"
+                :title="favoritesStore.isFavorite(api.id) ? 'Remove from favorites' : 'Add to favorites'"
+              >
+                <span
+                  class="material-symbols-outlined text-lg"
+                  :style="getStarStyle(api.id)"
+                >star</span>
+              </button>
               <span
                 class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full"
                 :style="getStatusStyle(api.versions?.[0]?.status)"
@@ -297,10 +307,18 @@
               <span
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity group-hover:opacity-80 cursor-pointer"
                 style="background: #f0fdf4; color: #15803d;"
+                @click.stop="navigateToRedoc(api.id, api.versions?.[0]?.version)"
+              >
+                <span class="material-symbols-outlined" style="font-size: 15px;">menu_book</span>
+                Redoc
+              </span>
+              <span
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity group-hover:opacity-80 cursor-pointer"
+                style="background: #f0fdf4; color: #15803d;"
                 @click.stop="navigateToSpec(api.id, api.versions?.[0]?.version)"
               >
                 <span class="material-symbols-outlined" style="font-size: 15px;">book</span>
-                View Spec
+                OpenAPI
               </span>
               <span
                 class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity group-hover:opacity-80"
@@ -329,6 +347,7 @@
               <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider" style="color: #414755;">Latest Version</th>
               <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider" style="color: #414755;">Status</th>
               <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider" style="color: #414755;">Updated</th>
+              <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider" style="color: #414755;"></th>
             </tr>
           </thead>
           <tbody>
@@ -375,6 +394,18 @@
                 </span>
               </td>
               <td class="px-6 py-4 text-sm" style="color: #414755;">{{ formatDate(api.updatedAt) }}</td>
+              <td class="px-6 py-4">
+                <button
+                  @click.stop="toggleFavorite(api.id)"
+                  class="p-1 rounded-full transition-colors hover:bg-gray-100"
+                  :title="favoritesStore.isFavorite(api.id) ? 'Remove from favorites' : 'Add to favorites'"
+                >
+                  <span
+                    class="material-symbols-outlined text-lg"
+                    :style="getStarStyle(api.id)"
+                  >star</span>
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -385,28 +416,59 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import Shell from '../components/layout/Shell.vue';
 import { useRegistryStore } from '../stores/registry';
 import { useDomainsStore } from '../stores/domains';
 import { useAuthStore } from '../stores/auth';
+import { useFavoritesStore } from '../stores/favorites';
 
 const registry = useRegistryStore();
 const domainsStore = useDomainsStore();
 const authStore = useAuthStore();
+const favoritesStore = useFavoritesStore();
 const router = useRouter();
+const route = useRoute();
+
+const SESSION_KEY = 'api-explorer-filters';
 
 const viewMode = ref<'grid' | 'table'>('grid');
 const hasSearched = ref(false);
 const statusDropdownOpen = ref(false);
+const showFavoritesOnly = ref(false);
 
-const filters = ref({
+const defaultFilters = () => ({
   domainId: '',
   label: '',
   name: '',
   statuses: ['PUBLISHED'] as string[]
 });
+
+const filters = ref(defaultFilters());
+
+const loadFilters = () => {
+  try {
+    const saved = sessionStorage.getItem(SESSION_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      filters.value = { ...defaultFilters(), ...parsed };
+      hasSearched.value = parsed.hasSearched ?? false;
+    }
+  } catch {
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+};
+
+const saveFilters = () => {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+    ...filters.value,
+    hasSearched: hasSearched.value
+  }));
+};
+
+watch(filters, saveFilters, { deep: true });
+watch(hasSearched, saveFilters);
 
 const availableStatuses = ['DESIGN', 'REVIEW', 'APPROVED', 'PUBLISHED', 'DEPRECATED', 'RETIRED'];
 
@@ -434,6 +496,10 @@ const filteredApis = computed(() => {
   if (!hasSearched.value) return [];
   
   return registry.apis.filter(api => {
+    if (showFavoritesOnly.value && !favoritesStore.isFavorite(api.id)) {
+      return false;
+    }
+    
     // Domain filter
     if (filters.value.domainId && api.domainId !== filters.value.domainId) {
       return false;
@@ -468,8 +534,15 @@ const executeSearch = () => {
   registry.fetchApis();
 };
 
-onMounted(() => {
+onMounted(async () => {
+  loadFilters();
   domainsStore.fetch();
+  await favoritesStore.fetchFavorites();
+  if (route.query.favorites === 'true') {
+    showFavoritesOnly.value = true;
+    hasSearched.value = true;
+    registry.fetchApis();
+  }
 });
 
 const toggleStatus = (status: string) => {
@@ -506,6 +579,10 @@ const navigateToSpec = (id: string, version?: string) => {
   router.push(`/explorer/${id}/spec${version ? `/${version}` : ''}`);
 };
 
+const navigateToRedoc = (id: string, version?: string) => {
+  router.push(`/explorer/${id}/redoc${version ? `/${version}` : ''}`);
+};
+
 const getStatusStyle = (status: string | undefined): Record<string, string> => {
   switch (status) {
     case 'DESIGN':     return { background: '#dbeafe', color: '#1e40af' };
@@ -516,5 +593,17 @@ const getStatusStyle = (status: string | undefined): Record<string, string> => {
     case 'RETIRED':    return { background: '#f1f5f9', color: '#334155' };
     default:           return { background: '#f1f5f9', color: '#334155' };
   }
+};
+
+const toggleFavorite = async (apiId: string) => {
+  await favoritesStore.toggleFavorite(apiId);
+};
+
+const getStarStyle = (apiId: string) => {
+  const isFav = favoritesStore.isFavorite(apiId);
+  return {
+    color: isFav ? '#eab308' : '#a0a7b5',
+    fontVariationSettings: isFav ? "'FILL' 1" : "'FILL' 0"
+  };
 };
 </script>

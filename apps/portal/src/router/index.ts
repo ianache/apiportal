@@ -30,6 +30,11 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/explorer/:id/redoc/:version?',
+    component: () => import('../views/RedocViewer.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/projects',
     component: Projects,
     meta: { requiresAuth: true }

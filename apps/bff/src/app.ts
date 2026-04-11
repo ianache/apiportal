@@ -12,6 +12,7 @@ import integrationRoutes from './routes/integrations.js';
 import nodeTypesCatalogRoutes from './routes/nodeTypesCatalog.js';
 import llmProvidersRoutes from './routes/llmProviders.js';
 import userPreferencesRoute from './routes/userPreferences.js';
+import favoritesRoutes from './routes/favorites.js';
 
 const schema = {
   type: 'object',
@@ -59,6 +60,7 @@ fastify.register(integrationRoutes);
 fastify.register(nodeTypesCatalogRoutes);
 fastify.register(llmProvidersRoutes, { prefix: '/llm-providers' });
 fastify.register(userPreferencesRoute, { prefix: '/user-preferences' });
+fastify.register(favoritesRoutes, { prefix: '/favorites' });
 
 const start = async () => {
   try {

@@ -1,23 +1,43 @@
 <template>
   <div
     class="resource-node"
-    :class="{ 'resource-node--selected': selected, 'resource-node--root': data.isRoot }"
+    :class="{
+      'resource-node--selected': selected,
+      'resource-node--root': data.isRoot,
+      'resource-node--locked': data.isRoot,
+      'resource-node--collapsed': isCollapsed
+    }"
   >
-    <!-- Vue Flow connection handles (transparent — used for dropped connections) -->
-    <Handle id="top"    type="source" :position="Position.Top"    :connectable="true" class="vf-handle" />
-    <Handle id="right"  type="source" :position="Position.Right"  :connectable="true" class="vf-handle" />
-    <Handle id="bottom" type="source" :position="Position.Bottom" :connectable="true" class="vf-handle" />
-    <Handle id="left"   type="source" :position="Position.Left"   :connectable="true" class="vf-handle" />
+    <!-- Left blue border extension (visual effect) -->
+    <div class="blue-border-left"></div>
 
-    <!-- Node body -->
+    <!-- Right blue border extension (visual effect) -->
+    <div class="blue-border-right"></div>
+
+    <!-- Vue Flow connection handles -->
+    <template v-if="data.isRoot">
+      <Handle id="right" type="source" :position="Position.Right" :connectable="true" class="vf-handle" />
+    </template>
+    <template v-else>
+      <Handle id="left" type="target" :position="Position.Left" :connectable="true" class="vf-handle vf-handle--left" />
+      <Handle id="right" type="source" :position="Position.Right" :connectable="true" class="vf-handle" />
+    </template>
+    <Handle id="top" type="target" :position="Position.Top" :connectable="true" class="vf-handle vf-handle--hidden" />
+    <Handle id="bottom" type="source" :position="Position.Bottom" :connectable="true" class="vf-handle vf-handle--hidden" />
+
+    <!-- White card body -->
     <div class="node-body">
-      <div class="node-icon-wrap">
-        <span class="material-symbols-outlined" style="font-size: 18px; color: #ffffff;">
-          {{ data.isRoot ? 'hub' : 'folder_open' }}
-        </span>
+      <!-- Icon -->
+      <div class="node-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path v-if="data.isRoot" d="M12 2L2 7L12 12L22 7L12 2Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path v-else d="M22 19C22 20.1 21.1 21 20 21H4C2.9 21 2 20.1 2 19V5C2 3.9 2.9 3 4 3H9L11 5H20C21.1 5 22 5.9 22 7V19Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
       </div>
+
+      <!-- Content -->
       <div class="node-content">
-        <p class="node-path">{{ data.path || '/resource' }}</p>
+        <span class="node-path">{{ data.path || '/resource' }}</span>
         <div v-if="data.methods?.length" class="node-methods">
           <span
             v-for="m in data.methods"
@@ -29,27 +49,44 @@
       </div>
     </div>
 
-    <!-- Add-child buttons (one per border, centered) -->
+    <!-- Collapse/Expand button -->
     <button
-      v-for="dir in directions"
-      :key="dir"
-      class="add-btn"
-      :class="`add-btn--${dir}`"
-      :title="`Add resource (${dir})`"
+      v-if="!data.isRoot && data.hasChildren"
+      class="control-btn control-btn--collapse"
+      :class="{ 'control-btn--active': isCollapsed }"
+      :title="isCollapsed ? 'Expand children' : 'Collapse children'"
       @mousedown.stop
-      @click.stop="addChildNode(dir)"
-    >+</button>
+      @click.stop="toggleCollapse"
+    >
+      <span>{{ isCollapsed ? '›' : '‹' }}</span>
+    </button>
+
+    <!-- Add child button -->
+    <button
+      type="button"
+      class="control-btn control-btn--add"
+      :class="{ 'control-btn--add-root': data.isRoot }"
+      title="Add child resource"
+      @mousedown.stop
+      @click.stop="handleAddChild"
+    >
+      <span>+</span>
+    </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { Handle, Position, useVueFlow, MarkerType } from '@vue-flow/core';
+import { ref } from 'vue';
+import { Handle, Position, useVueFlow } from '@vue-flow/core';
 
 interface ResourceData {
   path: string;
   methods: string[];
   description: string;
   isRoot?: boolean;
+  hasChildren?: boolean;
+  operationName?: string;
+  security?: string;
 }
 
 const props = defineProps<{
@@ -58,12 +95,20 @@ const props = defineProps<{
   selected: boolean;
 }>();
 
+const emit = defineEmits<{
+  (e: 'delete-children', nodeId: string): void;
+  (e: 'toggle-collapse', nodeId: string, collapsed: boolean): void;
+  (e: 'node-reparent', nodeId: string, newParentId: string): void;
+}>();
+
+const isCollapsed = ref(false);
+
 const directions = ['top', 'right', 'bottom', 'left'] as const;
 type Direction = typeof directions[number];
 
-const { addNodes, addEdges, findNode } = useVueFlow();
+const { addNodes, addEdges, findNode, removeNodes, removeEdges } = useVueFlow();
 
-const NODE_W = 192;
+const NODE_W = 200;
 const NODE_H = 72;
 const H_GAP  = 180;
 const V_GAP  = 110;
@@ -72,38 +117,51 @@ const opposite: Record<Direction, Direction> = {
   top: 'bottom', right: 'left', bottom: 'top', left: 'right',
 };
 
+function handleAddChild() {
+  const parent = findNode(props.id);
+  let position = { x: 0, y: 0 };
+  if (parent) {
+    position = { x: parent.position.x + NODE_W + H_GAP, y: parent.position.y };
+  }
+  window.dispatchEvent(new CustomEvent('add-child-node', {
+    detail: {
+      parentId: props.id,
+      direction: 'right',
+      position: position
+    }
+  }));
+}
+
 function addChildNode(dir: Direction) {
   const parent = findNode(props.id);
-  if (!parent) return;
+  let position = { x: 0, y: 0 };
+  if (parent) {
+    const offsets: Record<Direction, { dx: number; dy: number }> = {
+      top:    { dx: 0,              dy: -(NODE_H + V_GAP) },
+      right:  { dx: NODE_W + H_GAP, dy: 0                 },
+      bottom: { dx: 0,              dy:  NODE_H + V_GAP   },
+      left:   { dx: -(NODE_W + H_GAP), dy: 0              },
+    };
+    const { dx, dy } = offsets[dir];
+    position = { x: parent.position.x + dx, y: parent.position.y + dy };
+  }
 
-  const offsets: Record<Direction, { dx: number; dy: number }> = {
-    top:    { dx: 0,              dy: -(NODE_H + V_GAP) },
-    right:  { dx: NODE_W + H_GAP, dy: 0                 },
-    bottom: { dx: 0,              dy:  NODE_H + V_GAP   },
-    left:   { dx: -(NODE_W + H_GAP), dy: 0              },
-  };
+  window.dispatchEvent(new CustomEvent('add-child-node', {
+    detail: {
+      parentId: props.id,
+      direction: dir,
+      position: position
+    }
+  }));
+}
 
-  const newId = `res-${Date.now()}`;
-  const { dx, dy } = offsets[dir];
+function removeAllChildren() {
+  window.dispatchEvent(new CustomEvent('delete-node-children', { detail: { nodeId: props.id } }));
+}
 
-  addNodes([{
-    id: newId,
-    type: 'resource',
-    position: { x: parent.position.x + dx, y: parent.position.y + dy },
-    data: { path: '/new-resource', methods: ['GET'], description: '' },
-  }]);
-
-  addEdges([{
-    id: `e-${props.id}-${dir}-${newId}`,
-    source: props.id,
-    target: newId,
-    sourceHandle: dir,
-    targetHandle: opposite[dir],
-    type: 'smoothstep',
-    animated: false,
-    markerEnd: { type: MarkerType.ArrowClosed, color: '#0058bc' },
-    style: { stroke: '#0058bc', strokeWidth: 2 },
-  }]);
+function toggleCollapse() {
+  isCollapsed.value = !isCollapsed.value;
+  window.dispatchEvent(new CustomEvent('toggle-node-collapse', { detail: { nodeId: props.id, collapsed: isCollapsed.value } }));
 }
 </script>
 
@@ -111,54 +169,99 @@ function addChildNode(dir: Direction) {
 /* ── Node wrapper ──────────────────────────────────── */
 .resource-node {
   position: relative;
-  width: 192px;
+  width: 200px;
+  height: 72px;
   cursor: pointer;
   user-select: none;
 }
 
-/* ── Node body card ────────────────────────────────── */
+/* ── Blue border extensions (left and right) ──────── */
+.blue-border-left,
+.blue-border-right {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 48px;
+  background: #3b82f6;
+  border-radius: 6px;
+  z-index: 0;
+}
+
+.blue-border-left {
+  left: -6px;
+  border-radius: 6px 0 0 6px;
+}
+
+.blue-border-right {
+  right: -6px;
+  border-radius: 0 6px 6px 0;
+}
+
+/* ── White card body ──────────────────────────────── */
 .node-body {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
-  border-radius: 14px;
+  width: 100%;
+  height: 100%;
+  padding: 0 20px 0 14px;
   background: #ffffff;
-  border: 2px solid #e3e2e7;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-  transition: border-color 0.15s, box-shadow 0.15s;
-  min-height: 56px;
+  border-radius: 12px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -2px rgba(0, 0, 0, 0.1),
+    0 0 0 3px #3b82f6;
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.resource-node:hover .node-body {
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 0 0 3px #3b82f6;
 }
 
 .resource-node--selected .node-body {
-  border-color: #0058bc;
-  box-shadow: 0 0 0 3px rgba(0,88,188,0.15), 0 2px 8px rgba(0,0,0,0.07);
+  box-shadow:
+    0 0 0 4px rgba(59, 130, 246, 0.3),
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -2px rgba(0, 0, 0, 0.1);
 }
 
 .resource-node--root .node-body {
-  background: #0058bc;
-  border-color: #0058bc;
-}
-
-.resource-node--root .node-path {
-  color: #ffffff !important;
-  font-weight: 700;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -2px rgba(0, 0, 0, 0.1),
+    0 0 0 3px #2563eb;
 }
 
 /* ── Icon ──────────────────────────────────────────── */
-.node-icon-wrap {
+.node-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
+  background: #3b82f6;
   border-radius: 8px;
   flex-shrink: 0;
-  background: #0058bc;
+  transition: background 0.15s ease;
 }
 
-.resource-node--root .node-icon-wrap {
-  background: rgba(255,255,255,0.2);
+.resource-node--root .node-icon {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.resource-node:hover .node-icon {
+  background: #2563eb;
+}
+
+.resource-node--root:hover .node-icon {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* ── Content ───────────────────────────────────────── */
@@ -173,80 +276,170 @@ function addChildNode(dir: Direction) {
 .node-path {
   font-size: 13px;
   font-weight: 600;
-  color: #1a1b1f;
+  color: #1e293b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: 'Inter', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: -0.01em;
 }
 
+.resource-node--root .node-path {
+  color: #ffffff;
+}
+
+/* ── Method badges ─────────────────────────────────── */
 .node-methods {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 4px;
 }
 
 .method-badge {
-  font-size: 9px;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 1px 5px;
   border-radius: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.03em;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
-.method-badge--get    { background: #dcfce7; color: #15803d; }
-.method-badge--post   { background: #dbeafe; color: #1d4ed8; }
-.method-badge--put    { background: #fef9c3; color: #854d0e; }
-.method-badge--patch  { background: #fef3c7; color: #92400e; }
-.method-badge--delete { background: #fee2e2; color: #991b1b; }
 
-/* ── Vue Flow handles (transparent, for drag-connect) ─ */
+.method-badge--get {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.method-badge--post {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.method-badge--put {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.method-badge--patch {
+  background: #fef3c7;
+  color: #78350f;
+}
+
+.method-badge--delete {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* ── Vue Flow handles ──────────────────────────────── */
 :deep(.vf-handle),
 :deep(.vue-flow__handle) {
-  width: 10px !important;
-  height: 10px !important;
-  background: transparent !important;
-  border: none !important;
+  width: 12px !important;
+  height: 12px !important;
+  background: #ffffff !important;
+  border: 2px solid #3b82f6 !important;
   border-radius: 50% !important;
   z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
-/* ── Add-child "+" buttons ─────────────────────────── */
-.add-btn {
+:deep(.vf-handle--left) {
+  left: -6px !important;
+}
+
+:deep(.vue-flow__handle:hover),
+:deep(.vf-handle:hover) {
+  background: #3b82f6 !important;
+  transform: scale(1.2);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+}
+
+:deep(.vf-handle--hidden),
+:deep(.vue-flow__handle--hidden) {
+  display: none !important;
+}
+
+/* ── Control buttons ──────────────────────────────── */
+.control-btn {
   position: absolute;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #0058bc;
-  color: #ffffff;
-  font-size: 14px;
-  line-height: 1;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #ffffff;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #ffffff;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
   cursor: pointer;
-  transition: transform 0.12s, background 0.12s;
-  z-index: 20;
+  z-index: 30;
   padding: 0;
-  font-family: monospace;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 16px;
+  font-weight: 600;
+  color: #64748b;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: all 0.15s ease;
 }
-.add-btn:hover {
-  background: #004399;
-  transform: scale(1.2);
+
+.control-btn:hover {
+  background: #3b82f6;
+  color: #ffffff;
+  box-shadow:
+    0 4px 6px -1px rgba(59, 130, 246, 0.4),
+    0 2px 4px -2px rgba(59, 130, 246, 0.3);
+  transform: translateY(-50%) scale(1.1);
 }
 
-.add-btn--top    { top: -9px;  left: 50%;  transform: translateX(-50%); }
-.add-btn--top:hover { transform: translateX(-50%) scale(1.2); }
+.control-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
 
-.add-btn--right  { right: -9px; top: 50%;  transform: translateY(-50%); }
-.add-btn--right:hover { transform: translateY(-50%) scale(1.2); }
+/* Collapse button - positioned inside white card, left of right edge */
+.control-btn--collapse {
+  right: 28px;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+}
 
-.add-btn--bottom { bottom: -9px; left: 50%; transform: translateX(-50%); }
-.add-btn--bottom:hover { transform: translateX(-50%) scale(1.2); }
+.control-btn--collapse:hover {
+  right: 28px;
+}
 
-.add-btn--left   { left: -9px; top: 50%;  transform: translateY(-50%); }
-.add-btn--left:hover { transform: translateY(-50%) scale(1.2); }
+/* Add button - positioned at right edge, embedded in blue border */
+.control-btn--add {
+  right: -5px;
+  width: 26px;
+  height: 26px;
+  font-size: 18px;
+  border: 2px solid #ffffff;
+}
+
+.control-btn--add-root {
+  right: -5px;
+  width: 26px;
+  height: 26px;
+  font-size: 18px;
+  border: 2px solid #ffffff;
+}
+
+/* Active state for collapse (when children are collapsed) */
+.control-btn--active {
+  background: #3b82f6;
+  color: #ffffff;
+}
+
+.control-btn--active:hover {
+  background: #2563eb;
+}
+
+/* ── Collapsed state indicator ─────────────────────── */
+.resource-node--collapsed .node-body {
+  background: #f8fafc;
+}
 </style>

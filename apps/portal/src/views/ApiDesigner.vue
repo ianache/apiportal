@@ -161,6 +161,19 @@
               <input v-model="selectedNode.data.path" @input="updateNodeData" class="panel-input" placeholder="/resource" />
               <p class="panel-hint">e.g. <code>/users/{id}</code></p>
             </div>
+            <div class="panel-section">
+              <label class="panel-label">Operation Summary / ID</label>
+              <input v-model="selectedNode.data.operationName" @input="updateNodeData" class="panel-input" placeholder="Get Users List" />
+            </div>
+            <div class="panel-section">
+              <label class="panel-label">Security Scheme</label>
+              <select v-model="selectedNode.data.security" @change="updateNodeData" class="panel-select w-full" style="max-width:none;width:100%;box-sizing:border-box;">
+                <option value="">— None —</option>
+                <option value="bearerAuth">Bearer Auth (JWT)</option>
+                <option value="apiKeyAuth">API Key</option>
+                <option value="oauth2">OAuth2</option>
+              </select>
+            </div>
             <div v-if="!selectedNode.data.isRoot" class="panel-section">
               <label class="panel-label">HTTP Methods</label>
               <div class="space-y-1">
@@ -447,7 +460,7 @@ const apiName  = ref('');
 // ── Vue Flow ─────────────────────────────────────────
 const { removeNodes, updateNode, getViewport, setViewport } = useVueFlow();
 const fileInputRef = ref<HTMLInputElement | null>(null);
-const nodeTypes = { resource: markRaw(ResourceNode) };
+const nodeTypes = { resource: markRaw(ResourceNode) } as any;
 const defaultEdgeOptions = {
   type: 'smoothstep', animated: false,
   markerEnd: { type: MarkerType.ArrowClosed, color: '#0058bc' },
@@ -456,7 +469,7 @@ const defaultEdgeOptions = {
 
 const ROOT_NODE: Node = {
   id: 'root', type: 'resource', position: { x: 0, y: 0 },
-  data: { path: '/', methods: [], operationSpecs: {}, description: 'API Entry Point', isRoot: true },
+  data: { path: '/', methods: [], operationSpecs: {}, description: 'API Entry Point', operationName: '', security: '', isRoot: true },
 };
 const nodes = ref<Node[]>([ROOT_NODE]);
 const edges = ref<Edge[]>([]);
@@ -668,8 +681,65 @@ async function saveFlow() {
   }
 }
 
+// ── Visual Interaction Handlers ──────────────────────
+function handleAddChildNode(e: any) {
+  const { parentId, position } = e.detail;
+  const id = `resource-${uid()}`;
+  const newNode: Node = {
+    id,
+    type: 'resource',
+    position: { x: position.x || 0, y: position.y || 0 },
+    data: { 
+      path: '/new-resource', 
+      methods: [], 
+      operationSpecs: {}, 
+      description: '',
+      operationName: '',
+      security: '',
+      isRoot: false
+    },
+  };
+  nodes.value.push(newNode);
+  edges.value.push({
+    id: `e-${parentId}-${id}`,
+    source: parentId,
+    target: id,
+    sourceHandle: 'right',
+    targetHandle: 'left',
+    type: 'smoothstep',
+    animated: false,
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#0058bc' },
+    style: { stroke: '#0058bc', strokeWidth: 2 },
+  });
+}
+
+function handleDeleteNodeChildren(e: any) {
+  const { nodeId } = e.detail;
+  const childrenEdges = edges.value.filter(ev => ev.source === nodeId);
+  const childrenIds = childrenEdges.map(ev => ev.target);
+  if (childrenIds.length > 0) {
+    removeNodes(childrenIds);
+  }
+}
+
+function handleToggleNodeCollapse(e: any) {
+  const { nodeId, collapsed } = e.detail;
+  const visit = (pid: string) => {
+    const childEdges = edges.value.filter(ev => ev.source === pid);
+    for (const edge of childEdges) {
+      updateNode(edge.target, { hidden: collapsed });
+      visit(edge.target);
+    }
+  };
+  visit(nodeId);
+}
+
 // ── Load ─────────────────────────────────────────────
 onMounted(async () => {
+  window.addEventListener('add-child-node', handleAddChildNode);
+  window.addEventListener('delete-node-children', handleDeleteNodeChildren);
+  window.addEventListener('toggle-node-collapse', handleToggleNodeCollapse);
+  
   // Always fetch fresh to get the latest saved definition
   const api = await registry.fetchApiById(apiId) as any;
   if (api) apiName.value = api.name ?? '';
@@ -696,6 +766,13 @@ onMounted(async () => {
   components.value = [];
   await nextTick();
   setViewport({ x: 0, y: 0, zoom: 0.75 });
+});
+
+import { onUnmounted } from 'vue';
+onUnmounted(() => {
+  window.removeEventListener('add-child-node', handleAddChildNode);
+  window.removeEventListener('delete-node-children', handleDeleteNodeChildren);
+  window.removeEventListener('toggle-node-collapse', handleToggleNodeCollapse);
 });
 
 // ── YAML export ───────────────────────────────────────
@@ -732,7 +809,7 @@ function exportYaml() {
     (n.data.methods as string[] || []).forEach(verb => {
       const op = opSpecs[verb] || defaultOpSpec(verb);
       const operation: Record<string, any> = {
-        summary: op.summary || `${verb} ${fullPath}`,
+        summary: op.summary || n.data.operationName || `${verb} ${fullPath}`,
         operationId: `${verb.toLowerCase()}_${n.id.replace(/[^a-zA-Z0-9]/g, '_')}`,
         responses: Object.fromEntries(op.responses.map(r => [r.statusCode || '200', {
           description: r.description,
@@ -740,6 +817,9 @@ function exportYaml() {
         }])),
       };
       if (op.description) operation.description = op.description;
+      if (n.data.security) {
+        operation.security = [{ [n.data.security]: [] }];
+      }
       if (op.parameters.length) operation.parameters = op.parameters.map(p => ({ name: p.name, in: 'query', required: p.required, schema: { type: p.type } }));
       if (op.requestBody.enabled) operation.requestBody = {
         required: true,
@@ -761,7 +841,18 @@ function exportYaml() {
   });
 
   const doc: any = { openapi: '3.1.0', info: { title: apiName.value || 'API', version }, paths };
-  if (Object.keys(schemasObj).length) doc.components = { schemas: schemasObj };
+  if (Object.keys(schemasObj).length || nodes.value.some(n => n.data.security)) {
+    doc.components = { 
+      ...(Object.keys(schemasObj).length ? { schemas: schemasObj } : {}),
+      ...(nodes.value.some(n => n.data.security) ? {
+        securitySchemes: {
+          bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+          apiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-API-Key' },
+          oauth2: { type: 'oauth2', flows: { implicit: { authorizationUrl: 'https://example.com/auth', scopes: {} } } }
+        }
+      } : {})
+    };
+  }
   const yamlStr = yaml.dump(doc, { indent: 2, lineWidth: -1 });
   const blob = new Blob([yamlStr], { type: 'text/yaml' });
   const url = URL.createObjectURL(blob);
@@ -785,7 +876,9 @@ function exportDesignYaml() {
         path: n.data.path,
       };
       if (n.data.isRoot) out.isRoot = true;
-      if (n.data.description) out.description = n.data.description;
+      if (n.data.description)   out.description   = n.data.description;
+      if (n.data.operationName) out.operationName = n.data.operationName;
+      if (n.data.security)      out.security      = n.data.security;
       const methods = (n.data.methods as string[] | undefined) ?? [];
       if (methods.length) {
         out.methods = methods.map(verb => {
@@ -865,6 +958,8 @@ function importNexusDesign(doc: any) {
       path: n.path ?? '/resource',
       isRoot: !!n.isRoot,
       description: n.description ?? '',
+      operationName: n.operationName ?? '',
+      security: n.security ?? '',
       methods: (n.methods ?? []).map((m: any) => m.verb),
       operationSpecs: Object.fromEntries((n.methods ?? []).map((m: any) => [m.verb, {
         summary: m.summary ?? '',
@@ -982,9 +1077,19 @@ function importOpenApiDoc(doc: any) {
   };
   
   const collectedSchemas: Map<string, any> = new Map();
+  let anonymousSchemaCount = 0;
+
   const processSchema = (schema: any, name?: string): string => {
     if (!schema) return name || '';
-    const refName = name || schema.title || schema.$ref?.split('/').pop() || 'Unknown';
+    
+    // Better name resolution to avoid "Unknown" collisions
+    let refName = name || schema.title || schema.$ref?.split('/').pop();
+    
+    if (!refName) {
+      anonymousSchemaCount++;
+      refName = `Schema_${anonymousSchemaCount}`;
+    }
+
     if (collectedSchemas.has(refName)) return refName;
     
     const required = schema.required || [];
@@ -1017,11 +1122,18 @@ function importOpenApiDoc(doc: any) {
   
   const allSchemas = Array.from(collectedSchemas.values());
   
+  // Pre-initialize root node so children can connect to it
+  newNodes.push({
+    id: 'root',
+    type: 'resource',
+    position: { x: 30, y: 30 },
+    data: { path: '/', methods: [], operationSpecs: {}, description: 'API Entry Point', isRoot: true },
+  });
+  pathToId['/'] = 'root';
+
   Object.keys(doc.paths).sort((a, b) => a.split('/').length - b.split('/').length)
     .forEach((fullPath, i) => {
       const pathItem = doc.paths[fullPath];
-      const id = i === 0 ? 'root' : `imported-${i}`;
-      pathToId[fullPath] = id;
       const verbs = ['get','post','put','patch','delete'].filter(m => pathItem[m]).map(m => m.toUpperCase());
       const operationSpecs: Record<string, OperationSpec> = {};
       
@@ -1061,26 +1173,43 @@ function importOpenApiDoc(doc: any) {
       });
       
       const segs = fullPath.split('/').filter(Boolean);
-      const parentPath = segs.length <= 1 ? null : '/' + segs.slice(0, -1).join('/');
+      const parentPath = segs.length <= 1 ? '/' : '/' + segs.slice(0, -1).join('/');
       const col = segs.length - 1; 
-      const row = newNodes.filter((n: any) => n._col === col).length;
+
+      // If this is the root path '/', just update the existing root node
+      if (fullPath === '/') {
+        const firstOp = pathItem[verbs[0]?.toLowerCase()];
+        const rootNode = newNodes.find(n => n.id === 'root');
+        if (rootNode) {
+          rootNode.data.description = firstOp?.description || 'API Entry Point';
+          // Discard methods on root node as per requirement
+        }
+        return;
+      }
+
+      const id = `imported-${i}`;
+      const siblings = newNodes.filter((n: any) => n._col === col);
+      const row = siblings.length;
       const firstOp = pathItem[verbs[0]?.toLowerCase()];
       const node: any = { 
         id, 
         type: 'resource', 
-        position: { x: col * 340, y: row * 140 }, 
+        position: { x: col * 280, y: (row + 1) * 100 }, 
         _col: col, 
         data: { 
           path: '/' + (segs[segs.length - 1] || ''), 
           methods: verbs, 
           operationSpecs, 
           description: firstOp?.description || '', 
-          isRoot: i === 0 
+          operationName: firstOp?.summary || '',
+          security: firstOp?.security?.[0] ? Object.keys(firstOp.security[0])[0] : '',
+          isRoot: false 
         } 
       };
       newNodes.push(node);
+      pathToId[fullPath] = id;
       
-      if (parentPath && pathToId[parentPath]) {
+      if (pathToId[parentPath]) {
         const param = (pathItem.parameters || []).filter((p: any) => p.in === 'path')[0];
         newEdges.push({ 
           id: `e-${pathToId[parentPath]}-${id}`, 

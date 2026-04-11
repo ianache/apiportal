@@ -8,24 +8,174 @@ datasource db {
 }
 
 model User {
-  id               String       @id @default(uuid())
-  sub              String       @unique // Keycloak subject ID
-  email            String       @unique
+  id               String            @id @default(uuid())
+  sub              String            @unique
+  email            String            @unique
   name             String?
-  role             Role         @default(API_DEVELOPER)
+  role             Role              @default(API_DEVELOPER)
+  ownedApis        API[]             @relation("ApiOwner")
+  approvedVersions APIVersion[]      @relation("VersionApprover")
+  createdVersions  APIVersion[]      @relation("VersionCreator")
   auditLogs        AuditLog[]
-  ownedApis        API[]        @relation("ApiOwner")
-  createdVersions  APIVersion[] @relation("VersionCreator")
-  approvedVersions APIVersion[] @relation("VersionApprover")
+  favorites        UserAPIFavorite[]
 }
 
 model AuditLog {
   id        String   @id @default(uuid())
   action    String
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
   timestamp DateTime @default(now())
   details   Json?
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model API {
+  id          String            @id @default(uuid())
+  name        String            @unique
+  description String?
+  ownerId     String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  domainId    String?
+  label       String?
+  owner       User              @relation("ApiOwner", fields: [ownerId], references: [id])
+  versions    APIVersion[]
+  favorites   UserAPIFavorite[]
+
+  @@index([domainId])
+  @@index([label])
+}
+
+model APIVersion {
+  id          String        @id @default(uuid())
+  apiId       String
+  version     String        @default("0.1.0")
+  status      APIStatus     @default(DESIGN)
+  definition  Json?
+  flowConfig  Json?
+  createdBy   String
+  approvedBy  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  openApiSpec Json?
+  endpoints   APIEndpoint[]
+  api         API           @relation(fields: [apiId], references: [id], onDelete: Cascade)
+  approver    User?         @relation("VersionApprover", fields: [approvedBy], references: [id])
+  creator     User          @relation("VersionCreator", fields: [createdBy], references: [id])
+
+  @@unique([apiId, version])
+}
+
+model Environment {
+  id        String        @id @default(uuid())
+  slug      String        @unique
+  name      String
+  tags      String[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  endpoints APIEndpoint[]
+}
+
+model Domain {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  title        String
+  description  String?
+  labels       String[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  conceptModel Json?
+  integrations Integration[]
+}
+
+model Integration {
+  id          String               @id @default(uuid())
+  name        String
+  type        String
+  description String?
+  status      IntegrationStatus    @default(DRAFT)
+  icon        String?
+  linkedApis  Int                  @default(0)
+  domainId    String?
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  domain      Domain?              @relation(fields: [domainId], references: [id])
+  versions    IntegrationVersion[]
+}
+
+model IntegrationVersion {
+  id            String                   @id @default(uuid())
+  version       String
+  status        IntegrationVersionStatus @default(Design)
+  description   String?
+  integrationId String
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  integration   Integration              @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+}
+
+model NodeTypeCatalog {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  properties  Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model APIEndpoint {
+  id            String      @id @default(uuid())
+  versionId     String
+  environmentId String
+  baseUrl       String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  environment   Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+  version       APIVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@unique([versionId, environmentId])
+}
+
+model LLMProvider {
+  id        String          @id
+  label     String
+  models    String[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  apiKeys   UserLLMApiKey[]
+}
+
+model UserPreferences {
+  userId            String   @id
+  preferredProvider String   @default("openai")
+  preferredModel    String   @default("gpt-4o")
+  customApiUrl      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model UserLLMApiKey {
+  id         String      @id @default(uuid())
+  userId     String
+  providerId String
+  apiKey     String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  provider   LLMProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, providerId])
+}
+
+model UserAPIFavorite {
+  id        String   @id @default(uuid())
+  userId    String
+  apiId     String
+  createdAt DateTime @default(now())
+  api       API      @relation(fields: [apiId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, apiId])
+  @@index([userId])
 }
 
 enum Role {
@@ -56,139 +206,3 @@ enum IntegrationVersionStatus {
   Published
   Deprecated
 }
-
-model API {
-  id          String       @id @default(uuid())
-  name        String       @unique
-  label       String?
-  description String?
-  domainId    String?
-  ownerId     String
-  owner       User         @relation("ApiOwner", fields: [ownerId], references: [id])
-  versions    APIVersion[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  @@index([domainId])
-  @@index([label])
-}
-
-model APIVersion {
-  id          String    @id @default(uuid())
-  apiId       String
-  api         API       @relation(fields: [apiId], references: [id], onDelete: Cascade)
-  version     String    @default("0.1.0")
-  status      APIStatus @default(DESIGN)
-  definition  Json?     // OpenAPI-like metadata
-  flowConfig  Json?     // Visual Designer nodes/edges (Phase 3)
-  createdBy   String
-  creator     User      @relation("VersionCreator", fields: [createdBy], references: [id])
-  approvedBy  String?
-  approver    User?     @relation("VersionApprover", fields: [approvedBy], references: [id])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  endpoints   APIEndpoint[]
-
-  @@unique([apiId, version])
-}
-
-model Environment {
-  id        String        @id @default(uuid())
-  slug      String        @unique
-  name      String
-  tags      String[]      // Array of tags for filtering
-  endpoints APIEndpoint[]
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-}
-
-model Domain {
-  id             String        @id @default(uuid())
-  name           String        @unique
-  title          String
-  description    String?
-  labels         String[]
-  conceptModel    Json?
-  integrations   Integration[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-}
-
-model Integration {
-  id          String            @id @default(uuid())
-  name        String
-  type        String
-  description String?
-  status      IntegrationStatus @default(DRAFT)
-  icon        String?
-  linkedApis  Int               @default(0)
-  domainId    String?
-  domain      Domain?           @relation(fields: [domainId], references: [id], onDelete: SetNull)
-  versions    IntegrationVersion[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-}
-
-model IntegrationVersion {
-  id           String                   @id @default(uuid())
-  version      String
-  status       IntegrationVersionStatus @default(Design)
-  description  String?
-  integrationId String
-  integration  Integration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
-  createdAt    DateTime                 @default(now())
-  updatedAt    DateTime                 @updatedAt
-}
-
-model NodeTypeCatalog {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  description String?
-  properties  Json     @default("[]")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model APIEndpoint {
-  id             String      @id @default(uuid())
-  versionId       String
-  version         APIVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
-  environmentId   String
-  environment     Environment @relation(fields: [environmentId], references: [id], onDelete: Cascade)
-  baseUrl        String
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-
-  @@unique([versionId, environmentId])
-}
-
-model LLMProvider {
-  id        String   @id
-  label     String
-  models    String[]
-  apiKeys   UserLLMApiKey[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model UserPreferences {
-  userId            String   @id // Keycloak sub
-  preferredProvider String   @default("openai")
-  preferredModel    String   @default("gpt-4o")
-  customApiUrl      String?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-}
-
-model UserLLMApiKey {
-  id         String      @id @default(uuid())
-  userId     String      // Keycloak sub
-  providerId String
-  provider   LLMProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  apiKey     String
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-
-  @@unique([userId, providerId])
-}
-

@@ -169,10 +169,20 @@
                   class="font-bold"
                   :style="selectedVersion?.id === v.id ? 'color: #0058bc;' : 'color: #1a1b1f;'"
                 >v{{ v.version }}</span>
-                <span
-                  class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
-                  :style="getStatusStyle(v.status)"
-                >{{ v.status }}</span>
+                <div class="flex items-center gap-1">
+                  <button
+                    v-if="canDeleteVersion(v.status)"
+                    @click.stop="confirmDeleteVersion(v)"
+                    class="p-1 rounded-full hover:bg-red-100 transition-colors"
+                    title="Delete version"
+                  >
+                    <span class="material-symbols-outlined text-xs" style="color: #991b1b;">close</span>
+                  </button>
+                  <span
+                    class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"
+                    :style="getStatusStyle(v.status)"
+                  >{{ v.status }}</span>
+                </div>
               </div>
               <p class="text-[10px]" style="color: #717786;">{{ formatDate(v.createdAt) }}</p>
             </button>
@@ -407,6 +417,25 @@
         </div>
         <p class="text-sm mb-6" style="color: #717786;">Create a new branch from current state.</p>
 
+        <div class="mb-4">
+          <label class="block text-xs font-bold uppercase tracking-widest mb-1.5 ml-1" style="color: #414755;">
+            Base Version (Optional)
+          </label>
+          <select
+            v-model="baseVersionForNew"
+            class="w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all"
+            style="background: #f4f3f8; border-color: #e3e2e7; color: #1a1b1f;"
+          >
+            <option value="">None (blank)</option>
+            <option v-for="v in api?.versions" :key="v.id" :value="v.version">
+              v{{ v.version }} ({{ v.status }})
+            </option>
+          </select>
+          <p class="text-xs mt-1" style="color: #717786;">
+            Copy definitions from selected version
+          </p>
+        </div>
+
         <div>
           <label class="block text-xs font-bold uppercase tracking-widest mb-1.5 ml-1" style="color: #414755;">
             Version Number (SemVer) <span style="color: #991b1b;">*</span>
@@ -532,7 +561,28 @@
       </div>
     </div>
 
-  </Shell>
+  <Teleport to="body">
+    <Transition name="modal-fade">
+      <div v-if="showDeleteModal" class="modal-overlay" @click.self="cancelDeleteVersion">
+        <div class="modal-content">
+          <div class="modal-header">
+            <span class="material-symbols-outlined" style="font-size: 24px; color: #991b1b;">warning</span>
+            <h3 class="modal-title">Confirm Delete</h3>
+          </div>
+          <p class="modal-body">
+            Are you sure you want to delete version <strong>v{{ versionToDelete?.version }}</strong>?
+            This action cannot be undone.
+          </p>
+          <div class="modal-footer">
+            <button @click="cancelDeleteVersion" class="modal-btn modal-btn--cancel">Cancel</button>
+            <button @click="deleteVersionConfirmed" class="modal-btn modal-btn--confirm">Delete</button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
+
+</Shell>
 </template>
 
 <script setup lang="ts">
@@ -557,6 +607,7 @@ const selectedVersion = ref<APIVersion | null>(null);
 const loading = ref(true);
 const error = ref<string | null>(null);
 const showNewVersionModal = ref(false);
+const baseVersionForNew = ref('');
 const newVersionNumber = ref('');
 
 // Endpoint modal state
@@ -625,6 +676,37 @@ const canApprove = computed(() =>
 const canPublish = computed(() =>
   selectedVersion.value?.status === 'APPROVED' && userRole.value === 'API_MANAGER'
 );
+
+const canDeleteVersion = (version: any) => {
+  const protectedStatuses = ['PUBLISHED', 'APPROVED', 'RETIRED'];
+  return !protectedStatuses.includes(version.status) && 
+    (userRole.value === 'API_MANAGER' || userRole.value === 'API_DESIGNER');
+};
+
+const showDeleteModal = ref(false);
+const versionToDelete = ref<any>(null);
+
+const confirmDeleteVersion = (version: any) => {
+  versionToDelete.value = version;
+  showDeleteModal.value = true;
+};
+
+const deleteVersionConfirmed = async () => {
+  if (!versionToDelete.value || !api.value) return;
+  try {
+    await registry.deleteVersion(api.value.id, versionToDelete.value.version);
+    selectedVersion.value = null;
+    showDeleteModal.value = false;
+    versionToDelete.value = null;
+  } catch (err) {
+    console.error('Failed to delete version:', err);
+  }
+};
+
+const cancelDeleteVersion = () => {
+  showDeleteModal.value = false;
+  versionToDelete.value = null;
+};
 
 // Inline editing methods
 const startEditName = async () => {
@@ -707,9 +789,10 @@ const saveDomain = async () => {
 const handleCreateVersion = async () => {
   if (!api.value || !newVersionNumber.value) return;
   try {
-    await registry.createVersion(api.value.id, newVersionNumber.value);
+    await registry.createVersion(api.value.id, newVersionNumber.value, baseVersionForNew.value || undefined);
     showNewVersionModal.value = false;
     newVersionNumber.value = '';
+    baseVersionForNew.value = '';
     await fetchData();
   } catch (err: any) {
     error.value = err.message;

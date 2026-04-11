@@ -123,19 +123,34 @@
             APIs
           </p>
           <nav class="space-y-0.5">
-            <a
-              v-for="api in apiNav"
-              :key="api.label"
-              href="#"
-              class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors hover:bg-white/70"
-              style="color: #414755;"
+            <router-link
+              to="/explorer?favorites=true"
+              class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150"
+              :class="isActive('/explorer') && route.query.favorites === 'true'
+                ? 'bg-white shadow-sm'
+                : 'text-slate-500 hover:bg-white/70 hover:text-slate-700'"
+              :style="isActive('/explorer') && route.query.favorites === 'true' ? 'color: #0058bc;' : ''"
             >
-              <span
-                class="w-2 h-2 rounded-full flex-shrink-0"
-                :style="{ background: api.color }"
-              ></span>
-              {{ api.label }}
-            </a>
+              <span class="material-symbols-outlined" style="font-size: 19px;">star</span>
+              Favorites APIs
+            </router-link>
+
+            <router-link
+              v-for="api in favoriteApis"
+              :key="api.id"
+              :to="`/projects/${api.id}`"
+              class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-all duration-150 text-slate-500 hover:bg-white/70 hover:text-slate-700"
+            >
+              <span class="material-symbols-outlined" style="font-size: 16px;">api</span>
+              <span class="truncate flex-1">{{ api.name }}</span>
+            </router-link>
+
+            <p v-if="favoritesStore.loading && favoriteApis.length === 0" class="px-3 py-2 text-xs" style="color: #a0a7b5;">
+              Loading favorites...
+            </p>
+            <p v-else-if="favoritesStore.favoriteApiIds.length > 0 && favoriteApis.length === 0" class="px-3 py-2 text-xs" style="color: #a0a7b5;">
+              No favorites yet
+            </p>
           </nav>
         </div>
 
@@ -163,12 +178,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watchEffect } from 'vue';
+import { computed, ref, watchEffect, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { useAuthStore } from '../../stores/auth';
+import { useFavoritesStore } from '../../stores/favorites';
+import { useRegistryStore } from '../../stores/registry';
 
 const auth = useAuthStore();
 const route = useRoute();
+const favoritesStore = useFavoritesStore();
+const registryStore = useRegistryStore();
 
 const headerLinks = ['Docs', 'Support', 'Changelog'];
 
@@ -192,11 +211,19 @@ watchEffect(() => {
   if (route.path.startsWith('/settings')) settingsOpen.value = true;
 });
 
-const apiNav = [
-  { label: 'Nexus Core APIs', color: '#0058bc' },
-  { label: 'Events',          color: '#006e28' },
-  { label: 'Webhooks',        color: '#9e3d00' },
-];
+const favoriteApis = computed(() => {
+  return registryStore.apis.filter(api => favoritesStore.favoriteApiIds.includes(api.id));
+});
+
+onMounted(async () => {
+  favoritesStore.initFromStorage();
+  if (favoritesStore.favoriteApiIds.length === 0) {
+    await favoritesStore.fetchFavorites();
+  }
+  if (registryStore.apis.length === 0) {
+    await registryStore.fetchApis();
+  }
+});
 
 const isActive = (path: string) =>
   route.path === path || route.path.startsWith(path + '/');
