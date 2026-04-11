@@ -133,12 +133,21 @@
                 style="color: #0058bc; font-variation-settings: 'FILL' 1;"
               >api</span>
             </div>
-            <span
-              class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full"
-              :style="getStatusStyle(api.versions?.[0]?.status)"
-            >
-              {{ api.versions?.[0]?.status || 'N/A' }}
-            </span>
+            <div class="flex flex-col items-end gap-1">
+              <span
+                class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full"
+                :style="getStatusStyle(api.versions?.[0]?.status)"
+              >
+                {{ api.versions?.[0]?.status || 'N/A' }}
+              </span>
+              <span
+                v-if="getDomainName(api.domainId)"
+                class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full"
+                style="background: #f3e8ff; color: #7c3aed;"
+              >
+                {{ getDomainName(api.domainId) }}
+              </span>
+            </div>
           </div>
 
           <!-- Card body -->
@@ -174,6 +183,7 @@
           <thead>
             <tr style="background: #f4f3f8; border-bottom: 1px solid #e3e2e7;">
               <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider" style="color: #414755;">API Name</th>
+              <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider" style="color: #414755;">Domain</th>
               <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider" style="color: #414755;">Latest Version</th>
               <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider" style="color: #414755;">Status</th>
               <th class="px-6 py-4 text-xs font-bold uppercase tracking-wider" style="color: #414755;">Updated</th>
@@ -195,6 +205,16 @@
                   </div>
                   {{ api.name }}
                 </div>
+              </td>
+              <td class="px-6 py-4">
+                <span
+                  v-if="getDomainName(api.domainId)"
+                  class="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full inline-block"
+                  style="background: #f3e8ff; color: #7c3aed;"
+                >
+                  {{ getDomainName(api.domainId) }}
+                </span>
+                <span v-else class="text-sm" style="color: #717786;">—</span>
               </td>
                 <td class="px-6 py-4 text-sm font-medium" style="color: #414755;">
                 v{{ api.versions?.[0]?.version || '0.0.0' }}
@@ -391,6 +411,12 @@ const handleCreate = async () => {
 
 const formatDate = (date: string) =>
   new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+const getDomainName = (domainId: string | undefined): string => {
+  if (!domainId) return '';
+  const domain = domainsStore.domains.find(d => d.id === domainId);
+  return domain?.title || '';
+};
 
 /** Inline style object for status badges — WCAG AA contrast on each bg */
 const getStatusStyle = (status: string | undefined): Record<string, string> => {
