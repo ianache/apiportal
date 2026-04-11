@@ -70,9 +70,13 @@
         <Background :gap="24" :size="1.5" pattern-color="#d4d2db" variant="dots" />
       </VueFlow>
 
-      <!-- ── LEFT: Components catalog panel ──────────────── -->
+      <!-- ── LEFT: components panel ──────────────────────── -->
       <Transition name="panel-left-slide">
-        <aside v-if="showComponents" class="components-panel" @click.stop>
+        <aside v-if="showComponents" class="components-panel" :style="{ width: componentsWidth + 'px' }" @click.stop>
+          <!-- Resizer handle (Right side of left panel) -->
+          <div class="panel-resizer-right" @mousedown="startResizingLeft">
+            <div class="panel-resizer-line"></div>
+          </div>
           <div class="panel-header">
             <div class="flex items-center gap-2">
               <span class="material-symbols-outlined" style="font-size:18px;color:#0058bc;">dataset</span>
@@ -143,7 +147,11 @@
 
       <!-- ── RIGHT: Properties panel ─────────────────────── -->
       <Transition name="panel-slide">
-        <aside v-if="selectedNode || selectedEdge" class="properties-panel" @click.stop>
+        <aside v-if="selectedNode || selectedEdge" class="properties-panel" :style="{ width: panelWidth + 'px' }" @click.stop>
+          <!-- Resizer handle -->
+          <div class="panel-resizer" @mousedown="startResizing">
+            <div class="panel-resizer-line"></div>
+          </div>
 
           <!-- NODE view -->
           <template v-if="selectedNode && panelView === 'node'">
@@ -157,16 +165,16 @@
               </button>
             </div>
             <div class="panel-section">
-              <label class="panel-label">Resource Path</label>
+              <label class="panel-label">RESOURCE PATH</label>
               <input v-model="selectedNode.data.path" @input="updateNodeData" class="panel-input" placeholder="/resource" />
               <p class="panel-hint">e.g. <code>/users/{id}</code></p>
             </div>
             <div class="panel-section">
-              <label class="panel-label">Operation Summary / ID</label>
+              <label class="panel-label">OPERATION SUMMARY / ID</label>
               <input v-model="selectedNode.data.operationName" @input="updateNodeData" class="panel-input" placeholder="Get Users List" />
             </div>
             <div class="panel-section">
-              <label class="panel-label">Security Scheme</label>
+              <label class="panel-label">SECURITY SCHEME</label>
               <select v-model="selectedNode.data.security" @change="updateNodeData" class="panel-select w-full" style="max-width:none;width:100%;box-sizing:border-box;">
                 <option value="">— None —</option>
                 <option value="bearerAuth">Bearer Auth (JWT)</option>
@@ -175,8 +183,8 @@
               </select>
             </div>
             <div v-if="!selectedNode.data.isRoot" class="panel-section">
-              <label class="panel-label">HTTP Methods</label>
-              <div class="space-y-1">
+              <label class="panel-label">HTTP METHODS</label>
+              <div class="methods-grid">
                 <div v-for="m in HTTP_METHODS" :key="m.verb" class="method-row">
                   <!-- Toggle -->
                   <label class="method-toggle" :class="{ 'method-toggle--on': hasMethod(m.verb) }">
@@ -196,7 +204,7 @@
               <p class="panel-hint">Root node is the API entry point. Add child nodes to define resources.</p>
             </div>
             <div class="panel-section">
-              <label class="panel-label">Description</label>
+              <label class="panel-label">DESCRIPTION</label>
               <textarea v-model="selectedNode.data.description" @input="updateNodeData" class="panel-textarea" rows="3" placeholder="Describe this resource…" />
             </div>
             <div v-if="!selectedNode.data.isRoot" class="panel-section panel-section--danger">
@@ -223,7 +231,7 @@
 
             <!-- Summary / Description -->
             <div class="panel-section">
-              <label class="panel-label">Summary</label>
+              <label class="panel-label">SUMMARY</label>
               <input v-model="opSpec.summary" class="panel-input" placeholder="Short description of the operation" />
             </div>
             <div class="panel-section">
@@ -511,6 +519,56 @@ function removeProp(schema: ComponentSchema, propId: string) {
 // ── Panel state ──────────────────────────────────────
 type PanelView = 'node' | 'method' | 'edge';
 const panelView  = ref<PanelView>('node');
+const panelWidth = ref(300);
+const componentsWidth = ref(280);
+const isResizing = ref(false);
+const isResizingLeft = ref(false);
+
+function startResizing(e: MouseEvent) {
+  e.preventDefault();
+  isResizing.value = true;
+  document.addEventListener('mousemove', handleResizing);
+  document.addEventListener('mouseup', stopResizing);
+  document.body.style.cursor = 'col-resize';
+}
+
+function handleResizing(e: MouseEvent) {
+  if (!isResizing.value) return;
+  const newWidth = window.innerWidth - e.clientX;
+  if (newWidth >= 280 && newWidth <= 800) {
+    panelWidth.value = newWidth;
+  }
+}
+
+function stopResizing() {
+  isResizing.value = false;
+  document.removeEventListener('mousemove', handleResizing);
+  document.removeEventListener('mouseup', stopResizing);
+  document.body.style.cursor = '';
+}
+
+function startResizingLeft(e: MouseEvent) {
+  e.preventDefault();
+  isResizingLeft.value = true;
+  document.addEventListener('mousemove', handleResizingLeft);
+  document.addEventListener('mouseup', stopResizingLeft);
+  document.body.style.cursor = 'col-resize';
+}
+
+function handleResizingLeft(e: MouseEvent) {
+  if (!isResizingLeft.value) return;
+  const newWidth = e.clientX;
+  if (newWidth >= 200 && newWidth <= 600) {
+    componentsWidth.value = newWidth;
+  }
+}
+
+function stopResizingLeft() {
+  isResizingLeft.value = false;
+  document.removeEventListener('mousemove', handleResizingLeft);
+  document.removeEventListener('mouseup', stopResizingLeft);
+  document.body.style.cursor = '';
+}
 const selectedNode = ref<Node | null>(null);
 const selectedEdge = ref<Edge | null>(null);
 const selectedMethod = ref<string | null>(null);
@@ -773,6 +831,8 @@ onUnmounted(() => {
   window.removeEventListener('add-child-node', handleAddChildNode);
   window.removeEventListener('delete-node-children', handleDeleteNodeChildren);
   window.removeEventListener('toggle-node-collapse', handleToggleNodeCollapse);
+  stopResizing();
+  stopResizingLeft();
 });
 
 // ── YAML export ───────────────────────────────────────
@@ -1393,12 +1453,38 @@ function goBack() { router.push(`/projects/${apiId}`); }
 .toolbar-divider { width:1px;height:20px;background:#e3e2e7; }
 
 /* ── Left components panel ───── */
-.components-panel { position:absolute;top:0;left:0;bottom:0;width:280px;background:#fff;border-right:1px solid #e3e2e7;display:flex;flex-direction:column;overflow-y:auto;z-index:20;box-shadow:4px 0 16px rgba(0,0,0,0.06); }
+.components-panel { position:absolute;top:0;left:0;bottom:0;background:#fff;border-right:1px solid #e3e2e7;display:flex;flex-direction:column;overflow-y:auto;z-index:20;box-shadow:4px 0 16px rgba(0,0,0,0.06); transition: transform 0.22s cubic-bezier(0.4,0,0.2,1); }
+.components-panel:not(.panel-left-slide-enter-active):not(.panel-left-slide-leave-active) { transition: none; }
+
+.panel-resizer-right {
+  position: absolute; top: 0; right: -3px; bottom: 0; width: 6px;
+  cursor: col-resize; z-index: 30; display: flex; align-items: center; justify-content: center;
+}
+.panel-resizer-right .panel-resizer-line {
+  width: 3px; height: 100%; background: transparent; transition: background 0.15s;
+}
+.panel-resizer-right:hover .panel-resizer-line {
+  background: #3b82f6;
+}
+
 .panel-left-slide-enter-active,.panel-left-slide-leave-active { transition:transform 0.22s cubic-bezier(0.4,0,0.2,1); }
 .panel-left-slide-enter-from,.panel-left-slide-leave-to { transform:translateX(-100%); }
 
 /* ── Right properties panel ──── */
-.properties-panel { position:absolute;top:0;right:0;bottom:0;width:300px;background:#fff;border-left:1px solid #e3e2e7;display:flex;flex-direction:column;overflow-y:auto;z-index:20;box-shadow:-4px 0 16px rgba(0,0,0,0.06); }
+.properties-panel { position:absolute;top:0;right:0;bottom:0;background:#fff;border-left:1px solid #e3e2e7;display:flex;flex-direction:column;overflow-y:auto;z-index:20;box-shadow:-4px 0 16px rgba(0,0,0,0.06); transition: transform 0.22s cubic-bezier(0.4,0,0.2,1); }
+.properties-panel:not(.panel-slide-enter-active):not(.panel-slide-leave-active) { transition: none; } /* Disable transition during drag */
+
+.panel-resizer {
+  position: absolute; top: 0; left: -3px; bottom: 0; width: 6px;
+  cursor: col-resize; z-index: 30; display: flex; align-items: center; justify-content: center;
+}
+.panel-resizer-line {
+  width: 3px; height: 100%; background: transparent; transition: background 0.15s;
+}
+.panel-resizer:hover .panel-resizer-line {
+  background: #3b82f6; /* Blue handle from screenshot */
+}
+
 .panel-slide-enter-active,.panel-slide-leave-active { transition:transform 0.22s cubic-bezier(0.4,0,0.2,1); }
 .panel-slide-enter-from,.panel-slide-leave-to { transform:translateX(100%); }
 
@@ -1440,8 +1526,13 @@ function goBack() { router.push(`/projects/${apiId}`); }
 .btn-add-small:hover { background:#dbeafe; }
 
 /* ── Methods list ────────────── */
-.method-row { display:flex;align-items:center;gap:6px;margin-bottom:5px; }
-.method-toggle { display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid #e3e2e7;color:#717786;transition:border-color 0.12s,background 0.12s;user-select:none;flex:1; }
+.methods-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.method-row { display:flex;align-items:center;gap:6px; }
+.method-toggle { display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1.5px solid #e3e2e7;color:#717786;transition:border-color 0.12s,background 0.12s;user-select:none;flex:1; }
 .method-toggle--on { border-color:#0058bc;background:#eff6ff;color:#0058bc; }
 .method-dot { width:6px;height:6px;border-radius:50%;flex-shrink:0; }
 .method-edit-btn { display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;color:#414755;border:1px solid #e3e2e7;background:#faf9fe;transition:background 0.12s,color 0.12s;cursor:pointer;flex-shrink:0; }
