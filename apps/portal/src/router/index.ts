@@ -75,6 +75,16 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/domains/:id/er-modeler',
+    component: () => import('../views/EntityRelationshipModeler.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/domains/:id/knowledge-base',
+    component: () => import('../views/KnowledgeBase.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/settings',
     redirect: '/settings/environments',
     meta: { requiresAuth: true },

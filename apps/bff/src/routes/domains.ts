@@ -17,6 +17,15 @@ const domainRoutes: FastifyPluginAsync = async (fastify) => {
     return fastify.prisma.domain.findMany({ orderBy: { title: 'asc' } });
   });
 
+  // GET /domains/:id
+  fastify.get('/domains/:id', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    const { id } = request.params as { id: string };
+    const domain = await fastify.prisma.domain.findUnique({ where: { id } });
+    if (!domain) return reply.code(404).send({ error: 'Not found' });
+    return domain;
+  });
+
   // POST /domains
   fastify.post('/domains', async (request, reply) => {
     if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
@@ -81,6 +90,32 @@ const domainRoutes: FastifyPluginAsync = async (fastify) => {
     return fastify.prisma.domain.update({
       where: { id },
       data: { conceptModel: { nodes, edges } }
+    });
+  });
+
+  // GET /domains/:id/er-model
+  fastify.get('/domains/:id/er-model', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    const { id } = request.params as { id: string };
+    const domain = await fastify.prisma.domain.findUnique({ where: { id } });
+    if (!domain) return reply.code(404).send({ error: 'Not found' });
+    return domain.erModel || { tables: [], relationships: [] };
+  });
+
+  // PUT /domains/:id/er-model
+  fastify.put('/domains/:id/er-model', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    if (request.user.role === 'API_DEVELOPER')
+      return reply.code(403).send({ error: 'Forbidden' });
+
+    const { id } = request.params as { id: string };
+    const { tables, relationships } = request.body as { tables: any[]; relationships: any[] };
+    const existing = await fastify.prisma.domain.findUnique({ where: { id } });
+    if (!existing) return reply.code(404).send({ error: 'Not found' });
+
+    return fastify.prisma.domain.update({
+      where: { id },
+      data: { erModel: { tables, relationships } }
     });
   });
 

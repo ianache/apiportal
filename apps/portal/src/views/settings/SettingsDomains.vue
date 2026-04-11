@@ -50,8 +50,14 @@
               </div>
             </div>
             <div class="flex gap-1 flex-shrink-0">
+              <button @click="openERModeler(domain)" class="domain-action-btn" title="ER Modeler">
+                <span class="material-symbols-outlined" style="font-size:17px;">table_chart</span>
+              </button>
               <button @click="openConceptModeler(domain)" class="domain-action-btn" title="Concept Modeler">
                 <span class="material-symbols-outlined" style="font-size:17px;">account_tree</span>
+              </button>
+              <button @click="openKnowledgeBase(domain)" class="domain-action-btn" title="Knowledge Base">
+                <span class="material-symbols-outlined" style="font-size:17px;">psychology</span>
               </button>
               <button @click="openEdit(domain)" class="domain-action-btn" title="Edit">
                 <span class="material-symbols-outlined" style="font-size:17px;">edit</span>
@@ -233,6 +239,14 @@ function openEdit(domain: Domain) {
 
 function openConceptModeler(domain: Domain) {
   router.push(`/domains/${domain.id}/concept-modeler`);
+}
+
+function openERModeler(domain: Domain) {
+  router.push(`/domains/${domain.id}/er-modeler`);
+}
+
+function openKnowledgeBase(domain: Domain) {
+  router.push(`/domains/${domain.id}/knowledge-base`);
 }
 
 function closeModal() { modal.open = false; }

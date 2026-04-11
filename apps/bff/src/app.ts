@@ -13,6 +13,7 @@ import nodeTypesCatalogRoutes from './routes/nodeTypesCatalog.js';
 import llmProvidersRoutes from './routes/llmProviders.js';
 import userPreferencesRoute from './routes/userPreferences.js';
 import favoritesRoutes from './routes/favorites.js';
+import knowledgeRoutes from './routes/knowledge.js';
 
 const schema = {
   type: 'object',
@@ -61,6 +62,7 @@ fastify.register(nodeTypesCatalogRoutes);
 fastify.register(llmProvidersRoutes, { prefix: '/llm-providers' });
 fastify.register(userPreferencesRoute, { prefix: '/user-preferences' });
 fastify.register(favoritesRoutes, { prefix: '/favorites' });
+fastify.register(knowledgeRoutes);
 
 const start = async () => {
   try {

@@ -85,6 +85,7 @@ model Domain {
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
   conceptModel Json?
+  erModel      Json?
   integrations Integration[]
 }
 
@@ -189,6 +190,29 @@ model ApiReviewReport {
 
   @@index([apiId])
   @@index([userId])
+}
+
+model KnowledgePieceType {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  fields      Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model KnowledgePiece {
+  id        String   @id @default(uuid())
+  typeId    String
+  domainId  String
+  title     String
+  content   String
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([domainId])
+  @@index([typeId])
 }
 
 enum Role {

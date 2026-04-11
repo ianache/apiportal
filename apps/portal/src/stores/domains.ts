@@ -64,5 +64,19 @@ export const useDomainsStore = defineStore('domains', {
       if (!res.ok && res.status !== 404) throw new Error('Failed to delete');
       this.domains = this.domains.filter(d => d.id !== id);
     },
+
+    async fetchDomain(id: string) {
+      this.loading = true; this.error = null;
+      try {
+        const res = await fetch(`${bff()}/domains/${id}`, { headers: await authHeaders() });
+        if (!res.ok) throw new Error('Failed to load domain');
+        const domain: Domain = await res.json();
+        const i = this.domains.findIndex(d => d.id === id);
+        if (i !== -1) this.domains[i] = domain;
+        else this.domains.push(domain);
+        return domain;
+      } catch (e: any) { this.error = e.message; throw e; }
+      finally { this.loading = false; }
+    },
   },
 });

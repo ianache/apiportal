@@ -13,6 +13,17 @@
         </div>
 
         <div class="flex items-center gap-3">
+          <!-- New API Button - Only for API Designers -->
+          <button
+            v-if="isApiDesigner"
+            @click="createNewApi"
+            class="px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all hover:opacity-90"
+            style="background: #0058bc; color: #ffffff;"
+          >
+            <span class="material-symbols-outlined" style="font-size: 18px;">add</span>
+            New API
+          </button>
+
           <!-- View Toggle -->
           <div class="flex items-center p-1 rounded-xl" style="background: #f4f3f8;">
             <button
@@ -478,6 +489,12 @@ const isManagerOrDesigner = computed(() => {
   return roles.includes('API-Manager') || roles.includes('API-Designer') || roles.includes('API-Admin');
 });
 
+const isApiDesigner = computed(() => {
+  const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'nexus-portal';
+  const roles = authStore.user?.resource_access?.[clientId]?.roles || [];
+  return roles.includes('API-Designer');
+});
+
 const isDeveloper = computed(() => {
   const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'nexus-portal';
   const roles = authStore.user?.resource_access?.[clientId]?.roles || [];
@@ -574,6 +591,8 @@ const formatDate = (date: string) =>
   new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
 const navigateToDetail = (id: string) => { router.push(`/projects/${id}`); };
+
+const createNewApi = () => { router.push('/projects/new'); };
 
 const navigateToSpec = (id: string, version?: string) => {
   router.push(`/explorer/${id}/spec${version ? `/${version}` : ''}`);
