@@ -173,10 +173,10 @@ const route = useRoute();
 const headerLinks = ['Docs', 'Support', 'Changelog'];
 
 const mainNav = [
-  { path: '/dashboard',    icon: 'explore',     label: 'Explorer'     },
-  { path: '/domains',     icon: 'category',    label: 'Domains'      },
-  { path: '/projects',    icon: 'inventory_2', label: 'APIs Catalog' },
-  { path: '/integrations', icon: 'hub',         label: 'Integrations' },
+  { path: '/explorer',    icon: 'explore',     label: 'Explorer'     },
+  { path: '/domains',    icon: 'category',    label: 'Domains'      },
+  { path: '/projects',   icon: 'inventory_2', label: 'APIs Catalog' },
+  { path: '/integrations', icon: 'hub',        label: 'Integrations' },
 ];
 
 const settingsNav = [

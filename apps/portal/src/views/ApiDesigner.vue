@@ -27,7 +27,7 @@
         </button>
         <div class="toolbar-divider"></div>
         <!-- Import / Export -->
-        <input ref="fileInputRef" type="file" accept=".yaml,.yml" class="sr-only" @change="onFileImport" />
+        <input ref="fileInputRef" type="file" accept=".yaml,.yml,.json" class="sr-only" @change="onFileImport" />
         <button @click="fileInputRef?.click()" class="toolbar-icon-btn" title="Import YAML (OpenAPI or Design)">
           <span class="material-symbols-outlined" style="font-size:19px;">upload_file</span>
         </button>
@@ -825,20 +825,32 @@ function exportDesignYaml() {
   URL.revokeObjectURL(url);
 }
 
-// ── YAML import ───────────────────────────────────────
+// ── YAML/JSON import ───────────────────────────────────────
 function onFileImport(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
-      const doc = yaml.load(e.target?.result as string) as any;
+      let doc: any;
+      const content = e.target?.result as string;
+      if (file.name.endsWith('.json')) {
+        doc = JSON.parse(content);
+      } else {
+        doc = yaml.load(content);
+      }
+      console.log('Imported doc:', doc);
       if (doc?.nexusDesign) {
         importNexusDesign(doc);
-      } else if (doc?.paths) {
+      } else if (doc?.openapi || doc?.swagger) {
+        console.log('Importing OpenAPI doc with paths:', doc.paths ? Object.keys(doc.paths).length : 0);
         importOpenApiDoc(doc);
+      } else {
+        console.warn('Unrecognized file format. Has openapi:', !!doc?.openapi, 'Has swagger:', !!doc?.swagger, 'Has nexusDesign:', !!doc?.nexusDesign);
       }
-    } catch { /* invalid yaml */ }
+    } catch (err) { 
+      console.error('Import error:', err); 
+    }
     if (fileInputRef.value) fileInputRef.value.value = '';
   };
   reader.readAsText(file);
@@ -902,6 +914,109 @@ function importNexusDesign(doc: any) {
 function importOpenApiDoc(doc: any) {
   const newNodes: Node[] = []; const newEdges: Edge[] = [];
   const pathToId: Record<string, string> = {};
+  
+  const resolveRef = (ref: string): any => {
+    if (!ref) return null;
+    const parts = ref.replace('#/', '').split('/');
+    let current = doc;
+    for (const p of parts) current = current?.[p];
+    return current;
+  };
+  
+  const extractProperties = (schema: any, required: string[] = []): { name: string; type: string; required: boolean }[] => {
+    const props: { name: string; type: string; required: boolean }[] = [];
+    if (!schema) return props;
+    
+    if (schema.allOf) {
+      for (const s of schema.allOf) {
+        if (s.$ref) {
+          const resolved = resolveRef(s.$ref);
+          props.push(...extractProperties(resolved, required));
+        } else {
+          props.push(...extractProperties(s, required));
+        }
+      }
+      return props;
+    }
+    if (schema.anyOf) {
+      for (const s of schema.anyOf) {
+        if (s.$ref) {
+          const resolved = resolveRef(s.$ref);
+          props.push(...extractProperties(resolved, required));
+        } else {
+          props.push(...extractProperties(s, required));
+        }
+      }
+      return props;
+    }
+    if (schema.oneOf) {
+      for (const s of schema.oneOf) {
+        if (s.$ref) {
+          const resolved = resolveRef(s.$ref);
+          props.push(...extractProperties(resolved, required));
+        } else {
+          props.push(...extractProperties(s, required));
+        }
+      }
+      return props;
+    }
+    
+    const properties = schema.properties || {};
+    for (const [pname, pschema] of Object.entries(properties)) {
+      const ps = pschema as any;
+      let ptype = ps.type || 'string';
+      if (ps.$ref) {
+        const resolved = resolveRef(ps.$ref);
+        ptype = resolved?.type ||resolved?.title || pname;
+      }
+      if (ps.items?.$ref) {
+        const resolved = resolveRef(ps.items.$ref);
+        ptype = `${resolved?.type || resolved?.title || 'object'}[]`;
+      }
+      if (ps.items?.type === 'array') {
+        ptype = `${ps.items.items?.type || 'object'}[]`;
+      }
+      props.push({ name: pname, type: ptype, required: required.includes(pname) });
+    }
+    return props;
+  };
+  
+  const collectedSchemas: Map<string, any> = new Map();
+  const processSchema = (schema: any, name?: string): string => {
+    if (!schema) return name || '';
+    const refName = name || schema.title || schema.$ref?.split('/').pop() || 'Unknown';
+    if (collectedSchemas.has(refName)) return refName;
+    
+    const required = schema.required || [];
+    const props = extractProperties(schema, required);
+    collectedSchemas.set(refName, { 
+      id: uid(), 
+      name: refName, 
+      description: schema.description || '',
+      properties: props.map(p => ({ id: uid(), name: p.name, type: p.type, required: p.required }))
+    });
+    return refName;
+  };
+  
+  if (doc.components?.schemas) {
+    for (const [name, schema] of Object.entries(doc.components.schemas)) {
+      processSchema(schema, name);
+    }
+  }
+  if (doc.components?.requestBodies) {
+    for (const [, body] of Object.entries(doc.components.requestBodies)) {
+      const bt = body as any;
+      if (bt.content) {
+        for (const [ct, content] of Object.entries(bt.content)) {
+          const ctent = content as any;
+          if (ctent.schema) processSchema(ctent.schema);
+        }
+      }
+    }
+  }
+  
+  const allSchemas = Array.from(collectedSchemas.values());
+  
   Object.keys(doc.paths).sort((a, b) => a.split('/').length - b.split('/').length)
     .forEach((fullPath, i) => {
       const pathItem = doc.paths[fullPath];
@@ -909,31 +1024,86 @@ function importOpenApiDoc(doc: any) {
       pathToId[fullPath] = id;
       const verbs = ['get','post','put','patch','delete'].filter(m => pathItem[m]).map(m => m.toUpperCase());
       const operationSpecs: Record<string, OperationSpec> = {};
+      
       verbs.forEach(verb => {
         const op = pathItem[verb.toLowerCase()];
+        const params = (op.parameters || []).filter((p: any) => p.in === 'query').map((p: any) => ({ 
+          id: uid(), 
+          name: p.name, 
+          type: p.schema?.type || 'string', 
+          required: !!p.required 
+        }));
+        
+        let requestBody = { enabled: false, contentType: 'application/json', schemaRef: '' };
+        if (op.requestBody) {
+          const content = op.requestBody.content || {};
+          const ct = Object.keys(content)[0] || 'application/json';
+          const schemaRef = processSchema(content[ct]?.schema);
+          requestBody = { enabled: true, contentType: ct, schemaRef };
+        }
+        
+        const responses = Object.entries(op.responses || {}).map(([code, r]: [string, any]) => {
+          let schemaRef = '';
+          if (r.content) {
+            const ct = Object.keys(r.content)[0];
+            schemaRef = processSchema(r.content[ct]?.schema);
+          }
+          return { id: uid(), statusCode: code, description: r.description || '', schemaRef };
+        });
+        
         operationSpecs[verb] = {
-          summary: op.summary || '', description: op.description || '',
-          parameters: (op.parameters || []).filter((p: any) => p.in === 'query').map((p: any) => ({ id: uid(), name: p.name, type: p.schema?.type || 'string', required: !!p.required })),
-          requestBody: op.requestBody ? { enabled: true, contentType: Object.keys(op.requestBody.content || {})[0] || 'application/json', schemaRef: '' } : { enabled: false, contentType: 'application/json', schemaRef: '' },
-          responses: Object.entries(op.responses || {}).map(([code, r]: [string, any]) => ({ id: uid(), statusCode: code, description: r.description || '', schemaRef: '' })),
+          summary: op.summary || '', 
+          description: op.description || '',
+          parameters: params,
+          requestBody,
+          responses,
         };
       });
+      
       const segs = fullPath.split('/').filter(Boolean);
       const parentPath = segs.length <= 1 ? null : '/' + segs.slice(0, -1).join('/');
-      const col = segs.length - 1; const row = newNodes.filter((n: any) => n._col === col).length;
-      const node: any = { id, type: 'resource', position: { x: col * 340, y: row * 140 }, _col: col, data: { path: '/' + (segs[segs.length - 1] || ''), methods: verbs, operationSpecs, description: '', isRoot: i === 0 } };
+      const col = segs.length - 1; 
+      const row = newNodes.filter((n: any) => n._col === col).length;
+      const firstOp = pathItem[verbs[0]?.toLowerCase()];
+      const node: any = { 
+        id, 
+        type: 'resource', 
+        position: { x: col * 340, y: row * 140 }, 
+        _col: col, 
+        data: { 
+          path: '/' + (segs[segs.length - 1] || ''), 
+          methods: verbs, 
+          operationSpecs, 
+          description: firstOp?.description || '', 
+          isRoot: i === 0 
+        } 
+      };
       newNodes.push(node);
+      
       if (parentPath && pathToId[parentPath]) {
         const param = (pathItem.parameters || []).filter((p: any) => p.in === 'path')[0];
-        newEdges.push({ id: `e-${pathToId[parentPath]}-${id}`, source: pathToId[parentPath], target: id, type: 'smoothstep', markerEnd: { type: MarkerType.ArrowClosed, color: '#0058bc' }, style: { stroke: '#0058bc', strokeWidth: 2 }, ...(param ? { label: `:${param.name}`, labelStyle: { fill: '#7c3aed', fontWeight: 700, fontSize: 11 }, labelBgStyle: { fill: '#f5f3ff', fillOpacity: 0.95 }, labelBgPadding: [4, 6] as [number, number], labelBgBorderRadius: 4, data: { pathParam: { name: param.name, type: param.schema?.type || 'string', description: param.description || '' } } } : {}) });
+        newEdges.push({ 
+          id: `e-${pathToId[parentPath]}-${id}`, 
+          source: pathToId[parentPath], 
+          target: id, 
+          type: 'smoothstep', 
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#0058bc' }, 
+          style: { stroke: '#0058bc', strokeWidth: 2 }, 
+          ...(param ? { 
+            label: `:${param.name}`, 
+            labelStyle: { fill: '#7c3aed', fontWeight: 700, fontSize: 11 }, 
+            labelBgStyle: { fill: '#f5f3ff', fillOpacity: 0.95 }, 
+            labelBgPadding: [4, 6] as [number, number], 
+            labelBgBorderRadius: 4, 
+            data: { pathParam: { name: param.name, type: param.schema?.type || 'string', description: param.description || '' } } 
+          } : {}) 
+        });
       }
     });
-  nodes.value = newNodes; edges.value = newEdges;
-  const schemas = doc.components?.schemas || {};
-  components.value = Object.entries(schemas).map(([name, s]: [string, any]) => ({
-    id: uid(), name, description: s.description || '',
-    properties: Object.entries(s.properties || {}).map(([pname, p]: [string, any]) => ({ id: uid(), name: pname, type: p.type || 'string', required: (s.required || []).includes(pname) })),
-  }));
+  
+  nodes.value = newNodes; 
+  edges.value = newEdges;
+  components.value = allSchemas;
   collapseAllSchemas();
   selectedNode.value = null; selectedEdge.value = null;
 }

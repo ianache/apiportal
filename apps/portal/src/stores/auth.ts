@@ -22,19 +22,23 @@ export const useAuthStore = defineStore('auth', {
           pkceMethod: 'S256'
         });
         if (this.authenticated) {
-          // Eagerly refresh on init — check-sso can restore an already-expired
-          // access token without refreshing it. Ignore failures here; getToken()
-          // will handle them on first use.
           await this.keycloak.updateToken(-1).catch(() => {});
           this.user = this.keycloak.tokenParsed;
-          // Auto-refresh whenever Keycloak fires the expiry event
           this.keycloak.onTokenExpired = () => {
-            this.keycloak!.updateToken(60).catch(() => this.keycloak!.login());
+            this.logoutAndRedirectToLogin();
           };
         }
       } catch (err) {
         console.error('Failed to initialize Keycloak:', err);
       }
+    },
+
+    async logoutAndRedirectToLogin() {
+      if (this.keycloak) {
+        await this.keycloak.logout({ redirectUri: window.location.origin + '/' });
+      }
+      this.authenticated = false;
+      this.user = null;
     },
 
     /** Returns a valid (fresh) Bearer token, refreshing if needed. */
@@ -44,7 +48,7 @@ export const useAuthStore = defineStore('auth', {
         await this.keycloak.updateToken(60);
         this.user = this.keycloak.tokenParsed;
       } catch {
-        this.keycloak.login();
+        await this.logoutAndRedirectToLogin();
         throw new Error('Session expired. Redirecting to login…');
       }
       return this.keycloak.token!;

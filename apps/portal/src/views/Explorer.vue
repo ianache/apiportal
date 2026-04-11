@@ -83,28 +83,69 @@
               style="background: #f4f3f8; border-color: #e3e2e7; color: #1a1b1f;"
               placeholder="Filter by name..."
             />
-          </div>
+</div>
 
-          <!-- Status Filter -->
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-widest mb-1.5" style="color: #414755;">
-              Status
-            </label>
-            <div class="flex flex-wrap gap-2">
+            <!-- Status Filter -->
+            <div class="flex items-end gap-3">
+              <div v-if="isManagerOrDesigner" class="flex-1">
+                <label class="block text-xs font-bold uppercase tracking-widest mb-1.5" style="color: #414755;">
+                  Status
+                </label>
+                <div class="relative">
+                  <button
+                    type="button"
+                    @click="statusDropdownOpen = !statusDropdownOpen"
+                    class="w-full px-4 py-2.5 rounded-xl text-sm text-left border flex items-center justify-between transition-all"
+                    style="background: #f4f3f8; border-color: #e3e2e7; color: #1a1b1f;"
+                  >
+                    <span v-if="filters.statuses.length > 0">{{ filters.statuses.join(', ') }}</span>
+                    <span v-else style="color: #717786;">Select status...</span>
+                    <span class="material-symbols-outlined transition-transform" :class="statusDropdownOpen ? 'rotate-180' : ''" style="font-size: 18px;">expand_more</span>
+                  </button>
+                  <div
+                    v-if="statusDropdownOpen"
+                    class="absolute z-10 w-full mt-1 py-1 rounded-xl border"
+                    style="background: #ffffff; border-color: #e3e2e7; box-shadow: 0 4px 12px rgba(0,0,0,0.15);"
+                  >
+                    <label
+                      v-for="status in availableStatuses"
+                      :key="status"
+                      class="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-gray-50"
+                    >
+                      <input
+                        type="checkbox"
+                        :value="status"
+                        :checked="filters.statuses.includes(status)"
+                        @change="toggleStatus(status)"
+                        class="w-4 h-4 rounded accent-blue-600"
+                      />
+                      <span class="text-sm font-medium" :style="getStatusStyle(status).color">{{ status }}</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div v-else-if="isDeveloper" class="flex-1">
+                <label class="block text-xs font-bold uppercase tracking-widest mb-1.5" style="color: #414755;">
+                  Status
+                </label>
+                <div class="px-4 py-2.5 rounded-xl text-sm font-semibold" style="background: #e0f2fe; color: #075985;">
+                  PUBLISHED
+                </div>
+                <p class="text-xs mt-1" style="color: #717786;">Only published APIs visible</p>
+              </div>
               <button
-                v-for="status in availableStatuses"
-                :key="status"
-                @click="toggleStatus(status)"
-                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                :style="filters.statuses.includes(status)
-                  ? getStatusStyle(status)
-                  : 'background: #f4f3f8; color: #717786; border: 1px solid #e3e2e7;'"
+                @click="executeSearch"
+                :disabled="!hasActiveFilters"
+                class="px-6 py-2.5 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all"
+                :style="hasActiveFilters
+                  ? 'background: #0058bc; color: #ffffff; cursor: pointer;'
+                  : 'background: #e3e2e7; color: #717786; cursor: not-allowed;'"
               >
-                {{ status }}
+                <span class="material-symbols-outlined" style="font-size: 18px;">search</span>
+                Search
               </button>
             </div>
           </div>
-        </div>
 
         <!-- Active Filters Display -->
         <div v-if="hasActiveFilters" class="mt-4 pt-4 border-t flex items-center gap-2" style="border-color: #e3e2e7;">
@@ -131,11 +172,11 @@
             Name: {{ filters.name }}
           </span>
           <span
-            v-if="filters.statuses.length > 0"
+            v-if="filteredStatuses.length > 0"
             class="px-2 py-1 rounded-lg text-xs font-semibold"
             style="background: #dcfce7; color: #166534;"
           >
-            Status: {{ filters.statuses.join(', ') }}
+            Status: {{ filteredStatuses.join(', ') }}
           </span>
           <button
             @click="clearFilters"
@@ -149,7 +190,7 @@
       </div>
 
       <!-- Results Count -->
-      <div class="mb-4 flex items-center justify-between">
+      <div v-if="hasSearched" class="mb-4 flex items-center justify-between">
         <span class="text-sm font-medium" style="color: #414755;">
           {{ filteredApis.length }} API{{ filteredApis.length !== 1 ? 's' : '' }} found
         </span>
@@ -161,7 +202,22 @@
         <p class="mt-4 font-medium" style="color: #414755;">Loading APIs...</p>
       </div>
 
-      <!-- Empty Results -->
+      <!-- Empty State - No Search Yet -->
+      <div
+        v-else-if="!hasSearched"
+        class="border-2 border-dashed rounded-3xl p-20 text-center flex flex-col items-center"
+        style="border-color: #c7c6d1;"
+      >
+        <div class="w-20 h-20 rounded-full flex items-center justify-center mb-6" style="background: #f4f3f8;">
+          <span class="material-symbols-outlined text-4xl" style="color: #717786;">search</span>
+        </div>
+        <h2 class="text-xl font-bold mb-2" style="color: #1a1b1f;">Search for APIs</h2>
+        <p class="mb-8 max-w-sm text-sm" style="color: #414755;">
+          Apply at least one filter and click Search to find APIs.
+        </p>
+      </div>
+
+      <!-- Empty Results - No Match -->
       <div
         v-else-if="filteredApis.length === 0"
         class="border-2 border-dashed rounded-3xl p-20 text-center flex flex-col items-center"
@@ -324,27 +380,49 @@ import { useRouter } from 'vue-router';
 import Shell from '../components/layout/Shell.vue';
 import { useRegistryStore } from '../stores/registry';
 import { useDomainsStore } from '../stores/domains';
+import { useAuthStore } from '../stores/auth';
 
 const registry = useRegistryStore();
 const domainsStore = useDomainsStore();
+const authStore = useAuthStore();
 const router = useRouter();
 
 const viewMode = ref<'grid' | 'table'>('grid');
+const hasSearched = ref(false);
+const statusDropdownOpen = ref(false);
 
 const filters = ref({
   domainId: '',
   label: '',
   name: '',
-  statuses: [] as string[]
+  statuses: ['PUBLISHED'] as string[]
 });
 
 const availableStatuses = ['DESIGN', 'REVIEW', 'APPROVED', 'PUBLISHED', 'DEPRECATED', 'RETIRED'];
 
+const isManagerOrDesigner = computed(() => {
+  const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'nexus-portal';
+  const roles = authStore.user?.resource_access?.[clientId]?.roles || [];
+  return roles.includes('API-Manager') || roles.includes('API-Designer') || roles.includes('API-Admin');
+});
+
+const isDeveloper = computed(() => {
+  const clientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID || 'nexus-portal';
+  const roles = authStore.user?.resource_access?.[clientId]?.roles || [];
+  return roles.includes('API-Developer') && !roles.includes('API-Manager') && !roles.includes('API-Designer') && !roles.includes('API-Admin');
+});
+
+const filteredStatuses = computed(() => {
+  return isManagerOrDesigner.value ? filters.value.statuses : ['PUBLISHED'];
+});
+
 const hasActiveFilters = computed(() => {
-  return filters.value.domainId || filters.value.label || filters.value.name || filters.value.statuses.length > 0;
+  return filters.value.domainId || filters.value.label || filters.value.name || filteredStatuses.value.length > 0;
 });
 
 const filteredApis = computed(() => {
+  if (!hasSearched.value) return [];
+  
   return registry.apis.filter(api => {
     // Domain filter
     if (filters.value.domainId && api.domainId !== filters.value.domainId) {
@@ -362,9 +440,9 @@ const filteredApis = computed(() => {
     }
     
     // Status filter
-    if (filters.value.statuses.length > 0) {
+    if (filteredStatuses.value.length > 0) {
       const apiStatus = api.versions?.[0]?.status;
-      if (!apiStatus || !filters.value.statuses.includes(apiStatus)) {
+      if (!apiStatus || !filteredStatuses.value.includes(apiStatus)) {
         return false;
       }
     }
@@ -373,8 +451,14 @@ const filteredApis = computed(() => {
   });
 });
 
-onMounted(() => {
+const executeSearch = () => {
+  if (hasActiveFilters.value) {
+    hasSearched.value = true;
+  }
   registry.fetchApis();
+};
+
+onMounted(() => {
   domainsStore.fetch();
 });
 
@@ -392,8 +476,9 @@ const clearFilters = () => {
     domainId: '',
     label: '',
     name: '',
-    statuses: []
+    statuses: ['PUBLISHED']
   };
+  hasSearched.value = false;
 };
 
 const getDomainName = (domainId: string | undefined): string => {
