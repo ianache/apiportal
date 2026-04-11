@@ -293,13 +293,23 @@
               <span class="material-symbols-outlined" style="font-size: 14px;">tag</span>
               v{{ api.versions?.[0]?.version || '0.0.0' }}
             </span>
-            <span
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity group-hover:opacity-80"
-              style="background: #eff4ff; color: #0058bc;"
-            >
-              <span class="material-symbols-outlined" style="font-size: 15px;">tune</span>
-              Manage
-            </span>
+            <div class="flex items-center gap-2">
+              <span
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity group-hover:opacity-80 cursor-pointer"
+                style="background: #f0fdf4; color: #15803d;"
+                @click.stop="navigateToSpec(api.id, api.versions?.[0]?.version)"
+              >
+                <span class="material-symbols-outlined" style="font-size: 15px;">book</span>
+                View Spec
+              </span>
+              <span
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-opacity group-hover:opacity-80"
+                style="background: #eff4ff; color: #0058bc;"
+              >
+                <span class="material-symbols-outlined" style="font-size: 15px;">tune</span>
+                Manage
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -491,6 +501,10 @@ const formatDate = (date: string) =>
   new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 
 const navigateToDetail = (id: string) => { router.push(`/projects/${id}`); };
+
+const navigateToSpec = (id: string, version?: string) => {
+  router.push(`/explorer/${id}/spec${version ? `/${version}` : ''}`);
+};
 
 const getStatusStyle = (status: string | undefined): Record<string, string> => {
   switch (status) {
