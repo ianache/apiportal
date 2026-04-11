@@ -1,11 +1,14 @@
 import { defineStore } from 'pinia';
 import Keycloak from 'keycloak-js';
 
+const TOKEN_REFRESH_INTERVAL_MS = 60_000; // Refresh every 60 seconds
+
 export const useAuthStore = defineStore('auth', {
   state: () => ({ 
     user: null as any, 
     keycloak: null as Keycloak | null, 
-    authenticated: false 
+    authenticated: false,
+    _refreshTimer: null as ReturnType<typeof setInterval> | null
   }),
   actions: {
     async init() {
@@ -18,14 +21,15 @@ export const useAuthStore = defineStore('auth', {
       try {
         this.authenticated = await this.keycloak.init({
           onLoad: 'login-required',
-          checkLoginIframe: false,
+          checkLoginIframe: false, // Disabled - causes CSP/3rd party cookie issues
           pkceMethod: 'S256'
         });
         if (this.authenticated) {
           await this.keycloak.updateToken(-1).catch(() => {});
           this.user = this.keycloak.tokenParsed;
+          this.startRefreshTimer();
           this.keycloak.onTokenExpired = () => {
-            this.logoutAndRedirectToLogin();
+            this.refreshTokenSilently();
           };
         }
       } catch (err) {
@@ -33,7 +37,36 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
+    startRefreshTimer() {
+      this.stopRefreshTimer();
+      this._refreshTimer = setInterval(() => {
+        this.refreshTokenSilently();
+      }, TOKEN_REFRESH_INTERVAL_MS);
+    },
+
+    stopRefreshTimer() {
+      if (this._refreshTimer) {
+        clearInterval(this._refreshTimer);
+        this._refreshTimer = null;
+      }
+    },
+
+    async refreshTokenSilently() {
+      if (!this.keycloak || !this.authenticated) return;
+      try {
+        const refreshed = await this.keycloak.updateToken(300);
+        if (refreshed) {
+          this.user = this.keycloak.tokenParsed;
+        }
+      } catch {
+        // Token refresh failed, session might be expired
+        // Only logout if we're not already logging out
+        console.warn('Token refresh failed, session may be expired');
+      }
+    },
+
     async logoutAndRedirectToLogin() {
+      this.stopRefreshTimer();
       if (this.keycloak) {
         await this.keycloak.logout({ redirectUri: window.location.origin + '/' });
       }

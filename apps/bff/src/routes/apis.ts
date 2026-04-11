@@ -347,7 +347,7 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // Save OpenAPI definition (PUT /apis/:id/versions/:version/definition)
-  // NOTE: This stores the visual design flow (nodes/edges) in flowConfig field
+  // NOTE: This stores the visual design flow (nodes/edges) in definition field
   fastify.put('/apis/:id/versions/:version/definition', async (request, reply) => {
     try {
       if (!request.user) {
@@ -368,14 +368,14 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.code(422).send({ error: 'Unprocessable', message: 'Only DESIGN versions can be edited' });
       }
 
-      // Store visual design in flowConfig
+      // Store visual design in definition field
       const updated = await fastify.prisma.aPIVersion.update({
         where: { id: apiVersion.id },
-        data: { flowConfig: definition as any }
+        data: { definition: definition as any }
       });
 
-      fastify.log.info({ apiId: id, version }, 'API flow config saved');
-      return { id: updated.id, version: updated.version, flowConfig: updated.flowConfig };
+      fastify.log.info({ apiId: id, version }, 'API definition saved');
+      return { id: updated.id, version: updated.version, definition: updated.definition };
     } catch (err: any) {
       fastify.log.error(err, 'Failed to save API definition');
       throw err;
@@ -522,6 +522,87 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
       return { success: true };
     } catch (err: any) {
       fastify.log.error(err, 'Failed to delete version');
+      throw err;
+    }
+  });
+
+  // Save review report (POST /apis/:id/versions/:version/reviews)
+  fastify.post('/apis/:id/versions/:version/reviews', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+
+      const { id: apiId, version } = request.params as { id: string; version: string };
+      const { content } = request.body as { content: string };
+
+      if (!content) {
+        return reply.code(400).send({ error: 'Bad Request', message: 'Content is required' });
+      }
+
+      // Verify API version exists
+      const apiVersion = await fastify.prisma.aPIVersion.findFirst({
+        where: { apiId, version }
+      });
+      if (!apiVersion) return reply.code(404).send({ error: 'Version not found' });
+
+      const report = await fastify.prisma.apiReviewReport.create({
+        data: {
+          apiId,
+          version,
+          userId: request.user.sub,
+          userEmail: request.user.email,
+          content,
+        }
+      });
+
+      fastify.log.info({ apiId, version, reportId: report.id }, 'Review report saved');
+      return report;
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to save review report');
+      throw err;
+    }
+  });
+
+  // Get all review reports for an API (GET /apis/:id/reviews)
+  fastify.get('/apis/:id/reviews', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+
+      const { id: apiId } = request.params as { id: string };
+
+      const reports = await fastify.prisma.apiReviewReport.findMany({
+        where: { apiId },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      return reports;
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to fetch review reports');
+      throw err;
+    }
+  });
+
+  // Get a specific review report (GET /apis/:id/reviews/:reportId)
+  fastify.get('/apis/:id/reviews/:reportId', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+
+      const { id: apiId, reportId } = request.params as { id: string; reportId: string };
+
+      const report = await fastify.prisma.apiReviewReport.findFirst({
+        where: { id: reportId, apiId }
+      });
+
+      if (!report) return reply.code(404).send({ error: 'Report not found' });
+
+      return report;
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to fetch review report');
       throw err;
     }
   });

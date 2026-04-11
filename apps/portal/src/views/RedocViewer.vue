@@ -151,19 +151,42 @@ const loadRedoc = (): Promise<void> => {
   });
 };
 
+const sanitizeSpec = (rawSpec: any): any => {
+  const defined = new Set<string>();
+  const addKeys = (section: Record<string, unknown> | undefined, prefix: string) => {
+    if (section) Object.keys(section).forEach(k => defined.add(`${prefix}${k}`));
+  };
+  addKeys(rawSpec.components?.schemas, '#/components/schemas/');
+  addKeys(rawSpec.components?.parameters, '#/components/parameters/');
+  addKeys(rawSpec.components?.responses, '#/components/responses/');
+  addKeys(rawSpec.components?.requestBodies, '#/components/requestBodies/');
+
+  const fix = (obj: any): any => {
+    if (Array.isArray(obj)) return obj.map(fix);
+    if (obj && typeof obj === 'object') {
+      if (typeof obj.$ref === 'string' && !defined.has(obj.$ref)) {
+        return { type: 'object', description: `[Unresolved: ${obj.$ref}]` };
+      }
+      return Object.fromEntries(Object.entries(obj).map(([k, v]) => [k, fix(v)]));
+    }
+    return obj;
+  };
+
+  return fix(rawSpec);
+};
+
 const initRedoc = async () => {
   if (!spec.value || redocLoaded.value) return;
-  
+
   await loadRedoc();
   await nextTick();
   await new Promise(resolve => setTimeout(resolve, 100));
-  
+
   const container = document.getElementById('redoc-container');
   if (container && (window as any).Redoc) {
     try {
-      (window as any).Redoc.init(spec.value, { 
+      (window as any).Redoc.init(sanitizeSpec(spec.value), {
         scrollYOffset: 50,
-        disableGeneratingExamples: true,
         nativeScrollbars: true
       }, container);
       redocLoaded.value = true;

@@ -178,6 +178,19 @@ model UserAPIFavorite {
   @@index([userId])
 }
 
+model ApiReviewReport {
+  id        String   @id @default(uuid())
+  apiId     String
+  version   String
+  userId    String
+  userEmail String
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([apiId])
+  @@index([userId])
+}
+
 enum Role {
   API_MANAGER
   API_DESIGNER

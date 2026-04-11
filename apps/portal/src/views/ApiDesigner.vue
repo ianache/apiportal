@@ -20,6 +20,10 @@
         <button @click="showAiPanel = !showAiPanel" class="toolbar-icon-btn ai-btn" :class="{ 'toolbar-icon-btn--active': showAiPanel }" title="AI Designer">
           <span class="material-symbols-outlined" style="font-size:19px;">auto_awesome</span>
         </button>
+        <!-- AI Reviewer -->
+        <button @click="showReviewPanel = !showReviewPanel" class="toolbar-icon-btn review-btn" :class="{ 'toolbar-icon-btn--active': showReviewPanel }" title="AI Reviewer">
+          <span class="material-symbols-outlined" style="font-size:19px;">rate_review</span>
+        </button>
         <div class="toolbar-divider"></div>
         <!-- Components catalog -->
         <button @click="showComponents = !showComponents" class="toolbar-icon-btn" :class="{ 'toolbar-icon-btn--active': showComponents }" title="Components Catalog">
@@ -158,60 +162,111 @@
             <div class="panel-header">
               <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined" style="font-size:18px;color:#0058bc;">folder_open</span>
-                <span class="text-sm font-bold" style="color:#1a1b1f;">Resource Properties</span>
+                <span class="text-sm font-bold" style="color:#1a1b1f;">{{ selectedNode.data.isRoot ? 'API Info' : 'Resource Properties' }}</span>
               </div>
               <button @click="selectedNode=null" class="panel-close">
                 <span class="material-symbols-outlined" style="font-size:18px;">close</span>
               </button>
             </div>
-            <div class="panel-section">
-              <label class="panel-label">RESOURCE PATH</label>
-              <input v-model="selectedNode.data.path" @input="updateNodeData" class="panel-input" placeholder="/resource" />
-              <p class="panel-hint">e.g. <code>/users/{id}</code></p>
-            </div>
-            <div class="panel-section">
-              <label class="panel-label">OPERATION SUMMARY / ID</label>
-              <input v-model="selectedNode.data.operationName" @input="updateNodeData" class="panel-input" placeholder="Get Users List" />
-            </div>
-            <div class="panel-section">
-              <label class="panel-label">SECURITY SCHEME</label>
-              <select v-model="selectedNode.data.security" @change="updateNodeData" class="panel-select w-full" style="max-width:none;width:100%;box-sizing:border-box;">
-                <option value="">— None —</option>
-                <option value="bearerAuth">Bearer Auth (JWT)</option>
-                <option value="apiKeyAuth">API Key</option>
-                <option value="oauth2">OAuth2</option>
-              </select>
-            </div>
-            <div v-if="!selectedNode.data.isRoot" class="panel-section">
-              <label class="panel-label">HTTP METHODS</label>
-              <div class="methods-grid">
-                <div v-for="m in HTTP_METHODS" :key="m.verb" class="method-row">
-                  <!-- Toggle -->
-                  <label class="method-toggle" :class="{ 'method-toggle--on': hasMethod(m.verb) }">
-                    <input type="checkbox" :checked="hasMethod(m.verb)" @change="toggleMethod(m.verb)" class="sr-only" />
-                    <span class="method-dot" :style="{ background: m.color }"></span>
-                    {{ m.verb }}
-                  </label>
-                  <!-- Edit button — only when method is active -->
-                  <button v-if="hasMethod(m.verb)" @click="openMethodDetail(m.verb)"
-                    class="method-edit-btn" title="Configure operation">
-                    <span class="material-symbols-outlined" style="font-size:15px;">edit_note</span>
-                  </button>
+
+            <!-- ROOT NODE: API Info form -->
+            <template v-if="selectedNode.data.isRoot">
+              <div class="panel-section">
+                <label class="panel-label">API TITLE</label>
+                <input v-model="selectedNode.data.title" @input="updateNodeData" class="panel-input" placeholder="My API" />
+              </div>
+              <div class="panel-section">
+                <label class="panel-label">API DESCRIPTION</label>
+                <textarea v-model="selectedNode.data.description" @input="updateNodeData" class="panel-textarea" rows="3" placeholder="Detailed description of the API…" />
+              </div>
+              <div class="panel-section">
+                <label class="panel-label">CONTACT NAME</label>
+                <input v-model="selectedNode.data.contactName" @input="updateNodeData" class="panel-input" placeholder="John Doe" />
+              </div>
+              <div class="panel-section">
+                <label class="panel-label">CONTACT EMAIL</label>
+                <input v-model="selectedNode.data.contactEmail" @input="updateNodeData" class="panel-input" type="email" placeholder="contact@example.com" />
+              </div>
+              <div class="panel-section">
+                <label class="panel-label">TAGS</label>
+                <div class="tags-container">
+                  <div v-if="!selectedNode.data.tags?.length" class="text-xs" style="color:#a0a7b5;">No tags</div>
+                  <div v-for="(tag, i) in selectedNode.data.tags" :key="i" class="tag-chip">
+                    <span>{{ tag }}</span>
+                    <button @click="removeTag(i)" class="tag-remove">
+                      <span class="material-symbols-outlined" style="font-size:12px;">close</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                  <input v-model="newTag" @keydown.enter.prevent="addTag" class="panel-input flex-1" placeholder="Add tag…" style="font-size:12px;" />
+                  <button @click="addTag" class="btn-add-small" style="padding:0 8px;">Add</button>
                 </div>
               </div>
-            </div>
-            <div v-else class="panel-section">
-              <p class="panel-hint">Root node is the API entry point. Add child nodes to define resources.</p>
-            </div>
-            <div class="panel-section">
-              <label class="panel-label">DESCRIPTION</label>
-              <textarea v-model="selectedNode.data.description" @input="updateNodeData" class="panel-textarea" rows="3" placeholder="Describe this resource…" />
-            </div>
-            <div v-if="!selectedNode.data.isRoot" class="panel-section panel-section--danger">
-              <button @click="deleteSelectedNode" class="btn-danger">
-                <span class="material-symbols-outlined" style="font-size:16px;">delete</span>Remove Resource
-              </button>
-            </div>
+            </template>
+
+            <!-- REGULAR NODE: Resource Properties form -->
+            <template v-else>
+              <div class="panel-section">
+                <label class="panel-label">RESOURCE PATH</label>
+                <input v-model="selectedNode.data.path" @input="updateNodeData" class="panel-input" placeholder="/resource" />
+                <p class="panel-hint">e.g. <code>/users/{id}</code></p>
+              </div>
+              <div class="panel-section">
+                <label class="panel-label">OPERATION SUMMARY / ID</label>
+                <input v-model="selectedNode.data.operationName" @input="updateNodeData" class="panel-input" placeholder="Get Users List" />
+              </div>
+              <div class="panel-section">
+                <label class="panel-label">SECURITY SCHEME</label>
+                <select v-model="selectedNode.data.security" @change="updateNodeData" class="panel-select w-full" style="max-width:none;width:100%;box-sizing:border-box;">
+                  <option value="">— None —</option>
+                  <option value="bearerAuth">Bearer Auth (JWT)</option>
+                  <option value="apiKeyAuth">API Key</option>
+                  <option value="oauth2">OAuth2</option>
+                </select>
+              </div>
+              <div class="panel-section">
+                <label class="panel-label">HTTP METHODS</label>
+                <div class="methods-grid">
+                  <div v-for="m in HTTP_METHODS" :key="m.verb" class="method-row">
+                    <label class="method-toggle" :class="{ 'method-toggle--on': hasMethod(m.verb) }">
+                      <input type="checkbox" :checked="hasMethod(m.verb)" @change="toggleMethod(m.verb)" class="sr-only" />
+                      <span class="method-dot" :style="{ background: m.color }"></span>
+                      {{ m.verb }}
+                    </label>
+                    <button v-if="hasMethod(m.verb)" @click="openMethodDetail(m.verb)"
+                      class="method-edit-btn" title="Configure operation">
+                      <span class="material-symbols-outlined" style="font-size:15px;">edit_note</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="panel-section">
+                <label class="panel-label">DESCRIPTION</label>
+                <textarea v-model="selectedNode.data.description" @input="updateNodeData" class="panel-textarea" rows="3" placeholder="Describe this resource…" />
+              </div>
+              <div class="panel-section">
+                <label class="panel-label">TAGS</label>
+                <div class="tags-container">
+                  <div v-if="!selectedNode.data.tags?.length" class="text-xs" style="color:#a0a7b5;">No tags</div>
+                  <div v-for="(tag, i) in selectedNode.data.tags" :key="i" class="tag-chip">
+                    <span>{{ tag }}</span>
+                    <button @click="removeTag(i)" class="tag-remove">
+                      <span class="material-symbols-outlined" style="font-size:12px;">close</span>
+                    </button>
+                  </div>
+                </div>
+                <div class="flex gap-2 mt-2">
+                  <input v-model="newTag" @keydown.enter.prevent="addTag" class="panel-input flex-1" placeholder="Add tag…" style="font-size:12px;" />
+                  <button @click="addTag" class="btn-add-small" style="padding:0 8px;">Add</button>
+                </div>
+              </div>
+              <div class="panel-section panel-section--danger">
+                <button @click="deleteSelectedNode" class="btn-danger">
+                  <span class="material-symbols-outlined" style="font-size:16px;">delete</span>Remove Resource
+                </button>
+              </div>
+            </template>
           </template>
 
           <!-- METHOD DETAIL view -->
@@ -427,6 +482,120 @@
         </aside>
       </Transition>
 
+      <!-- ── RIGHT: AI Reviewer panel ──────────────────── -->
+      <Transition name="panel-right-slide">
+        <aside v-if="showReviewPanel" class="review-panel" @click.stop>
+
+          <!-- Header -->
+          <div class="ai-panel-header">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined" style="font-size:18px;color:#7c3aed;">rate_review</span>
+              <span class="text-sm font-bold" style="color:#1a1b1f;">AI Reviewer</span>
+              <span v-if="llmPrefs.isConfigured" class="ai-model-badge">{{ llmPrefs.model }}</span>
+            </div>
+            <button @click="showReviewPanel = false" class="panel-close">
+              <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+            </button>
+          </div>
+
+          <!-- Not configured -->
+          <div v-if="!llmPrefs.isConfigured" class="ai-empty">
+            <span class="material-symbols-outlined" style="font-size:32px;color:#d4d2db;">key</span>
+            <p class="text-sm font-semibold" style="color:#1a1b1f;margin:8px 0 4px;">No LLM configured</p>
+            <p class="text-xs" style="color:#a0a7b5;margin-bottom:12px;">Set your API key in Settings → Preferences.</p>
+            <button @click="router.push('/settings/preferences')" class="ai-setup-btn">Go to Preferences</button>
+          </div>
+
+          <!-- Review Content -->
+          <template v-else>
+            <div class="review-content">
+              <!-- Review button -->
+              <div v-if="!reviewResult && !reviewLoading" class="review-start">
+                <span class="material-symbols-outlined" style="font-size:48px;color:#7c3aed;opacity:0.4;">rate_review</span>
+                <p class="text-sm" style="color:#414755;margin:12px 0;text-align:center;">
+                  Analyze your OpenAPI spec against RESTful best practices
+                </p>
+                <div class="review-criteria">
+                  <div class="review-criteria-item">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#7c3aed;">link</span>
+                    <span>Resource URI Semantic</span>
+                  </div>
+                  <div class="review-criteria-item">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#7c3aed;">http</span>
+                    <span>HTTP Methods Usage</span>
+                  </div>
+                  <div class="review-criteria-item">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#7c3aed;">check_circle</span>
+                    <span>Status Codes</span>
+                  </div>
+                  <div class="review-criteria-item">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#7c3aed;">error</span>
+                    <span>Error Handling</span>
+                  </div>
+                  <div class="review-criteria-item">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#7c3aed;">security</span>
+                    <span>Security Headers</span>
+                  </div>
+                  <div class="review-criteria-item">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#7c3aed;">text_fields</span>
+                    <span>Naming Conventions</span>
+                  </div>
+                  <div class="review-criteria-item">
+                    <span class="material-symbols-outlined" style="font-size:16px;color:#7c3aed;">description</span>
+                    <span>Documentation Quality</span>
+                  </div>
+                </div>
+                <button @click="runApiReview" class="ai-setup-btn" style="margin-top:16px;width:100%;">
+                  Run Review
+                </button>
+              </div>
+
+              <!-- Loading -->
+              <div v-else-if="reviewLoading" class="review-loading">
+                <span class="material-symbols-outlined animate-spin" style="font-size:32px;color:#7c3aed;">progress_activity</span>
+                <p class="text-sm" style="color:#414755;margin-top:12px;">Analyzing your API...</p>
+              </div>
+
+              <!-- Review Result -->
+              <div v-else-if="reviewResult" class="review-result">
+                <button @click="reviewResult = ''; showReviewPanel = false" class="ai-setup-btn" style="width:100%;margin-bottom:8px;">
+                  <span class="material-symbols-outlined" style="font-size:16px;">refresh</span>
+                  Run New Review
+                </button>
+                <button v-if="!reviewSaved" @click="saveReviewReport" class="ai-setup-btn" style="width:100%;margin-bottom:12px;background:#047857;">
+                  <span class="material-symbols-outlined" style="font-size:16px;">save</span>
+                  Save Report
+                </button>
+                <div v-if="reviewSaved" class="review-saved-msg">Report saved successfully</div>
+                <MarkdownViewer 
+                  :content="reviewResult" 
+                  title="AI Review Report"
+                  :filename="`${apiName || 'api'}-review-${version}.md`"
+                />
+              </div>
+            </div>
+          </template>
+
+        </aside>
+      </Transition>
+
+      <!-- Import confirmation modal -->
+      <Transition name="modal-fade">
+        <div v-if="pendingImport" class="modal-overlay" @click.self="cancelImport">
+          <div class="modal-box">
+            <div class="modal-icon">
+              <span class="material-symbols-outlined" style="font-size:40px;color:#991b1b;">warning</span>
+            </div>
+            <h3 class="modal-title">Importar OpenAPI</h3>
+            <p class="modal-text">Se perderá toda la información actual del canvas (nodos, conexiones, esquemas y tags). ¿Está seguro de continuar?</p>
+            <div class="modal-actions">
+              <button @click="cancelImport" class="modal-btn modal-btn--cancel">Cancelar</button>
+              <button @click="confirmImport" class="modal-btn modal-btn--confirm">Importar</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+
     </div>
   </div>
 </template>
@@ -438,6 +607,7 @@ import { VueFlow, useVueFlow, MarkerType } from '@vue-flow/core';
 import type { Node, Edge, NodeMouseEvent, EdgeMouseEvent } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import ResourceNode from '../components/designer/ResourceNode.vue';
+import MarkdownViewer from '../components/MarkdownViewer.vue';
 import { useRegistryStore } from '../stores/registry';
 import { useLLMPreferencesStore } from '../stores/preferences';
 import yaml from 'js-yaml';
@@ -466,7 +636,7 @@ const version  = route.params.version as string;
 const apiName  = ref('');
 
 // ── Vue Flow ─────────────────────────────────────────
-const { removeNodes, updateNode, getViewport, setViewport } = useVueFlow();
+const { removeNodes, updateNode, getViewport, setViewport, fitView } = useVueFlow();
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const nodeTypes = { resource: markRaw(ResourceNode) } as any;
 const defaultEdgeOptions = {
@@ -477,7 +647,12 @@ const defaultEdgeOptions = {
 
 const ROOT_NODE: Node = {
   id: 'root', type: 'resource', position: { x: 0, y: 0 },
-  data: { path: '/', methods: [], operationSpecs: {}, description: 'API Entry Point', operationName: '', security: '', isRoot: true },
+  data: { 
+    path: '/', methods: [], operationSpecs: {}, 
+    description: 'API Entry Point', operationName: '', security: '', isRoot: true, tags: [],
+    title: '', contactName: '', contactEmail: '',
+    hasChildren: false, collapsed: false
+  },
 };
 const nodes = ref<Node[]>([ROOT_NODE]);
 const edges = ref<Edge[]>([]);
@@ -635,6 +810,23 @@ function updateNodeData() {
   updateNode(selectedNode.value.id, { data: { ...selectedNode.value.data } });
 }
 
+const newTag = ref('');
+function addTag() {
+  if (!selectedNode.value || !newTag.value.trim()) return;
+  const tag = newTag.value.trim();
+  if (!selectedNode.value.data.tags) selectedNode.value.data.tags = [];
+  if (!selectedNode.value.data.tags.includes(tag)) {
+    selectedNode.value.data.tags.push(tag);
+    updateNodeData();
+  }
+  newTag.value = '';
+}
+function removeTag(index: number) {
+  if (!selectedNode.value) return;
+  selectedNode.value.data.tags.splice(index, 1);
+  updateNodeData();
+}
+
 function defaultOpSpec(verb: string): OperationSpec {
   const hasBody = ['POST', 'PUT', 'PATCH'].includes(verb);
   return {
@@ -743,6 +935,9 @@ async function saveFlow() {
 function handleAddChildNode(e: any) {
   const { parentId, position } = e.detail;
   const id = `resource-${uid()}`;
+  const parentNode = nodes.value.find(n => n.id === parentId);
+  const isParentCollapsed = parentNode?.data?.collapsed ?? false;
+  
   const newNode: Node = {
     id,
     type: 'resource',
@@ -754,10 +949,29 @@ function handleAddChildNode(e: any) {
       description: '',
       operationName: '',
       security: '',
-      isRoot: false
+      isRoot: false,
+      tags: [],
+      hasChildren: false,
+      collapsed: false
     },
   };
+  
+  if (isParentCollapsed) {
+    newNode.hidden = true;
+  }
+  
   nodes.value.push(newNode);
+  
+  if (parentNode) {
+    // Update hasChildren on the parent node in both VueFlow and our ref
+    const parentIndex = nodes.value.findIndex(n => n.id === parentId);
+    if (parentIndex !== -1) {
+      nodes.value[parentIndex].data.hasChildren = true;
+      updateNode(parentId, { data: { ...nodes.value[parentIndex].data } });
+      nodes.value = [...nodes.value];
+    }
+  }
+  
   edges.value.push({
     id: `e-${parentId}-${id}`,
     source: parentId,
@@ -777,11 +991,23 @@ function handleDeleteNodeChildren(e: any) {
   const childrenIds = childrenEdges.map(ev => ev.target);
   if (childrenIds.length > 0) {
     removeNodes(childrenIds);
+    edges.value = edges.value.filter(ev => ev.source !== nodeId);
+    const parent = nodes.value.find(n => n.id === nodeId);
+    if (parent) {
+      parent.data.hasChildren = false;
+      parent.data.collapsed = false;
+      updateNode(nodeId, { data: { ...parent.data } });
+    }
   }
 }
 
 function handleToggleNodeCollapse(e: any) {
   const { nodeId, collapsed } = e.detail;
+  const node = nodes.value.find(n => n.id === nodeId);
+  if (node) {
+    node.data.collapsed = collapsed;
+    updateNode(nodeId, { data: { ...node.data } });
+  }
   const visit = (pid: string) => {
     const childEdges = edges.value.filter(ev => ev.source === pid);
     for (const edge of childEdges) {
@@ -810,6 +1036,15 @@ onMounted(async () => {
         nodes.value = parsed.nodes;
         edges.value = parsed.edges ?? [];
         components.value = parsed.components ?? [];
+        
+        // Set hasChildren on parent nodes based on edges
+        const parentIds = new Set(edges.value.map(e => e.source));
+        nodes.value.forEach(n => {
+          if (parentIds.has(n.id)) {
+            n.data.hasChildren = true;
+          }
+        });
+        
         collapseAllSchemas();
         // Restore saved viewport or apply 75% default
         const vp = parsed.viewport;
@@ -836,7 +1071,7 @@ onUnmounted(() => {
 });
 
 // ── YAML export ───────────────────────────────────────
-function exportYaml() {
+function buildOpenApiSpec() {
   const pathMap: Record<string, string> = {};
   function buildFullPath(nodeId: string, visited = new Set<string>()): string {
     if (visited.has(nodeId)) return '';
@@ -871,20 +1106,27 @@ function exportYaml() {
       const operation: Record<string, any> = {
         summary: op.summary || n.data.operationName || `${verb} ${fullPath}`,
         operationId: `${verb.toLowerCase()}_${n.id.replace(/[^a-zA-Z0-9]/g, '_')}`,
-        responses: Object.fromEntries(op.responses.map(r => [r.statusCode || '200', {
-          description: r.description,
-          ...(r.schemaRef ? { content: { 'application/json': { schema: { $ref: `#/components/schemas/${r.schemaRef}` } } } } : {}),
-        }])),
+        responses: Object.fromEntries(op.responses.map(r => {
+          const schemaExists = components.value.some(s => s.name === r.schemaRef);
+          return [r.statusCode || '200', {
+            description: r.description,
+            ...(r.schemaRef && schemaExists ? { content: { 'application/json': { schema: { $ref: `#/components/schemas/${r.schemaRef}` } } } } : {}),
+          }];
+        })),
       };
       if (op.description) operation.description = op.description;
+      if (n.data.tags?.length) operation.tags = n.data.tags;
       if (n.data.security) {
         operation.security = [{ [n.data.security]: [] }];
       }
       if (op.parameters.length) operation.parameters = op.parameters.map(p => ({ name: p.name, in: 'query', required: p.required, schema: { type: p.type } }));
-      if (op.requestBody.enabled) operation.requestBody = {
-        required: true,
-        content: { [op.requestBody.contentType]: { schema: op.requestBody.schemaRef ? { $ref: `#/components/schemas/${op.requestBody.schemaRef}` } : { type: 'object' } } },
-      };
+      if (op.requestBody.enabled) {
+        const schemaExists = components.value.some(s => s.name === op.requestBody.schemaRef);
+        operation.requestBody = {
+          required: true,
+          content: { [op.requestBody.contentType]: { schema: op.requestBody.schemaRef && schemaExists ? { $ref: `#/components/schemas/${op.requestBody.schemaRef}` } : { type: 'object' } } },
+        };
+      }
       pathItem[verb.toLowerCase()] = operation;
     });
     if (Object.keys(pathItem).length) paths[fullPath] = pathItem;
@@ -900,7 +1142,20 @@ function exportYaml() {
     };
   });
 
-  const doc: any = { openapi: '3.1.0', info: { title: apiName.value || 'API', version }, paths };
+  const rootNode = nodes.value.find(n => n.data.isRoot);
+  const infoObj: any = { 
+    title: rootNode?.data.title || apiName.value || 'API', 
+    version 
+  };
+  if (rootNode?.data.description) infoObj.description = rootNode.data.description;
+  if (rootNode?.data.contactName || rootNode?.data.contactEmail) {
+    infoObj.contact = {};
+    if (rootNode?.data.contactName) infoObj.contact.name = rootNode.data.contactName;
+    if (rootNode?.data.contactEmail) infoObj.contact.email = rootNode.data.contactEmail;
+  }
+  const doc: any = { openapi: '3.1.0', info: infoObj, paths };
+  const allTags = [...new Set(nodes.value.flatMap(n => n.data.tags || []))];
+  if (allTags.length) doc.tags = allTags.map(name => ({ name }));
   if (Object.keys(schemasObj).length || nodes.value.some(n => n.data.security)) {
     doc.components = { 
       ...(Object.keys(schemasObj).length ? { schemas: schemasObj } : {}),
@@ -913,6 +1168,11 @@ function exportYaml() {
       } : {})
     };
   }
+  return doc;
+}
+
+function exportYaml() {
+  const doc = buildOpenApiSpec();
   const yamlStr = yaml.dump(doc, { indent: 2, lineWidth: -1 });
   const blob = new Blob([yamlStr], { type: 'text/yaml' });
   const url = URL.createObjectURL(blob);
@@ -935,10 +1195,18 @@ function exportDesignYaml() {
         position: { x: Math.round(n.position.x), y: Math.round(n.position.y) },
         path: n.data.path,
       };
-      if (n.data.isRoot) out.isRoot = true;
-      if (n.data.description)   out.description   = n.data.description;
+      if (n.data.isRoot) {
+        out.isRoot = true;
+        if (n.data.title) out.title = n.data.title;
+        if (n.data.description) out.description = n.data.description;
+        if (n.data.contactName) out.contactName = n.data.contactName;
+        if (n.data.contactEmail) out.contactEmail = n.data.contactEmail;
+      }
       if (n.data.operationName) out.operationName = n.data.operationName;
       if (n.data.security)      out.security      = n.data.security;
+      if (n.data.tags?.length)   out.tags          = n.data.tags;
+      if (n.data.hasChildren) out.hasChildren = n.data.hasChildren;
+      if (n.data.collapsed) out.collapsed = n.data.collapsed;
       const methods = (n.data.methods as string[] | undefined) ?? [];
       if (methods.length) {
         out.methods = methods.map(verb => {
@@ -979,6 +1247,8 @@ function exportDesignYaml() {
 }
 
 // ── YAML/JSON import ───────────────────────────────────────
+const pendingImport = ref<{ doc: any; isNexusDesign: boolean } | null>(null);
+
 function onFileImport(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
@@ -994,10 +1264,10 @@ function onFileImport(event: Event) {
       }
       console.log('Imported doc:', doc);
       if (doc?.nexusDesign) {
-        importNexusDesign(doc);
+        pendingImport.value = { doc, isNexusDesign: true };
       } else if (doc?.openapi || doc?.swagger) {
         console.log('Importing OpenAPI doc with paths:', doc.paths ? Object.keys(doc.paths).length : 0);
-        importOpenApiDoc(doc);
+        pendingImport.value = { doc, isNexusDesign: false };
       } else {
         console.warn('Unrecognized file format. Has openapi:', !!doc?.openapi, 'Has swagger:', !!doc?.swagger, 'Has nexusDesign:', !!doc?.nexusDesign);
       }
@@ -1007,6 +1277,20 @@ function onFileImport(event: Event) {
     if (fileInputRef.value) fileInputRef.value.value = '';
   };
   reader.readAsText(file);
+}
+
+function confirmImport() {
+  if (!pendingImport.value) return;
+  if (pendingImport.value.isNexusDesign) {
+    importNexusDesign(pendingImport.value.doc);
+  } else {
+    importOpenApiDoc(pendingImport.value.doc);
+  }
+  pendingImport.value = null;
+}
+
+function cancelImport() {
+  pendingImport.value = null;
 }
 
 function importNexusDesign(doc: any) {
@@ -1020,7 +1304,13 @@ function importNexusDesign(doc: any) {
       description: n.description ?? '',
       operationName: n.operationName ?? '',
       security: n.security ?? '',
+      title: n.title ?? '',
+      contactName: n.contactName ?? '',
+      contactEmail: n.contactEmail ?? '',
       methods: (n.methods ?? []).map((m: any) => m.verb),
+      tags: n.tags ?? [],
+      hasChildren: !!n.hasChildren,
+      collapsed: !!n.collapsed,
       operationSpecs: Object.fromEntries((n.methods ?? []).map((m: any) => [m.verb, {
         summary: m.summary ?? '',
         description: m.description ?? '',
@@ -1056,8 +1346,21 @@ function importNexusDesign(doc: any) {
     } as Edge;
   });
 
+  // Remove all existing non-root nodes and their edges before importing
+  const nonRootIds = nodes.value.filter(n => !n.data.isRoot).map(n => n.id);
+  removeNodes(nonRootIds);
+
+  // Set hasChildren on parent nodes BEFORE assigning
+  const parentIds = new Set(newEdges.map(e => e.source));
+  newNodes.forEach(n => {
+    if (parentIds.has(n.id)) {
+      n.data.hasChildren = true;
+    }
+  });
+
   nodes.value = newNodes;
   edges.value = newEdges;
+  
   components.value = (doc.components ?? []).map((s: any) => ({
     id: uid(), name: s.name, description: s.description ?? '',
     properties: (s.properties ?? []).map((p: any) => ({ id: uid(), name: p.name, type: p.type ?? 'string', required: !!p.required })),
@@ -1182,16 +1485,35 @@ function importOpenApiDoc(doc: any) {
   
   const allSchemas = Array.from(collectedSchemas.values());
   
+  // Collect root-level tags from the OpenAPI doc
+  const rootTags: string[] = [];
+  if (doc.tags && Array.isArray(doc.tags)) {
+    doc.tags.forEach((t: any) => {
+      if (typeof t === 'string' && !rootTags.includes(t)) rootTags.push(t);
+      else if (t?.name && typeof t.name === 'string' && !rootTags.includes(t.name)) rootTags.push(t.name);
+    });
+  }
+
   // Pre-initialize root node so children can connect to it
   newNodes.push({
     id: 'root',
     type: 'resource',
     position: { x: 30, y: 30 },
-    data: { path: '/', methods: [], operationSpecs: {}, description: 'API Entry Point', isRoot: true },
+    data: { 
+      path: '/', methods: [], operationSpecs: {}, 
+      description: doc.info?.description || 'API Entry Point', 
+      title: doc.info?.title || '',
+      contactName: doc.info?.contact?.name || '',
+      contactEmail: doc.info?.contact?.email || '',
+      isRoot: true, tags: rootTags 
+    },
   });
   pathToId['/'] = 'root';
 
-  Object.keys(doc.paths).sort((a, b) => a.split('/').length - b.split('/').length)
+  const pathKeys = Object.keys(doc.paths || {});
+  console.log('Importing paths:', pathKeys.length, pathKeys);
+  
+  pathKeys.sort((a, b) => a.split('/').length - b.split('/').length)
     .forEach((fullPath, i) => {
       const pathItem = doc.paths[fullPath];
       const verbs = ['get','post','put','patch','delete'].filter(m => pathItem[m]).map(m => m.toUpperCase());
@@ -1251,6 +1573,18 @@ function importOpenApiDoc(doc: any) {
       const siblings = newNodes.filter((n: any) => n._col === col);
       const row = siblings.length;
       const firstOp = pathItem[verbs[0]?.toLowerCase()];
+
+      // Extract tags from the first operation - collect all unique tags across all verbs
+      const allOpTags: string[] = [];
+      verbs.forEach(verb => {
+        const op = pathItem[verb.toLowerCase()];
+        if (op?.tags && Array.isArray(op.tags)) {
+          op.tags.forEach((t: string) => {
+            if (!allOpTags.includes(t)) allOpTags.push(t);
+          });
+        }
+      });
+
       const node: any = { 
         id, 
         type: 'resource', 
@@ -1263,7 +1597,10 @@ function importOpenApiDoc(doc: any) {
           description: firstOp?.description || '', 
           operationName: firstOp?.summary || '',
           security: firstOp?.security?.[0] ? Object.keys(firstOp.security[0])[0] : '',
-          isRoot: false 
+          isRoot: false,
+          tags: allOpTags,
+          hasChildren: false,
+          collapsed: false
         } 
       };
       newNodes.push(node);
@@ -1287,14 +1624,48 @@ function importOpenApiDoc(doc: any) {
             data: { pathParam: { name: param.name, type: param.schema?.type || 'string', description: param.description || '' } } 
           } : {}) 
         });
+      } else {
+        // Top-level resource: connect directly to root node
+        const param = (pathItem.parameters || []).filter((p: any) => p.in === 'path')[0];
+        newEdges.push({ 
+          id: `e-root-${id}`, 
+          source: 'root', 
+          target: id, 
+          type: 'smoothstep', 
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#0058bc' }, 
+          style: { stroke: '#0058bc', strokeWidth: 2 }, 
+          ...(param ? { 
+            label: `:${param.name}`, 
+            labelStyle: { fill: '#7c3aed', fontWeight: 700, fontSize: 11 }, 
+            labelBgStyle: { fill: '#f5f3ff', fillOpacity: 0.95 }, 
+            labelBgPadding: [4, 6] as [number, number], 
+            labelBgBorderRadius: 4, 
+            data: { pathParam: { name: param.name, type: param.schema?.type || 'string', description: param.description || '' } } 
+          } : {}) 
+        });
       }
     });
   
+  console.log('Created nodes:', newNodes.length, newNodes.map(n => ({ id: n.id, path: n.data.path })));
+  console.log('Created edges:', newEdges.length);
+  
+  // Set hasChildren on parent nodes BEFORE assigning to nodes.value
+  const parentIds = new Set(newEdges.map(e => e.source));
+  newNodes.forEach(n => {
+    if (parentIds.has(n.id)) {
+      n.data.hasChildren = true;
+    }
+  });
+  
   nodes.value = newNodes; 
   edges.value = newEdges;
-  components.value = allSchemas;
+  
+  components.value = [...allSchemas];
   collapseAllSchemas();
   selectedNode.value = null; selectedEdge.value = null;
+  nextTick(() => {
+    fitView({ padding: 0.2 });
+  });
 }
 
 // ── AI Designer ──────────────────────────────────────
@@ -1439,6 +1810,75 @@ function applyAiDesign(design: any) {
 async function scrollChat() {
   await nextTick();
   if (chatScrollRef.value) chatScrollRef.value.scrollTop = chatScrollRef.value.scrollHeight;
+}
+
+// ── AI Reviewer ──────────────────────────────────────
+const showReviewPanel = ref(false);
+const reviewLoading   = ref(false);
+const reviewResult    = ref('');
+const reviewSaved     = ref(false);
+
+async function runApiReview() {
+  if (reviewLoading.value || !llmPrefs.isConfigured) return;
+  reviewLoading.value = true;
+  reviewResult.value  = '';
+  reviewSaved.value   = false;
+
+  try {
+    const auth = (await import('../stores/auth')).useAuthStore();
+    const token = await auth.getToken();
+    const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+    const spec = buildOpenApiSpec();
+
+    const res = await fetch(`${bffBase}/ai/review`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        provider: llmPrefs.provider,
+        apiKey: llmPrefs.currentApiKey,
+        customApiUrl: llmPrefs.apiUrl,
+        model: llmPrefs.model,
+        spec
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+      reviewResult.value = `Error: ${err.error}`;
+    } else {
+      const data = await res.json();
+      reviewResult.value = data.content ?? 'No review content received.';
+    }
+  } catch (e: any) {
+    reviewResult.value = `Error: ${e.message}`;
+  } finally {
+    reviewLoading.value = false;
+  }
+}
+
+async function saveReviewReport() {
+  if (!reviewResult.value || !llmPrefs.isConfigured) return;
+  try {
+    const auth = (await import('../stores/auth')).useAuthStore();
+    const token = await auth.getToken();
+    const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+    const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ content: reviewResult.value }),
+    });
+
+    if (!res.ok) {
+      console.error('Failed to save review report');
+    } else {
+      reviewSaved.value = true;
+      setTimeout(() => { reviewSaved.value = false; }, 3000);
+    }
+  } catch (e) {
+    console.error('Error saving review report:', e);
+  }
 }
 
 function goBack() { router.push(`/projects/${apiId}`); }
@@ -1657,4 +2097,117 @@ function goBack() { router.push(`/projects/${apiId}`); }
 }
 .ai-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .ai-send-btn:not(:disabled):hover { opacity: 0.85; }
+
+/* ── AI Reviewer panel ────────────────── */
+.review-btn { color:#7c3aed !important; }
+.review-btn:hover,.review-btn.toolbar-icon-btn--active { background:#f5f3ff !important;color:#7c3aed !important; }
+
+.review-panel {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: 420px;
+  background: #ffffff;
+  border-left: 1px solid #e3e2e7;
+  display: flex; flex-direction: column;
+  z-index: 25;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.08);
+}
+.panel-right-slide-enter-active,.panel-right-slide-leave-active { transition: transform 0.22s cubic-bezier(0.4,0,0.2,1); }
+.panel-right-slide-enter-from,.panel-right-slide-leave-to { transform: translateX(100%); }
+
+.review-content { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; }
+
+.review-start {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 40px;
+}
+
+.review-criteria {
+  display: flex; flex-direction: column; gap: 8px; width: 100%; max-width: 280px;
+  margin-top: 16px;
+}
+.review-criteria-item {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: #414755;
+}
+
+.review-loading {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 60px;
+}
+
+.review-result { flex: 1; overflow-y: auto; }
+
+.review-output {
+  font-size: 12px; line-height: 1.6; color: #1a1b1f;
+  white-space: pre-wrap; word-break: break-word;
+  background: #faf9fe; border-radius: 10px; padding: 12px;
+  border: 1px solid #e3e2e7;
+}
+
+.review-saved-msg {
+  font-size: 12px; font-weight: 600; color: #047857;
+  text-align: center; padding: 8px; margin-bottom: 8px;
+  background: #dcfce7; border-radius: 8px;
+}
+
+/* ── Tags ─────────────────────────────────── */
+.tags-container {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 6px;
+  background: #eff6ff; color: #0058bc;
+  font-size: 11px; font-weight: 600;
+  font-family: 'Inter', sans-serif;
+}
+.tag-remove {
+  display: flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: transparent; border: none; cursor: pointer;
+  padding: 0; color: #0058bc;
+  transition: background 0.15s;
+}
+.tag-remove:hover { background: rgba(0,88,188,0.15); }
+
+/* ── Import Confirmation Modal ──────────────── */
+.modal-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modal-box {
+  background: #ffffff; border-radius: 16px; padding: 32px;
+  max-width: 400px; width: 90%;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+  text-align: center;
+}
+.modal-icon { margin-bottom: 16px; }
+.modal-title {
+  font-size: 18px; font-weight: 700; color: #1a1b1f;
+  margin: 0 0 12px;
+  font-family: 'Inter', sans-serif;
+}
+.modal-text {
+  font-size: 14px; color: #414755; line-height: 1.5;
+  margin: 0 0 24px;
+  font-family: 'Inter', sans-serif;
+}
+.modal-actions {
+  display: flex; gap: 12px; justify-content: center;
+}
+.modal-btn {
+  padding: 10px 24px; border-radius: 10px; font-size: 14px; font-weight: 600;
+  font-family: 'Inter', sans-serif; cursor: pointer; transition: opacity 0.15s;
+  border: none;
+}
+.modal-btn--cancel {
+  background: #f1f1f1; color: #414755;
+}
+.modal-btn--cancel:hover { background: #e3e2e7; }
+.modal-btn--confirm {
+  background: #991b1b; color: #ffffff;
+}
+.modal-btn--confirm:hover { opacity: 0.85; }
+.modal-fade-enter-active,.modal-fade-leave-active { transition: opacity 0.2s; }
+.modal-fade-enter-from,.modal-fade-leave-to { opacity: 0; }
 </style>

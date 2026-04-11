@@ -5,7 +5,7 @@
       'resource-node--selected': selected,
       'resource-node--root': data.isRoot,
       'resource-node--locked': data.isRoot,
-      'resource-node--collapsed': isCollapsed
+      'resource-node--collapsed': data.collapsed
     }"
   >
     <!-- Left blue border extension (visual effect) -->
@@ -49,16 +49,16 @@
       </div>
     </div>
 
-    <!-- Collapse/Expand button -->
+    <!-- Collapse/Expand button - left of right connection handle -->
     <button
-      v-if="!data.isRoot && data.hasChildren"
+      v-if="data.hasChildren"
       class="control-btn control-btn--collapse"
-      :class="{ 'control-btn--active': isCollapsed }"
-      :title="isCollapsed ? 'Expand children' : 'Collapse children'"
+      :class="{ 'control-btn--active': data.collapsed }"
+      :title="data.collapsed ? 'Expand children' : 'Collapse children'"
       @mousedown.stop
       @click.stop="toggleCollapse"
     >
-      <span>{{ isCollapsed ? '›' : '‹' }}</span>
+      <span>{{ data.collapsed ? '›' : '‹' }}</span>
     </button>
 
     <!-- Add child button -->
@@ -76,7 +76,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
 import { Handle, Position, useVueFlow } from '@vue-flow/core';
 
 interface ResourceData {
@@ -85,6 +84,7 @@ interface ResourceData {
   description: string;
   isRoot?: boolean;
   hasChildren?: boolean;
+  collapsed?: boolean;
   operationName?: string;
   security?: string;
 }
@@ -100,8 +100,6 @@ const emit = defineEmits<{
   (e: 'toggle-collapse', nodeId: string, collapsed: boolean): void;
   (e: 'node-reparent', nodeId: string, newParentId: string): void;
 }>();
-
-const isCollapsed = ref(false);
 
 const directions = ['top', 'right', 'bottom', 'left'] as const;
 type Direction = typeof directions[number];
@@ -160,8 +158,8 @@ function removeAllChildren() {
 }
 
 function toggleCollapse() {
-  isCollapsed.value = !isCollapsed.value;
-  window.dispatchEvent(new CustomEvent('toggle-node-collapse', { detail: { nodeId: props.id, collapsed: isCollapsed.value } }));
+  const newCollapsed = !props.data.collapsed;
+  window.dispatchEvent(new CustomEvent('toggle-node-collapse', { detail: { nodeId: props.id, collapsed: newCollapsed } }));
 }
 </script>
 
