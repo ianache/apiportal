@@ -23,10 +23,32 @@ export interface API {
   name: string;
   description?: string;
   domainId?: string | null;
+  organizationId?: string | null;
   ownerId: string;
   createdAt: string;
   updatedAt: string;
   versions?: APIVersion[];
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  description?: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  apiCount?: number;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  description?: string;
+  organizationId: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  diagram?: any;
 }
 
 export interface APIVersion {

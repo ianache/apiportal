@@ -25,6 +25,11 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/organizations',
+    component: () => import('../views/OrganizationExplorer.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/explorer/:id/spec/:version?',
     component: () => import('../views/ApiSpecViewer.vue'),
     meta: { requiresAuth: true }

@@ -8,16 +8,18 @@ datasource db {
 }
 
 model User {
-  id               String            @id @default(uuid())
-  sub              String            @unique
-  email            String            @unique
-  name             String?
-  role             Role              @default(API_DEVELOPER)
-  ownedApis        API[]             @relation("ApiOwner")
-  approvedVersions APIVersion[]      @relation("VersionApprover")
-  createdVersions  APIVersion[]      @relation("VersionCreator")
-  auditLogs        AuditLog[]
-  favorites        UserAPIFavorite[]
+  id                    String            @id @default(uuid())
+  sub                   String            @unique
+  email                 String            @unique
+  name                  String?
+  role                  Role              @default(API_DEVELOPER)
+  ownedApis             API[]             @relation("ApiOwner")
+  approvedVersions      APIVersion[]      @relation("VersionApprover")
+  createdVersions       APIVersion[]      @relation("VersionCreator")
+  auditLogs             AuditLog[]
+  favorites             UserAPIFavorite[]
+  createdOrganizations  Organization[]    @relation("OrganizationCreator")
+  createdProducts       Product[]         @relation("ProductCreator")
 }
 
 model AuditLog {
@@ -30,17 +32,19 @@ model AuditLog {
 }
 
 model API {
-  id          String            @id @default(uuid())
-  name        String            @unique
-  description String?
-  ownerId     String
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
-  domainId    String?
-  label       String?
-  owner       User              @relation("ApiOwner", fields: [ownerId], references: [id])
-  versions    APIVersion[]
-  favorites   UserAPIFavorite[]
+  id             String            @id @default(uuid())
+  name           String            @unique
+  description    String?
+  ownerId        String
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  domainId       String?
+  label          String?
+  owner          User              @relation("ApiOwner", fields: [ownerId], references: [id])
+  versions       APIVersion[]
+  favorites      UserAPIFavorite[]
+  organizationId String?
+  organization   Organization?     @relation("OrganizationApis", fields: [organizationId], references: [id])
 
   @@index([domainId])
   @@index([label])
@@ -213,6 +217,43 @@ model KnowledgePiece {
 
   @@index([domainId])
   @@index([typeId])
+}
+
+model Organization {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  createdById String
+  createdBy   User      @relation("OrganizationCreator", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+  apis        API[]     @relation("OrganizationApis")
+}
+
+model Product {
+  id             String                      @id @default(uuid())
+  name           String
+  description    String?
+  organizationId String
+  organization   Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdById    String
+  createdBy      User                        @relation("ProductCreator", fields: [createdById], references: [id])
+  createdAt      DateTime                    @default(now())
+  updatedAt      DateTime                    @updatedAt
+  swcis          SoftwareConfigurationItem[]
+  diagram        Json?
+}
+
+model SoftwareConfigurationItem {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  diagram     Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 enum Role {

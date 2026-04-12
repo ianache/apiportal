@@ -81,6 +81,38 @@
               {{ item.label }}
             </router-link>
 
+            <!-- Organization Collapsible -->
+            <div>
+              <button
+                @click="orgOpen = !orgOpen"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 text-slate-500 hover:bg-white/70 hover:text-slate-700"
+                :class="{ 'text-slate-700 bg-white/40': orgOpen || route.path.startsWith('/organizations') }"
+              >
+                <div class="flex items-center gap-2.5">
+                  <span class="material-symbols-outlined" style="font-size: 19px;">corporate_fare</span>
+                  Organization
+                </div>
+                <span
+                  class="material-symbols-outlined transition-transform duration-200"
+                  style="font-size: 18px;"
+                  :class="orgOpen ? 'rotate-180' : ''"
+                >expand_more</span>
+              </button>
+              <div v-show="orgOpen" class="mt-1 ml-3 pl-3 border-l-2 border-slate-200/60 space-y-0.5">
+                <router-link
+                  to="/organizations"
+                  class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
+                  :class="isActive('/organizations')
+                    ? 'bg-white shadow-sm'
+                    : 'text-slate-500 hover:bg-white/70 hover:text-slate-700'"
+                  :style="isActive('/organizations') ? 'color: #0058bc;' : ''"
+                >
+                  <span class="material-symbols-outlined" style="font-size: 17px;">manage_accounts</span>
+                  Manage All
+                </router-link>
+              </div>
+            </div>
+
             <!-- Settings Collapsible -->
             <div>
               <button
@@ -206,9 +238,11 @@ const settingsNav = [
 ];
 
 const settingsOpen = ref(false);
+const orgOpen = ref(false);
 
 watchEffect(() => {
   if (route.path.startsWith('/settings')) settingsOpen.value = true;
+  if (route.path.startsWith('/organizations')) orgOpen.value = true;
 });
 
 const favoriteApis = computed(() => {

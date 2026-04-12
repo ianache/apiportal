@@ -390,6 +390,9 @@
             <mxPoint as="offset" />
           </mxGeometry>
         </mxCell>
+        <mxCell id="LkZIT6PQVCDz5WsOsHbb-25" parent="1" style="ellipse;shape=umlEntity;html=1;aspect=fixed;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;labelBackgroundColor=default;" value="&lt;b&gt;Organization&lt;/b&gt;&lt;div&gt;+ name&lt;/div&gt;&lt;div&gt;+ description&lt;/div&gt;&lt;div&gt;+ createdby (user logged)&lt;/div&gt;&lt;div&gt;+ createdAt&lt;/div&gt;" vertex="1">
+          <mxGeometry height="40" width="40" x="90" y="250" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
