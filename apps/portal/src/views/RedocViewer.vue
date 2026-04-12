@@ -57,7 +57,7 @@
           </div>
         </div>
 
-        <div v-show="!loading && !error && spec && !showFallback" id="redoc-container" class="flex-1 overflow-y-auto" style="height: 100%;"></div>
+        <div v-if="showRedoc" id="redoc-container" class="flex-1 overflow-y-auto" style="height: 100%;"></div>
 
         <div v-if="showFallback && spec" class="flex-1 overflow-y-auto p-6" style="height: 100%;">
           <pre class="text-xs overflow-x-auto" style="color: #414755;">{{ JSON.stringify(spec, null, 2) }}</pre>
@@ -82,8 +82,9 @@ const apiName = ref('');
 const spec = ref<object | null>(null);
 const loading = ref(true);
 const error = ref<string | null>(null);
-const redocLoaded = ref(false);
 const showFallback = ref(false);
+const showRedoc = ref(false);
+const redocInitAttempted = ref(false);
 
 const fetchApiDetails = async () => {
   const auth = useAuthStore();
@@ -104,6 +105,8 @@ const fetchApiDetails = async () => {
 const fetchSpec = async () => {
   loading.value = true;
   error.value = null;
+  showRedoc.value = false;
+  redocInitAttempted.value = false;
 
   try {
     const auth = useAuthStore();
@@ -143,7 +146,7 @@ const loadRedoc = (): Promise<void> => {
     script.onload = () => {
       resolve();
     };
-    script.onerror = (e) => {
+    script.onerror = () => {
       error.value = 'Failed to load Redoc';
       resolve();
     };
@@ -176,11 +179,15 @@ const sanitizeSpec = (rawSpec: any): any => {
 };
 
 const initRedoc = async () => {
-  if (!spec.value || redocLoaded.value) return;
-
+  if (!spec.value || redocInitAttempted.value) return;
+  
+  redocInitAttempted.value = true;
+  showRedoc.value = true;
+  
   await loadRedoc();
   await nextTick();
-  await new Promise(resolve => setTimeout(resolve, 100));
+  
+  await new Promise(resolve => setTimeout(resolve, 200));
 
   const container = document.getElementById('redoc-container');
   if (container && (window as any).Redoc) {
@@ -189,12 +196,10 @@ const initRedoc = async () => {
         scrollYOffset: 50,
         nativeScrollbars: true
       }, container);
-      redocLoaded.value = true;
     } catch (err: any) {
       console.error('Redoc init error:', err);
-      error.value = 'Failed to render Redoc documentation. Using fallback viewer.';
+      showRedoc.value = false;
       showFallback.value = true;
-      loading.value = false;
     }
   }
 };
@@ -205,7 +210,11 @@ onMounted(async () => {
   await initRedoc();
 });
 
-watch(spec, async () => {
-  await initRedoc();
+watch(spec, async (newSpec) => {
+  if (newSpec) {
+    showFallback.value = false;
+    await nextTick();
+    await initRedoc();
+  }
 });
 </script>

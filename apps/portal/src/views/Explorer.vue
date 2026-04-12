@@ -423,6 +423,107 @@
       </div>
 
     </div>
+
+    <!-- Create Modal -->
+    <div
+      v-if="showCreateModal"
+      class="fixed inset-0 z-[100] flex items-center justify-center p-6"
+      style="background: rgba(26,27,31,0.55); backdrop-filter: blur(4px);"
+    >
+      <div
+        class="rounded-3xl w-full max-w-lg p-8 shadow-2xl animate-in zoom-in-95 duration-200"
+        style="background: #ffffff;"
+      >
+        <div class="flex items-start justify-between mb-6">
+          <div>
+            <h2 class="text-2xl font-bold" style="color: #1a1b1f;">Create New API Project</h2>
+            <p class="text-sm mt-1" style="color: #717786;">Fill in the details to register your API.</p>
+          </div>
+          <button
+            @click="showCreateModal = false"
+            class="p-1.5 rounded-full transition-colors hover:bg-gray-100 ml-4 flex-shrink-0"
+            style="color: #717786;"
+          >
+            <span class="material-symbols-outlined">close</span>
+          </button>
+        </div>
+
+        <div v-if="registry.error" class="mb-5 p-3 rounded-xl text-sm font-medium flex items-center gap-2" style="background: #fef2f2; color: #991b1b; border: 1px solid #fecaca;">
+          <span class="material-symbols-outlined text-lg">error</span>
+          {{ registry.error }}
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-widest mb-1.5 ml-1" style="color: #414755;">API Name <span style="color: #991b1b;">*</span></label>
+            <input
+              v-model="newApi.name"
+              type="text"
+              class="w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all"
+              style="background: #f4f3f8; border-color: #e3e2e7; color: #1a1b1f;"
+              placeholder="e.g. Payments Engine"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-widest mb-1.5 ml-1" style="color: #414755;">Label (for search)</label>
+            <input
+              v-model="newApi.label"
+              type="text"
+              class="w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all"
+              style="background: #f4f3f8; border-color: #e3e2e7; color: #1a1b1f;"
+              placeholder="e.g. Payments"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-widest mb-1.5 ml-1" style="color: #414755;">Domain</label>
+            <select
+              v-model="newApi.domainId"
+              class="w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all"
+              style="background: #f4f3f8; border-color: #e3e2e7; color: #1a1b1f;"
+            >
+              <option value="">Select a domain...</option>
+              <option v-for="d in domainsStore.domains" :key="d.id" :value="d.id">{{ d.title }}</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-widest mb-1.5 ml-1" style="color: #414755;">Description</label>
+            <textarea
+              v-model="newApi.description"
+              class="w-full px-4 py-3 rounded-xl text-sm outline-none border transition-all h-28 resize-none"
+              style="background: #f4f3f8; border-color: #e3e2e7; color: #1a1b1f;"
+              placeholder="Describe the purpose of this API…"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-8">
+          <button
+            @click="showCreateModal = false"
+            class="flex-1 py-3 px-6 rounded-xl font-bold transition-colors hover:bg-gray-50 flex items-center justify-center gap-2"
+            style="color: #414755; border: 1px solid #e3e2e7;"
+          >
+            <span class="material-symbols-outlined text-base">close</span>
+            Cancel
+          </button>
+          <button
+            @click="handleCreate"
+            :disabled="registry.loading || !newApi.name"
+            class="flex-1 py-3 px-6 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+            :style="{
+              background: '#0058bc',
+              color: '#ffffff',
+              boxShadow: '0 4px 14px rgba(0,88,188,0.30)',
+              opacity: registry.loading || !newApi.name ? 0.5 : 1,
+              cursor: registry.loading || !newApi.name ? 'not-allowed' : 'pointer',
+            }"
+          >
+            <span v-if="registry.loading" class="material-symbols-outlined animate-spin text-base">progress_activity</span>
+            <span v-else class="material-symbols-outlined text-base">rocket_launch</span>
+            {{ registry.loading ? 'Creating…' : 'Create Project' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </Shell>
 </template>
 
@@ -448,6 +549,8 @@ const viewMode = ref<'grid' | 'table'>('grid');
 const hasSearched = ref(false);
 const statusDropdownOpen = ref(false);
 const showFavoritesOnly = ref(false);
+const showCreateModal = ref(false);
+const newApi = ref({ name: '', label: '', description: '', domainId: '' });
 
 const defaultFilters = () => ({
   domainId: '',
@@ -592,7 +695,28 @@ const formatDate = (date: string) =>
 
 const navigateToDetail = (id: string) => { router.push(`/projects/${id}`); };
 
-const createNewApi = () => { router.push('/projects/new'); };
+const openCreateModal = () => {
+  registry.error = null;
+  newApi.value = { name: '', label: '', description: '', domainId: '' };
+  showCreateModal.value = true;
+};
+
+const createNewApi = () => {
+  registry.error = null;
+  newApi.value = { name: '', label: '', description: '', domainId: '' };
+  showCreateModal.value = true;
+};
+
+const handleCreate = async () => {
+  if (!newApi.value.name) return;
+  try {
+    const newApiCreated = await registry.createApi(newApi.value);
+    showCreateModal.value = false;
+    router.push(`/projects/${newApiCreated.id}`);
+  } catch {
+    // error handled by store
+  }
+};
 
 const navigateToSpec = (id: string, version?: string) => {
   router.push(`/explorer/${id}/spec${version ? `/${version}` : ''}`);

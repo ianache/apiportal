@@ -923,8 +923,16 @@ async function saveFlow() {
       viewport: { x: vp.x, y: vp.y, zoom: vp.zoom },
     });
     await registry.saveDefinition(apiId, version, payload);
+
+    const openApiSpec = buildOpenApiSpec();
+    console.log('[ApiDesigner] Saving OpenAPI spec:', JSON.stringify(openApiSpec, null, 2));
+    await registry.saveOpenApiSpec(apiId, version, openApiSpec);
+
     saveStatus.value = 'saved';
-  } catch { saveStatus.value = 'error'; }
+  } catch (err: any) {
+    console.error('[ApiDesigner] Save flow error:', err);
+    saveStatus.value = 'error';
+  }
   finally {
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => { saveStatus.value = 'idle'; }, 3000);

@@ -109,13 +109,25 @@ const domainRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(403).send({ error: 'Forbidden' });
 
     const { id } = request.params as { id: string };
-    const { tables, relationships } = request.body as { tables: any[]; relationships: any[] };
+    const { tables, relationships, canvases, activeCanvasId } = request.body as {
+      tables: any[];
+      relationships: any[];
+      canvases?: any[];
+      activeCanvasId?: string;
+    };
     const existing = await fastify.prisma.domain.findUnique({ where: { id } });
     if (!existing) return reply.code(404).send({ error: 'Not found' });
 
+    const erModelData = {
+      tables,
+      relationships,
+      canvases: canvases || [],
+      activeCanvasId: activeCanvasId || ''
+    };
+
     return fastify.prisma.domain.update({
       where: { id },
-      data: { erModel: { tables, relationships } }
+      data: { erModel: erModelData as any }
     });
   });
 

@@ -395,11 +395,19 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
       const { id, version } = request.params as { id: string; version: string };
       const { openapi } = request.body as { openapi: unknown };
 
+      fastify.log.info({ apiId: id, version, userRole: request.user.role }, 'Save OpenAPI spec request received');
+
       const apiVersion = await fastify.prisma.aPIVersion.findFirst({
         where: { apiId: id, version }
       });
-      if (!apiVersion) return reply.code(404).send({ error: 'Version not found' });
+      if (!apiVersion) {
+        fastify.log.warn({ apiId: id, version }, 'Version not found');
+        return reply.code(404).send({ error: 'Version not found' });
+      }
+      fastify.log.info({ apiId: id, version, status: apiVersion.status }, 'Found API version');
+      
       if (apiVersion.status !== 'DESIGN') {
+        fastify.log.warn({ apiId: id, version, status: apiVersion.status }, 'Version not in DESIGN status');
         return reply.code(422).send({ error: 'Unprocessable', message: 'Only DESIGN versions can be edited' });
       }
 
@@ -408,7 +416,7 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
         data: { openApiSpec: openapi as any }
       });
 
-      fastify.log.info({ apiId: id, version }, 'OpenAPI spec saved');
+      fastify.log.info({ apiId: id, version }, 'OpenAPI spec saved successfully');
       return { id: updated.id, version: updated.version, openApiSpec: updated.openApiSpec };
     } catch (err: any) {
       fastify.log.error(err, 'Failed to save OpenAPI spec');

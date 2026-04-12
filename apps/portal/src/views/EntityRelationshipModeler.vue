@@ -16,6 +16,28 @@
         </div>
       </div>
 
+      <!-- Canvas Selector -->
+      <div class="flex items-center gap-2">
+        <select 
+          v-model="activeCanvasId" 
+          class="canvas-select"
+          @change="selectCanvas(activeCanvasId)">
+          <option v-for="canvas in canvases" :key="canvas.id" :value="canvas.id">
+            {{ canvas.name }}
+          </option>
+        </select>
+        <button @click="addCanvas()" class="toolbar-btn toolbar-btn--secondary" title="New Canvas">
+          <span class="material-symbols-outlined" style="font-size:18px;">add</span>
+        </button>
+        <button 
+          v-if="canvases.length > 1" 
+          @click="deleteCanvas(activeCanvasId)" 
+          class="toolbar-btn toolbar-btn--danger" 
+          title="Delete Canvas">
+          <span class="material-symbols-outlined" style="font-size:18px;">delete</span>
+        </button>
+      </div>
+
       <!-- Center Tools -->
       <div class="flex items-center gap-3">
         <!-- Add Table -->
@@ -32,6 +54,12 @@
           <span>AI Assist</span>
         </button>
 
+        <!-- AI SQL -->
+        <button @click="showSQLPanel = !showSQLPanel" class="toolbar-btn toolbar-btn--sql" title="Generate SQL DDL">
+          <span class="material-symbols-outlined" style="font-size:18px;">database</span>
+          <span>AI SQL</span>
+        </button>
+
         <!-- Save Design -->
         <button @click="saveDesign" class="toolbar-btn toolbar-btn--save" title="Save Design">
           <span class="material-symbols-outlined" style="font-size:18px;">save</span>
@@ -45,14 +73,58 @@
           {{ saveStatus === 'saving' ? 'Saving...' : 'Saved' }}
         </span>
         <span class="text-xs" style="color:#a0a7b5;">{{ tables.length }} tables</span>
+        <button 
+          @click="showSidePanel = !showSidePanel" 
+          class="toolbar-btn"
+          :class="{ 'toolbar-btn--active': showSidePanel }"
+          title="Toggle Side Panel">
+          <span class="material-symbols-outlined" style="font-size:18px;">view_sidebar</span>
+        </button>
       </div>
     </header>
 
     <!-- ── Main Area ───────────────────────────────────── -->
     <div class="er-main">
 
+      <!-- Side Panel (Tables List) -->
+      <aside v-if="showSidePanel" class="side-panel" :style="{ width: sidePanelWidth + 'px' }">
+        <div class="side-panel__header">
+          <span class="material-symbols-outlined" style="font-size:18px;color:#7c3aed;">table_chart</span>
+          <span class="text-sm font-bold">Tables</span>
+          <div class="resize-handle" @mousedown="startResizePanel"></div>
+        </div>
+        <div class="side-panel__content">
+          <div
+            v-for="table in tables"
+            :key="table.id"
+            class="side-panel__table"
+            :class="{ 'side-panel__table--on-canvas': getTableVisualForTable(table.id) }"
+            :draggable="!getTableVisualForTable(table.id)"
+            @dragstart="startDragFromPanel($event, table)"
+            @click="selectTable(table)"
+            :title="getTableVisualForTable(table.id) ? 'Already on canvas (drag disabled)' : 'Drag to add to canvas'"
+          >
+            <span class="material-symbols-outlined" style="font-size:16px;color:#7c3aed;">table</span>
+            <span class="side-panel__table-name">{{ table.name }}</span>
+            <span v-if="getTableVisualForTable(table.id)" class="side-panel__table-badge">
+              <span class="material-symbols-outlined" style="font-size:12px;color:#059669;">check_circle</span>
+            </span>
+          </div>
+          <div v-if="tables.length === 0" class="side-panel__empty">
+            No tables yet. Click "Table" to add one.
+          </div>
+        </div>
+      </aside>
+
       <!-- Canvas -->
-      <div ref="canvasRef" class="er-canvas" @click="onCanvasClick">
+      <div 
+        ref="canvasRef" 
+        class="er-canvas" 
+        :class="{ 'er-canvas--drop-target': draggingFromPanel }"
+        @click="onCanvasClick"
+        @dragover.prevent="onCanvasDragOver"
+        @drop="onCanvasDrop"
+      >
         <svg class="er-svg" :width="canvasWidth" :height="canvasHeight">
           <!-- Grid -->
           <defs>
@@ -63,7 +135,7 @@
           <rect width="100%" height="100%" fill="url(#grid)" />
 
           <!-- Relationships -->
-          <g v-for="rel in relationships" :key="rel.id">
+          <g v-for="rel in canvasRelationships" :key="rel.id">
             <path
               :d="getRelationshipPath(rel)"
               fill="none"
@@ -80,7 +152,7 @@
               class="multiplicity-label"
               text-anchor="middle"
               @click.stop="selectRelationship(rel)"
-            >{{ rel.sourceMultiplicity || '1' }}</text>
+            >{{ formatMultiplicity(rel.sourceMultiplicity) }}</text>
             <!-- Target multiplicity -->
             <text
               :x="getMultiplicityPosition(rel, 'target').x"
@@ -88,7 +160,7 @@
               class="multiplicity-label"
               text-anchor="middle"
               @click.stop="selectRelationship(rel)"
-            >{{ rel.targetMultiplicity || '1' }}</text>
+            >{{ formatMultiplicity(rel.targetMultiplicity) }}</text>
           </g>
 
           <!-- Arrow marker definition -->
@@ -99,15 +171,15 @@
           </defs>
         </svg>
 
-        <!-- Tables -->
+        <!-- Table Visuals -->
         <div
-          v-for="table in tables"
-          :key="table.id"
+          v-for="visual in activeTableVisuals"
+          :key="visual.id"
           class="er-table"
-          :class="{ 'er-table--selected': selectedItem?.type === 'table' && selectedItem.id === table.id, 'er-table--dragging': draggingTableId === table.id }"
-          :style="{ left: table.x + 'px', top: table.y + 'px' }"
-          @mousedown="startDragTable($event, table)"
-          @click.stop="selectTable(table)"
+          :class="{ 'er-table--selected': selectedItem?.type === 'table' && selectedItem.id === visual.tableId, 'er-table--dragging': draggingTableId === visual.tableId }"
+          :style="{ left: visual.x + 'px', top: visual.y + 'px' }"
+          @mousedown="startDragVisual($event, visual)"
+          @click.stop="selectVisualTable(visual)"
         >
           <!-- Table Header -->
           <div class="er-table__header">
@@ -117,8 +189,8 @@
                 <line x1="3" y1="9" x2="21" y2="9" stroke="white" stroke-width="2"/>
               </svg>
             </span>
-            <span class="er-table__name">{{ table.name }}</span>
-            <button class="er-table__close" @click.stop="deleteTable(table.id)">
+            <span class="er-table__name">{{ getTableById(visual.tableId)?.name }}</span>
+            <button class="er-table__close" @click.stop="removeTableFromCanvas(visual.tableId)">
               <span class="material-symbols-outlined" style="font-size:14px;">close</span>
             </button>
           </div>
@@ -126,7 +198,7 @@
           <!-- Columns -->
           <div class="er-table__columns">
             <div
-              v-for="col in table.columns"
+              v-for="col in getTableById(visual.tableId)?.columns || []"
               :key="col.id"
               class="er-column"
               :class="{
@@ -134,9 +206,9 @@
                 'er-column--fk': col.isForeignKey,
                 'er-column--selected': selectedItem?.type === 'column' && selectedItem.id === col.id
               }"
-              @click.stop="selectColumn(table, col)"
+              @click.stop="selectVisualColumn(visual, col)"
               draggable="true"
-              @dragstart="startDragColumn($event, table, col)"
+              @dragstart="startDragColumn($event, getTableById(visual.tableId)!, col)"
             >
               <span class="er-column__key" v-if="col.isPrimaryKey">PK</span>
               <span class="er-column__key er-column__key--fk" v-else-if="col.isForeignKey">FK</span>
@@ -149,9 +221,9 @@
           <!-- Drop zone for relationships -->
           <div
             class="er-table__drop-zone"
-            :class="{ 'er-table__drop-zone--active': isValidDropTarget(table) }"
-            @dragover.prevent="onDragOver($event, table)"
-            @drop="onDropColumn($event, table)"
+            :class="{ 'er-table__drop-zone--active': isValidDropTarget(getTableById(visual.tableId)!) }"
+            @dragover.prevent="onDragOver($event, getTableById(visual.tableId)!)"
+            @drop="onDropColumn($event, getTableById(visual.tableId)!)"
           >
             <span class="text-xs" style="color:#a0a7b5;">Drop to link</span>
           </div>
@@ -217,6 +289,59 @@
               <span class="material-symbols-outlined">update</span>
               Update Diagram
             </button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- SQL Panel (Right) -->
+      <aside v-if="showSQLPanel" class="sql-panel">
+        <div class="sql-panel__header">
+          <span class="material-symbols-outlined" style="font-size:20px;color:#7c3aed;">database</span>
+          <span class="text-sm font-bold">AI SQL - DDL Generator</span>
+          <button @click="showSQLPanel = false" class="sql-panel__close">
+            <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+          </button>
+        </div>
+
+        <div class="sql-panel__content">
+          <p class="text-xs" style="color:#717786;margin-bottom:12px;">
+            Generate SQL DDL from your ER model for the selected database engine.
+          </p>
+
+          <div class="sql-panel__field">
+            <label class="panel-label">DATABASE ENGINE</label>
+            <select v-model="selectedDbEngine" class="panel-select">
+              <option value="PostgreSQL">PostgreSQL</option>
+              <option value="MySQL">MySQL</option>
+              <option value="SQL Server">SQL Server</option>
+              <option value="SQLite">SQLite</option>
+            </select>
+          </div>
+
+          <button
+            @click="generateDDL"
+            :disabled="tables.length === 0 || sqlLoading"
+            class="sql-panel__btn sql-panel__btn--generate"
+          >
+            <span v-if="sqlLoading" class="material-symbols-outlined animate-spin">progress_activity</span>
+            <span v-else class="material-symbols-outlined">auto_awesome</span>
+            {{ sqlLoading ? 'Generating...' : 'Generate DDL' }}
+          </button>
+
+          <!-- Generated DDL Preview -->
+          <div v-if="generatedDDL" class="sql-panel__preview">
+            <div class="sql-panel__preview-header">
+              <span class="text-xs font-bold">{{ selectedDbEngine }} DDL</span>
+              <div class="sql-panel__preview-actions">
+                <button @click="copyDDL" class="sql-panel__copy" title="Copy to Clipboard">
+                  <span class="material-symbols-outlined" style="font-size:14px;">content_copy</span>
+                </button>
+                <button @click="downloadDDL" class="sql-panel__download" title="Save as .ddl file">
+                  <span class="material-symbols-outlined" style="font-size:14px;">download</span>
+                </button>
+              </div>
+            </div>
+            <pre class="sql-panel__code">{{ generatedDDL }}</pre>
           </div>
         </div>
       </aside>
@@ -306,53 +431,57 @@
           </div>
 
           <div class="panel-body">
-            <div class="panel-section">
-              <label class="panel-label">RELATIONSHIP</label>
-              <div class="relationship-info">
-                <span>{{ getTableName(relForm.sourceTableId) }}</span>
-                <span class="relationship-info__arrow">→</span>
-                <span>{{ getTableName(relForm.targetTableId) }}</span>
+            <!-- ORIGIN Section -->
+            <div class="rel-section">
+              <div class="rel-section__header">
+                <span class="material-symbols-outlined" style="font-size:16px;color:#7c3aed;">login</span>
+                <span class="text-xs font-bold">ORIGIN</span>
+              </div>
+              <div class="rel-section__body">
+                <div class="rel-field">
+                  <label class="panel-label">TABLE</label>
+                  <input :value="getTableName(relForm.sourceTableId)" class="panel-input" readonly />
+                </div>
+                <div class="rel-field">
+                  <label class="panel-label">REFERENCE COLUMN</label>
+                  <input :value="getColumnName(relForm.sourceTableId, relForm.sourceColumnId)" class="panel-input" readonly />
+                </div>
+                <div class="rel-field">
+                  <label class="panel-label">MULTIPLICITY</label>
+                  <select v-model="relForm.sourceMultiplicity" @change="updateRelationship" class="panel-select">
+                    <option value="1">1</option>
+                    <option value="0..1">0,1</option>
+                    <option value="1..*">1,M</option>
+                    <option value="0..*">0,M</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div class="panel-section">
-              <label class="panel-label">SOURCE COLUMN</label>
-              <select v-model="relForm.sourceColumnId" @change="updateRelationship" class="panel-select">
-                <option value="">Select column...</option>
-                <option v-for="col in getTableColumns(relForm.sourceTableId)" :key="col.id" :value="col.id">
-                  {{ col.name }}
-                </option>
-              </select>
-            </div>
-
-            <div class="panel-section">
-              <label class="panel-label">TARGET COLUMN</label>
-              <select v-model="relForm.targetColumnId" @change="updateRelationship" class="panel-select">
-                <option value="">Select column...</option>
-                <option v-for="col in getTableColumns(relForm.targetTableId)" :key="col.id" :value="col.id">
-                  {{ col.name }}
-                </option>
-              </select>
-            </div>
-
-            <div class="panel-section panel-section--grid">
-              <div>
-                <label class="panel-label">SOURCE MULTIPLICITY</label>
-                <select v-model="relForm.sourceMultiplicity" @change="updateRelationship" class="panel-select">
-                  <option value="1">1 (One)</option>
-                  <option value="0..1">0..1 (Zero or One)</option>
-                  <option value="1..*">1..* (One or Many)</option>
-                  <option value="0..*">0..* (Zero or Many)</option>
-                </select>
+            <!-- TARGET Section -->
+            <div class="rel-section">
+              <div class="rel-section__header">
+                <span class="material-symbols-outlined" style="font-size:16px;color:#059669;">logout</span>
+                <span class="text-xs font-bold">TARGET</span>
               </div>
-              <div>
-                <label class="panel-label">TARGET MULTIPLICITY</label>
-                <select v-model="relForm.targetMultiplicity" @change="updateRelationship" class="panel-select">
-                  <option value="1">1 (One)</option>
-                  <option value="0..1">0..1 (Zero or One)</option>
-                  <option value="1..*">1..* (One or Many)</option>
-                  <option value="0..*">0..* (Zero or Many)</option>
-                </select>
+              <div class="rel-section__body">
+                <div class="rel-field">
+                  <label class="panel-label">TABLE</label>
+                  <input :value="getTableName(relForm.targetTableId)" class="panel-input" readonly />
+                </div>
+                <div class="rel-field">
+                  <label class="panel-label">REFERENCE COLUMN</label>
+                  <input :value="getColumnName(relForm.targetTableId, relForm.targetColumnId)" class="panel-input" readonly />
+                </div>
+                <div class="rel-field">
+                  <label class="panel-label">MULTIPLICITY</label>
+                  <select v-model="relForm.targetMultiplicity" @change="updateRelationship" class="panel-select">
+                    <option value="1">1</option>
+                    <option value="0..1">0,1</option>
+                    <option value="1..*">1,M</option>
+                    <option value="0..*">0,M</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -390,9 +519,20 @@ interface Column {
 interface Table {
   id: string;
   name: string;
+  columns: Column[];
+}
+
+interface TableVisual {
+  id: string;
+  tableId: string;
   x: number;
   y: number;
-  columns: Column[];
+}
+
+interface Canvas {
+  id: string;
+  name: string;
+  tableVisuals: TableVisual[];
 }
 
 interface Relationship {
@@ -403,6 +543,7 @@ interface Relationship {
   targetColumnId: string;
   sourceMultiplicity: string;
   targetMultiplicity: string;
+  canvasId?: string;
 }
 
 const route = useRoute();
@@ -420,12 +561,22 @@ const canvasHeight = ref(2000);
 // State
 const tables = ref<Table[]>([]);
 const relationships = ref<Relationship[]>([]);
-const selectedItem = ref<{ type: 'table'; id: string } | { type: 'column'; id: string; tableId: string } | { type: 'relationship'; id: string } | null>(null);
+const canvases = ref<Canvas[]>([]);
+const activeCanvasId = ref<string>('');
+const selectedItem = ref<{ type: 'table'; id: string } | { type: 'column'; id: string; tableId: string } | { type: 'relationship'; id: string } | { type: 'canvas'; id: string } | null>(null);
 const showAIPanel = ref(false);
 const aiPrompt = ref('');
 const aiLoading = ref(false);
 const aiGeneratedSQL = ref('');
 const saveStatus = ref('');
+const sidePanelWidth = ref(250);
+const showSidePanel = ref(true);
+
+// AI SQL Panel state
+const showSQLPanel = ref(false);
+const sqlLoading = ref(false);
+const generatedDDL = ref('');
+const selectedDbEngine = ref('PostgreSQL');
 
 // Drag state
 const draggingTableId = ref<string | null>(null);
@@ -435,6 +586,8 @@ const dragStartX = ref(0);
 const dragStartY = ref(0);
 const dragCurrentX = ref(0);
 const dragCurrentY = ref(0);
+const draggingFromPanel = ref(false);
+const draggingTableDefId = ref<string | null>(null);
 
 // Forms
 const tableForm = reactive({
@@ -472,13 +625,196 @@ function getTableColumns(tableId: string) {
   return getTableById(tableId)?.columns || [];
 }
 
+function getColumnName(tableId: string, columnId: string) {
+  const col = getTableById(tableId)?.columns.find(c => c.id === columnId);
+  return col?.name || '';
+}
+
+const activeCanvas = computed(() => {
+  return canvases.value.find(c => c.id === activeCanvasId.value);
+});
+
+const activeTableVisuals = computed(() => {
+  return activeCanvas.value?.tableVisuals || [];
+});
+
+function getTableVisualForTable(tableId: string) {
+  return activeTableVisuals.value.find(tv => tv.tableId === tableId);
+}
+
+function getCanvasById(id: string) {
+  return canvases.value.find(c => c.id === id);
+}
+
+// Canvas operations
+function addCanvas(name?: string) {
+  const newCanvas: Canvas = {
+    id: uid(),
+    name: name || `Canvas ${canvases.value.length + 1}`,
+    tableVisuals: []
+  };
+  canvases.value.push(newCanvas);
+  activeCanvasId.value = newCanvas.id;
+  return newCanvas;
+}
+
+function selectCanvas(canvasId: string) {
+  activeCanvasId.value = canvasId;
+  selectedItem.value = { type: 'canvas', id: canvasId };
+}
+
+function deleteCanvas(canvasId: string) {
+  if (canvases.value.length <= 1) return;
+  const index = canvases.value.findIndex(c => c.id === canvasId);
+  if (index !== -1) {
+    canvases.value.splice(index, 1);
+    if (activeCanvasId.value === canvasId) {
+      activeCanvasId.value = canvases.value[0].id;
+    }
+  }
+}
+
+function addTableVisualToCanvas(tableId: string, x: number, y: number) {
+  if (!activeCanvas.value) return;
+  const existing = getTableVisualForTable(tableId);
+  if (existing) return;
+  
+  const visual: TableVisual = {
+    id: uid(),
+    tableId,
+    x,
+    y
+  };
+  activeCanvas.value.tableVisuals.push(visual);
+  
+  const otherTableIds = activeCanvas.value.tableVisuals
+    .filter(tv => tv.tableId !== tableId)
+    .map(tv => tv.tableId);
+  
+  for (const otherId of otherTableIds) {
+    const existingRel = relationships.value.find(r =>
+      (r.sourceTableId === tableId && r.targetTableId === otherId) ||
+      (r.sourceTableId === otherId && r.targetTableId === tableId)
+    );
+    
+    if (existingRel && (!existingRel.canvasId || existingRel.canvasId !== activeCanvasId.value)) {
+      existingRel.canvasId = activeCanvasId.value;
+    }
+  }
+}
+
+const canvasRelationships = computed(() => {
+  return relationships.value.filter(r => !r.canvasId || r.canvasId === activeCanvasId.value);
+});
+
+function selectVisualTable(visual: TableVisual) {
+  const table = getTableById(visual.tableId);
+  if (table) {
+    selectTable(table);
+  }
+}
+
+function selectVisualColumn(visual: TableVisual, col: Column) {
+  selectedItem.value = { type: 'column', id: col.id, tableId: visual.tableId };
+}
+
+function startDragVisual(e: MouseEvent, visual: TableVisual) {
+  const table = getTableById(visual.tableId);
+  if (!table) return;
+  
+  draggingTableId.value = visual.tableId;
+  dragTableStart.value = {
+    x: e.clientX,
+    y: e.clientY,
+    tableX: visual.x,
+    tableY: visual.y
+  };
+
+  document.addEventListener('mousemove', onDragVisual);
+  document.addEventListener('mouseup', stopDragVisual);
+}
+
+function onDragVisual(e: MouseEvent) {
+  if (!draggingTableId.value || !activeCanvas.value) return;
+  const visual = activeCanvas.value.tableVisuals.find(tv => tv.tableId === draggingTableId.value);
+  if (!visual) return;
+
+  const dx = e.clientX - dragTableStart.value.x;
+  const dy = e.clientY - dragTableStart.value.y;
+
+  visual.x = dragTableStart.value.tableX + dx;
+  visual.y = dragTableStart.value.tableY + dy;
+}
+
+function stopDragVisual() {
+  draggingTableId.value = null;
+  document.removeEventListener('mousemove', onDragVisual);
+  document.removeEventListener('mouseup', stopDragVisual);
+}
+
+function removeTableFromCanvas(tableId: string) {
+  if (!activeCanvas.value) return;
+  activeCanvas.value.tableVisuals = activeCanvas.value.tableVisuals.filter(tv => tv.tableId !== tableId);
+}
+
+function startDragFromPanel(e: DragEvent, table: Table) {
+  if (getTableVisualForTable(table.id)) {
+    e.preventDefault();
+    return false;
+  }
+  draggingFromPanel.value = true;
+  draggingTableDefId.value = table.id;
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'copy';
+    e.dataTransfer.setData('text/plain', table.id);
+  }
+}
+
+function onCanvasDragOver(e: DragEvent) {
+  if (draggingFromPanel.value) {
+    e.preventDefault();
+  }
+}
+
+function onCanvasDrop(e: DragEvent) {
+  if (!draggingFromPanel.value || !e.dataTransfer) return;
+  
+  const tableId = e.dataTransfer.getData('text/plain');
+  if (tableId && !getTableVisualForTable(tableId)) {
+    const rect = (e.target as HTMLElement).closest('.er-canvas')?.getBoundingClientRect();
+    if (rect) {
+      const x = e.clientX - rect.left + (e.target as HTMLElement).closest('.er-canvas')!.scrollLeft;
+      const y = e.clientY - rect.top + (e.target as HTMLElement).closest('.er-canvas')!.scrollTop;
+      addTableVisualToCanvas(tableId, x, y);
+    }
+  }
+  draggingFromPanel.value = false;
+  draggingTableDefId.value = null;
+}
+
+function startResizePanel(e: MouseEvent) {
+  const startX = e.clientX;
+  const startWidth = sidePanelWidth.value;
+
+  function onMouseMove(e: MouseEvent) {
+    const dx = e.clientX - startX;
+    sidePanelWidth.value = Math.max(180, Math.min(400, startWidth + dx));
+  }
+
+  function onMouseUp() {
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+}
+
 // Table operations
 function addTable() {
   const newTable: Table = {
     id: uid(),
     name: 'new_table',
-    x: 100 + tables.value.length * 50,
-    y: 100 + tables.value.length * 30,
     columns: [
       { id: uid(), name: 'id', dataType: 'UUID', isPrimaryKey: true, isForeignKey: false, isNullable: false },
       { id: uid(), name: 'created_at', dataType: 'TIMESTAMP', isPrimaryKey: false, isForeignKey: false, isNullable: false },
@@ -486,6 +822,11 @@ function addTable() {
     ]
   };
   tables.value.push(newTable);
+  
+  if (activeCanvas.value) {
+    addTableVisualToCanvas(newTable.id, 100 + Math.random() * 200, 100 + Math.random() * 200);
+  }
+  
   selectTable(newTable);
 }
 
@@ -507,6 +848,9 @@ function updateTable() {
 function deleteTable(tableId: string) {
   tables.value = tables.value.filter(t => t.id !== tableId);
   relationships.value = relationships.value.filter(r => r.sourceTableId !== tableId && r.targetTableId !== tableId);
+  for (const canvas of canvases.value) {
+    canvas.tableVisuals = canvas.tableVisuals.filter(tv => tv.tableId !== tableId);
+  }
   if (selectedItem.value?.type === 'table' && selectedItem.value.id === tableId) {
     selectedItem.value = null;
   }
@@ -579,37 +923,6 @@ function onCanvasClick() {
   selectedItem.value = null;
 }
 
-function startDragTable(e: MouseEvent, table: Table) {
-  draggingTableId.value = table.id;
-  dragTableStart.value = {
-    x: e.clientX,
-    y: e.clientY,
-    tableX: table.x,
-    tableY: table.y
-  };
-
-  document.addEventListener('mousemove', onDragTable);
-  document.addEventListener('mouseup', stopDragTable);
-}
-
-function onDragTable(e: MouseEvent) {
-  if (!draggingTableId.value) return;
-  const table = getTableById(draggingTableId.value);
-  if (!table) return;
-
-  const dx = e.clientX - dragTableStart.value.x;
-  const dy = e.clientY - dragTableStart.value.y;
-
-  table.x = dragTableStart.value.tableX + dx;
-  table.y = dragTableStart.value.tableY + dy;
-}
-
-function stopDragTable() {
-  draggingTableId.value = null;
-  document.removeEventListener('mousemove', onDragTable);
-  document.removeEventListener('mouseup', stopDragTable);
-}
-
 // Column drag for relationships
 function startDragColumn(e: DragEvent, table: Table, col: Column) {
   if (!col.isPrimaryKey) {
@@ -671,29 +984,40 @@ function onDropColumn(e: DragEvent, targetTable: Table) {
 
 // SVG path calculations
 function getRelationshipPath(rel: Relationship): string {
-  const sourceTable = getTableById(rel.sourceTableId);
-  const targetTable = getTableById(rel.targetTableId);
-  if (!sourceTable || !targetTable) return '';
+  const sourceVisual = activeTableVisuals.value.find(tv => tv.tableId === rel.sourceTableId);
+  const targetVisual = activeTableVisuals.value.find(tv => tv.tableId === rel.targetTableId);
+  if (!sourceVisual || !targetVisual) return '';
 
-  const sx = sourceTable.x + 200; // Right side of table
-  const sy = sourceTable.y + 40;   // Middle height
-  const tx = targetTable.x;        // Left side of target
-  const ty = targetTable.y + 40;  // Middle height
+  const sx = sourceVisual.x + 200; // Right side of table
+  const sy = sourceVisual.y + 40;   // Middle height
+  const tx = targetVisual.x;        // Left side of target
+  const ty = targetVisual.y + 40;  // Middle height
 
   // Simple curved path
   const midX = (sx + tx) / 2;
   return `M ${sx} ${sy} C ${midX} ${sy}, ${midX} ${ty}, ${tx} ${ty}`;
 }
 
+function formatMultiplicity(m: string): string {
+  const map: Record<string, string> = {
+    '1': '1',
+    '0..1': '0,1',
+    '1..*': '1,M',
+    '0..*': '0,M',
+    '*': 'M'
+  };
+  return map[m] || m || '1';
+}
+
 function getMultiplicityPosition(rel: Relationship, end: 'source' | 'target'): { x: number; y: number } {
-  const sourceTable = getTableById(rel.sourceTableId);
-  const targetTable = getTableById(rel.targetTableId);
-  if (!sourceTable || !targetTable) return { x: 0, y: 0 };
+  const sourceVisual = activeTableVisuals.value.find(tv => tv.tableId === rel.sourceTableId);
+  const targetVisual = activeTableVisuals.value.find(tv => tv.tableId === rel.targetTableId);
+  if (!sourceVisual || !targetVisual) return { x: 0, y: 0 };
 
   if (end === 'source') {
-    return { x: sourceTable.x + 200, y: sourceTable.y + 35 };
+    return { x: sourceVisual.x + 200, y: sourceVisual.y + 35 };
   } else {
-    return { x: targetTable.x, y: targetTable.y + 35 };
+    return { x: targetVisual.x, y: targetVisual.y + 35 };
   }
 }
 
@@ -770,10 +1094,12 @@ function applyGeneratedSchemaFromObjects(generatedTables: any[], generatedRelati
     tables.value.push({
       id: tableId,
       name: table.name,
-      x: baseX,
-      y: baseY,
       columns
     });
+
+    if (activeCanvas.value) {
+      addTableVisualToCanvas(tableId, baseX, baseY);
+    }
 
     baseX += 250;
     if (baseX > 1000) {
@@ -801,7 +1127,8 @@ function applyGeneratedSchemaFromObjects(generatedTables: any[], generatedRelati
           targetTableId,
           targetColumnId: targetColumn.id,
           sourceMultiplicity: rel.sourceMultiplicity || '1',
-          targetMultiplicity: rel.targetMultiplicity || '*'
+          targetMultiplicity: rel.targetMultiplicity || '0..*',
+          canvasId: activeCanvasId.value
         });
       }
     }
@@ -872,6 +1199,61 @@ function applyGeneratedSchema() {
   }
 }
 
+// DDL Generation
+async function generateDDL() {
+  if (tables.value.length === 0 || sqlLoading.value) return;
+
+  sqlLoading.value = true;
+  generatedDDL.value = '';
+
+  try {
+    const token = await auth.getToken();
+    const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+    const res = await fetch(`${bffBase}/ai/ddl-generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({
+        tables: tables.value,
+        relationships: relationships.value,
+        databaseEngine: selectedDbEngine.value,
+        provider: llmPrefs.provider,
+        apiKey: llmPrefs.currentApiKey,
+        model: llmPrefs.model,
+        customApiUrl: llmPrefs.apiUrl
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      generatedDDL.value = data.content || data.sql || data.ddl || JSON.stringify(data, null, 2);
+    } else {
+      const errorText = await res.text();
+      generatedDDL.value = `Error generating DDL (${res.status}): ${errorText}`;
+    }
+  } catch (e) {
+    generatedDDL.value = 'Error: ' + (e as Error).message;
+  } finally {
+    sqlLoading.value = false;
+  }
+}
+
+function copyDDL() {
+  navigator.clipboard.writeText(generatedDDL.value);
+}
+
+function downloadDDL() {
+  const blob = new Blob([generatedDDL.value], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${domainTitle.value || 'er-model'}-${selectedDbEngine.value.toLowerCase()}.ddl`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // Save Design
 async function saveDesign() {
   saveStatus.value = 'saving';
@@ -883,7 +1265,9 @@ async function saveDesign() {
     const design = {
       domainId: domainId.value,
       tables: tables.value,
-      relationships: relationships.value
+      relationships: relationships.value,
+      canvases: canvases.value,
+      activeCanvasId: activeCanvasId.value
     };
 
     await fetch(`${bffBase}/domains/${domainId.value}/er-model`, {
@@ -916,11 +1300,49 @@ onMounted(async () => {
     });
     if (res.ok) {
       const data = await res.json();
-      if (data.tables) tables.value = data.tables;
+      if (data.tables) {
+        tables.value = data.tables.map((t: any) => ({
+          id: t.id,
+          name: t.name,
+          columns: t.columns || []
+        }));
+      }
       if (data.relationships) relationships.value = data.relationships;
+      if (data.canvases && data.canvases.length > 0) {
+        canvases.value = data.canvases;
+        activeCanvasId.value = data.activeCanvasId || data.canvases[0].id;
+      } else {
+        const mainCanvas: Canvas = {
+          id: uid(),
+          name: 'Main',
+          tableVisuals: tables.value.map((t, idx) => ({
+            id: uid(),
+            tableId: t.id,
+            x: 100 + (idx % 4) * 250,
+            y: 100 + Math.floor(idx / 4) * 200
+          }))
+        };
+        canvases.value = [mainCanvas];
+        activeCanvasId.value = mainCanvas.id;
+      }
+    } else {
+      const mainCanvas: Canvas = {
+        id: uid(),
+        name: 'Main',
+        tableVisuals: []
+      };
+      canvases.value = [mainCanvas];
+      activeCanvasId.value = mainCanvas.id;
     }
   } catch (e) {
     console.log('No existing design found');
+    const mainCanvas: Canvas = {
+      id: uid(),
+      name: 'Main',
+      tableVisuals: []
+    };
+    canvases.value = [mainCanvas];
+    activeCanvasId.value = mainCanvas.id;
   }
 });
 </script>
@@ -988,6 +1410,45 @@ onMounted(async () => {
   background: #004494;
 }
 
+.toolbar-btn--sql {
+  background: #059669;
+  color: #ffffff;
+}
+
+.toolbar-btn--sql:hover {
+  background: #047857;
+}
+
+.toolbar-btn--active {
+  background: #e0e7ff;
+  color: #0058bc;
+}
+
+.toolbar-btn--danger {
+  color: #dc2626;
+}
+
+.toolbar-btn--danger:hover {
+  background: #fef2f2;
+}
+
+.canvas-select {
+  padding: 6px 12px;
+  border: 1px solid #e3e2e7;
+  border-radius: 8px;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1b1f;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.canvas-select:focus {
+  outline: none;
+  border-color: #7c3aed;
+}
+
 .toolbar-divider {
   color: #e3e2e7;
 }
@@ -1024,12 +1485,99 @@ onMounted(async () => {
   position: relative;
 }
 
+/* Side Panel */
+.side-panel {
+  background: #ffffff;
+  border-right: 1px solid #e3e2e7;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-width: 180px;
+  max-width: 400px;
+}
+
+.side-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e3e2e7;
+  position: relative;
+}
+
+.side-panel__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.side-panel__table {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: grab;
+  transition: background 0.15s;
+  margin-bottom: 4px;
+}
+
+.side-panel__table:hover {
+  background: #f4f3f8;
+}
+
+.side-panel__table--on-canvas {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.side-panel__table-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1b1f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-panel__table-badge {
+  display: flex;
+  align-items: center;
+}
+
+.side-panel__empty {
+  text-align: center;
+  padding: 24px 16px;
+  color: #a0a7b5;
+  font-size: 13px;
+}
+
+.resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.resize-handle:hover {
+  background: #7c3aed;
+}
+
 /* Canvas */
 .er-canvas {
   flex: 1;
   position: relative;
   overflow: auto;
   background: #ffffff;
+}
+
+.er-canvas--drop-target {
+  background: #f0f0ff;
 }
 
 .er-svg {
@@ -1342,6 +1890,134 @@ onMounted(async () => {
   overflow-y: auto;
 }
 
+/* SQL Panel */
+.sql-panel {
+  width: 320px;
+  background: #ffffff;
+  border-left: 1px solid #e3e2e7;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.sql-panel__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e3e2e7;
+  background: linear-gradient(135deg, #059669 0%, #0058bc 100%);
+  color: #ffffff;
+}
+
+.sql-panel__close {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.sql-panel__close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.sql-panel__content {
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sql-panel__field {
+  margin-bottom: 12px;
+}
+
+.sql-panel__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.sql-panel__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.sql-panel__btn--generate {
+  background: linear-gradient(135deg, #059669 0%, #0058bc 100%);
+  color: #ffffff;
+}
+
+.sql-panel__preview {
+  margin-top: 16px;
+  border: 1px solid #e3e2e7;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.sql-panel__preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f4f3f8;
+  border-bottom: 1px solid #e3e2e7;
+}
+
+.sql-panel__preview-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.sql-panel__copy,
+.sql-panel__download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #717786;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.sql-panel__copy:hover,
+.sql-panel__download:hover {
+  background: #e3e2e7;
+  color: #1a1b1f;
+}
+
+.sql-panel__code {
+  padding: 12px;
+  font-size: 11px;
+  font-family: 'Consolas', monospace;
+  background: #1e293b;
+  color: #e2e8f0;
+  overflow-x: auto;
+  white-space: pre;
+  margin: 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 /* Properties Panel */
 .properties-panel {
   width: 320px;
@@ -1567,5 +2243,41 @@ onMounted(async () => {
 .relationship-info__arrow {
   color: #0058bc;
   font-size: 16px;
+}
+
+/* Relationship Section */
+.rel-section {
+  border: 1px solid #e3e2e7;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+
+.rel-section__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #f4f3f8;
+  border-bottom: 1px solid #e3e2e7;
+}
+
+.rel-section__body {
+  padding: 12px;
+  background: #ffffff;
+}
+
+.rel-field {
+  margin-bottom: 10px;
+}
+
+.rel-field:last-child {
+  margin-bottom: 0;
+}
+
+.rel-field .panel-input {
+  background: #f9fafb;
+  color: #414755;
+  cursor: default;
 }
 </style>

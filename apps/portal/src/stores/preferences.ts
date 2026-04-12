@@ -141,7 +141,6 @@ export const useLLMPreferencesStore = defineStore('llmPreferences', {
     async addModel(providerId: string, modelName: string) {
       const trimmed = modelName.trim();
       if (!trimmed) return;
-      // Optimistic update — replace the whole item to ensure Vue 3 reactivity
       const idx = this.providersList.findIndex(p => p.id === providerId);
       if (idx !== -1) {
         const p = this.providersList[idx];
@@ -161,6 +160,42 @@ export const useLLMPreferencesStore = defineStore('llmPreferences', {
           if (i !== -1) this.providersList.splice(i, 1, { ...this.providersList[i], models: updated.models });
         }
       } catch { /* silently ignore */ }
+    },
+
+    /** Sync available models from provider and return list */
+    async syncModels(providerId: string, apiKey: string, apiUrl?: string): Promise<string[]> {
+      try {
+        const res = await fetch(`${bffBase()}/llm-providers/${providerId}/sync-models`, {
+          method: 'POST',
+          headers: await authHeaders(),
+          body: JSON.stringify({ apiKey, apiUrl }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Failed to sync models');
+        }
+        const data = await res.json();
+        return data.models || [];
+      } catch (err: any) {
+        throw new Error(err.message || 'Failed to sync models');
+      }
+    },
+
+    /** Add multiple models to a provider */
+    async addModels(providerId: string, modelNames: string[]) {
+      const idx = this.providersList.findIndex(p => p.id === providerId);
+      if (idx !== -1) {
+        const p = this.providersList[idx];
+        const newModels = [...new Set([...p.models, ...modelNames])];
+        this.providersList.splice(idx, 1, { ...p, models: newModels });
+        try {
+          await fetch(`${bffBase()}/llm-providers/${providerId}`, {
+            method: 'PUT',
+            headers: await authHeaders(),
+            body: JSON.stringify({ id: providerId, label: p.label, models: newModels }),
+          });
+        } catch { /* silently ignore */ }
+      }
     },
   },
 });

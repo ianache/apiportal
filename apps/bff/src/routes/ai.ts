@@ -108,13 +108,15 @@ Example of valid response (no markdown code blocks):
     }
   ],
   "relationships": [
-    { "source": "parent_table", "sourceColumn": "id", "target": "child_table", "targetColumn": "parent_id", "sourceMultiplicity": "1", "targetMultiplicity": "*" }
+    { "source": "parent_table", "sourceColumn": "id", "target": "child_table", "targetColumn": "parent_id", "sourceMultiplicity": "1", "targetMultiplicity": "0..*" }
   ]
 }
 
-## Multiplicity:
+## Multiplicity Options:
 - "1" = exactly one
-- "*" = many (zero or more)
+- "0..1" = zero or one
+- "1..*" = one or many
+- "0..*" = zero or many
 
 ## CRITICAL RULES:
 1. Respond with ONLY valid JSON - no markdown code blocks, no explanations
@@ -208,6 +210,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'OpenAI chat API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'OpenAI request failed' });
         }
         const data: any = await res.json();
@@ -233,6 +236,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Anthropic chat API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Anthropic request failed' });
         }
         const data: any = await res.json();
@@ -250,6 +254,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Groq chat API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Groq request failed' });
         }
         const data: any = await res.json();
@@ -272,6 +277,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Gemini chat API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Gemini request failed' });
         }
         const data: any = await res.json();
@@ -300,7 +306,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
-          fastify.log.error({ status: res.status, err }, 'Ollama request failed');
+          fastify.log.error({ provider, model, baseUrl, status: res.status, error: err?.error ?? err?.message }, 'Ollama chat API error');
           return reply.code(res.status).send({ error: err?.error ?? err?.message ?? 'Ollama request failed' });
         }
         const data: any = await res.json();
@@ -313,7 +319,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(400).send({ error: `Unsupported provider: ${provider}` });
 
     } catch (err: any) {
-      fastify.log.error(err, 'AI chat proxy error');
+      fastify.log.error({ provider, model, error: err.message, stack: err.stack }, 'AI chat proxy error');
       return reply.code(502).send({ error: 'Failed to reach AI provider' });
     }
   });
@@ -350,6 +356,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'OpenAI review API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'OpenAI request failed' });
         }
         const data: any = await res.json();
@@ -373,6 +380,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Anthropic review API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Anthropic request failed' });
         }
         const data: any = await res.json();
@@ -390,6 +398,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Groq review API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Groq request failed' });
         }
         const data: any = await res.json();
@@ -408,6 +417,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Gemini review API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Gemini request failed' });
         }
         const data: any = await res.json();
@@ -436,7 +446,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
-          fastify.log.error({ status: res.status, err }, 'Ollama review request failed');
+          fastify.log.error({ provider, model, baseUrl, status: res.status, error: err?.error ?? err?.message }, 'Ollama review API error');
           return reply.code(res.status).send({ error: err?.error ?? err?.message ?? 'Ollama request failed' });
         }
         const data: any = await res.json();
@@ -449,7 +459,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(400).send({ error: `Unsupported provider: ${provider}` });
 
     } catch (err: any) {
-      fastify.log.error(err, 'AI review proxy error');
+      fastify.log.error({ provider, model, error: err.message, stack: err.stack }, 'AI review proxy error');
       return reply.code(502).send({ error: 'Failed to reach AI provider' });
     }
   });
@@ -483,6 +493,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'OpenAI sql-generate API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'OpenAI request failed' });
         }
         const data: any = await res.json();
@@ -506,6 +517,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Anthropic sql-generate API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Anthropic request failed' });
         }
         const data: any = await res.json();
@@ -523,6 +535,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Groq sql-generate API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Groq request failed' });
         }
         const data: any = await res.json();
@@ -541,6 +554,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Gemini sql-generate API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Gemini request failed' });
         }
         const data: any = await res.json();
@@ -569,7 +583,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
-          fastify.log.error({ status: res.status, err }, 'Ollama sql-generate request failed');
+          fastify.log.error({ provider, model, baseUrl, status: res.status, error: err?.error ?? err?.message }, 'Ollama sql-generate API error');
           return reply.code(res.status).send({ error: err?.error ?? err?.message ?? 'Ollama request failed' });
         }
         const data: any = await res.json();
@@ -582,7 +596,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(400).send({ error: `Unsupported provider: ${provider}` });
 
     } catch (err: any) {
-      fastify.log.error(err, 'AI sql-generate proxy error');
+      fastify.log.error({ provider, model, error: err.message, stack: err.stack }, 'AI sql-generate proxy error');
       return reply.code(502).send({ error: 'Failed to reach AI provider' });
     }
   });
@@ -650,14 +664,14 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'OpenAI API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'OpenAI request failed' });
         }
         const data: any = await res.json();
         const content = data.choices?.[0]?.message?.content ?? '';
-        fastify.log.info({ content }, 'OpenAI raw response');
         const result = parseERResponse(content);
         if (result.error) {
-          fastify.log.error(result.error);
+          fastify.log.error({ provider, model, error: result.error, content }, 'OpenAI response parse error');
         }
         return { tables: result.tables, relationships: result.relationships };
       }
@@ -679,11 +693,15 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Anthropic API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Anthropic request failed' });
         }
         const data: any = await res.json();
         const content = data.content?.[0]?.text ?? '';
         const result = parseERResponse(content);
+        if (result.error) {
+          fastify.log.error({ provider, model, error: result.error, content }, 'Anthropic response parse error');
+        }
         return { tables: result.tables, relationships: result.relationships };
       }
 
@@ -698,11 +716,15 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Groq API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Groq request failed' });
         }
         const data: any = await res.json();
         const content = data.choices?.[0]?.message?.content ?? '';
         const result = parseERResponse(content);
+        if (result.error) {
+          fastify.log.error({ provider, model, error: result.error, content }, 'Groq response parse error');
+        }
         return { tables: result.tables, relationships: result.relationships };
       }
 
@@ -718,11 +740,15 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Gemini API error');
           return reply.code(res.status).send({ error: err?.error?.message ?? 'Gemini request failed' });
         }
         const data: any = await res.json();
         const content = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
         const result = parseERResponse(content);
+        if (result.error) {
+          fastify.log.error({ provider, model, error: result.error, content }, 'Gemini response parse error');
+        }
         return { tables: result.tables, relationships: result.relationships };
       }
 
@@ -748,7 +774,7 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
         if (!res.ok) {
           const err: any = await res.json().catch(() => ({}));
-          fastify.log.error({ status: res.status, err }, 'Ollama er-generate request failed');
+          fastify.log.error({ provider, model, baseUrl, status: res.status, error: err?.error ?? err?.message }, 'Ollama API error');
           return reply.code(res.status).send({ error: err?.error ?? err?.message ?? 'Ollama request failed' });
         }
         const data: any = await res.json();
@@ -756,13 +782,209 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
           ? data.choices?.[0]?.message?.content ?? ''
           : data.message?.content ?? '';
         const result = parseERResponse(content);
+        if (result.error) {
+          fastify.log.error({ provider, model, baseUrl, error: result.error, content }, 'Ollama response parse error');
+        }
         return { tables: result.tables, relationships: result.relationships };
       }
 
       return reply.code(400).send({ error: `Unsupported provider: ${provider}` });
 
     } catch (err: any) {
-      fastify.log.error(err, 'AI er-generate proxy error');
+      fastify.log.error({ provider, model, error: err.message, stack: err.stack }, 'AI er-generate proxy error');
+      return reply.code(502).send({ error: 'Failed to reach AI provider' });
+    }
+  });
+
+  const DDL_SYSTEM_PROMPT = `You are an expert Database Engineer. Generate complete DDL (Data Definition Language) SQL statements from the provided Entity-Relationship model.
+
+## Supported Database Engines:
+- PostgreSQL (default)
+- MySQL
+- SQL Server (T-SQL)
+- SQLite
+
+## Response Format:
+Return ONLY valid SQL DDL statements, NO markdown, NO explanations, NO code blocks. Just pure SQL.
+
+## Guidelines:
+- Use appropriate data type mappings:
+  * PostgreSQL: UUID, VARCHAR(n), TEXT, INTEGER, BIGINT, DECIMAL(p,s), BOOLEAN, DATE, TIMESTAMP, JSONB, SERIAL
+  * MySQL: CHAR(n), VARCHAR(n), TEXT, INT, BIGINT, DECIMAL(p,s), TINYINT(1), DATE, DATETIME, JSON
+  * SQL Server: UNIQUEIDENTIFIER, NVARCHAR(n), TEXT, INT, BIGINT, DECIMAL(p,s), BIT, DATE, DATETIME2, JSON
+  * SQLite: TEXT, INTEGER, REAL, NUMERIC
+
+- Include PRIMARY KEY constraints (prefer UUID or SERIAL/IDENTITY)
+- Add NOT NULL constraints where appropriate
+- Add FOREIGN KEY constraints with appropriate ON DELETE/UPDATE actions
+- Include INDEXES for foreign keys
+- Add CHECK constraints where appropriate
+- Include table and column comments if specified
+
+## Example Output (PostgreSQL):
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE orders (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    total DECIMAL(10,2) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_orders_user_id ON orders(user_id);`;
+
+interface AiDDLGenerateBody {
+  tables: any[];
+  relationships: any[];
+  provider: string;
+  apiKey: string;
+  model: string;
+  customApiUrl?: string;
+  databaseEngine?: string;
+}
+
+  fastify.post('/ai/ddl-generate', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+
+    const body = request.body as AiDDLGenerateBody;
+    const { tables, relationships, provider, apiKey, model, customApiUrl, databaseEngine } = body;
+
+    if (!model?.trim()) return reply.code(400).send({ error: 'Model is required' });
+    if (!tables || !Array.isArray(tables) || tables.length === 0) {
+      return reply.code(400).send({ error: 'Tables are required' });
+    }
+
+    const needsApiKey = provider !== 'ollama';
+    if (needsApiKey && !apiKey?.trim()) return reply.code(400).send({ error: 'API key is required' });
+
+    const modelContext = JSON.stringify({ tables, relationships }, null, 2);
+    const userPrompt = `Generate DDL for ${databaseEngine || 'PostgreSQL'} based on this ER model:\n\n${modelContext}`;
+
+    const messages = [
+      { role: 'system', content: DDL_SYSTEM_PROMPT },
+      { role: 'user', content: userPrompt }
+    ];
+
+    try {
+      if (provider === 'openai') {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens: 8192 }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'OpenAI ddl-generate API error');
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'OpenAI request failed' });
+        }
+        const data: any = await res.json();
+        return { content: data.choices?.[0]?.message?.content ?? '' };
+      }
+
+      if (provider === 'anthropic') {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 8192,
+            system: DDL_SYSTEM_PROMPT,
+            messages: [{ role: 'user', content: userPrompt }],
+          }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Anthropic ddl-generate API error');
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'Anthropic request failed' });
+        }
+        const data: any = await res.json();
+        return { content: data.content?.[0]?.text ?? '' };
+      }
+
+      if (provider === 'groq') {
+        const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+          },
+          body: JSON.stringify({ model, messages, temperature: 0.2, max_tokens: 8192 }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Groq ddl-generate API error');
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'Groq request failed' });
+        }
+        const data: any = await res.json();
+        return { content: data.choices?.[0]?.message?.content ?? '' };
+      }
+
+      if (provider === 'gemini') {
+        const chatMsgs = [{ role: 'user', parts: [{ text: userPrompt }] }];
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: chatMsgs,
+            systemInstruction: { parts: [{ text: DDL_SYSTEM_PROMPT }] }
+          }),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, status: res.status, error: err?.error?.message }, 'Gemini ddl-generate API error');
+          return reply.code(res.status).send({ error: err?.error?.message ?? 'Gemini request failed' });
+        }
+        const data: any = await res.json();
+        return { content: data.candidates?.[0]?.content?.parts?.[0]?.text ?? '' };
+      }
+
+      if (provider === 'ollama') {
+        const baseUrl = (customApiUrl || 'http://localhost:11434').replace(/\/$/, '');
+        const useOpenAiFormat = baseUrl.includes('/v1');
+        
+        let url: string;
+        let reqBody: any;
+
+        if (useOpenAiFormat) {
+          url = `${baseUrl}/chat/completions`;
+          reqBody = { model, messages };
+        } else {
+          url = `${baseUrl}/api/chat`;
+          reqBody = { model, messages, stream: false };
+        }
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reqBody),
+        });
+        if (!res.ok) {
+          const err: any = await res.json().catch(() => ({}));
+          fastify.log.error({ provider, model, baseUrl, status: res.status, error: err?.error ?? err?.message }, 'Ollama ddl-generate API error');
+          return reply.code(res.status).send({ error: err?.error ?? err?.message ?? 'Ollama request failed' });
+        }
+        const data: any = await res.json();
+        const content = useOpenAiFormat 
+          ? data.choices?.[0]?.message?.content ?? ''
+          : data.message?.content ?? '';
+        return { content };
+      }
+
+      return reply.code(400).send({ error: `Unsupported provider: ${provider}` });
+
+    } catch (err: any) {
+      fastify.log.error({ provider, model, error: err.message, stack: err.stack }, 'AI ddl-generate proxy error');
       return reply.code(502).send({ error: 'Failed to reach AI provider' });
     }
   });
