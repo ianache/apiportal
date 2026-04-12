@@ -115,7 +115,26 @@
           <div class="space-y-2">
             <div class="flex items-center justify-between text-sm">
               <span style="color: #717786;">Latest Version</span>
-              <span class="font-bold" style="color: #1a1b1f;">v{{ currentVersion?.version }}</span>
+              <div v-if="editingVersionId === currentVersion?.id" class="flex items-center gap-1">
+                <span class="font-bold text-xs" style="color: #717786;">v</span>
+                <input
+                  :data-version-input="currentVersion.id"
+                  v-model="editVersionSidebar"
+                  @blur="saveVersionInSidebar(currentVersion!.id)"
+                  @keydown.enter="saveVersionInSidebar(currentVersion!.id)"
+                  @keydown.escape="cancelEditVersionInSidebar"
+                  class="w-16 text-sm font-bold px-1 py-0.5 rounded border outline-none text-center"
+                  style="border-color: #0058bc; color: #1a1b1f;"
+                  placeholder="1.0.0"
+                />
+              </div>
+              <span
+                v-else
+                @click="canEditMetadata && currentVersion && startEditVersionInSidebar(currentVersion.id, currentVersion.version)"
+                class="font-bold cursor-pointer hover:underline"
+                style="color: #1a1b1f;"
+                :title="canEditMetadata ? 'Click to edit version' : ''"
+              >v{{ currentVersion?.version }}</span>
             </div>
             <div class="flex items-center justify-between text-sm">
               <span style="color: #717786;">Created</span>
@@ -165,9 +184,26 @@
                 : 'background: #f4f3f8; border-color: transparent;'"
             >
               <div class="flex items-center justify-between mb-1">
+                <div v-if="editingVersionId === v.id" class="flex items-center gap-1 flex-1">
+                  <span class="text-xs font-bold" style="color: #717786;">v</span>
+                  <input
+                    :data-version-input="v.id"
+                    v-model="editVersionSidebar"
+                    @blur="saveVersionInSidebar(v.id)"
+                    @keydown.enter="saveVersionInSidebar(v.id)"
+                    @keydown.escape="cancelEditVersionInSidebar"
+                    @click.stop
+                    class="flex-1 text-sm font-bold px-1 py-0.5 rounded border outline-none"
+                    style="border-color: #0058bc; color: #0058bc; min-width: 0;"
+                    placeholder="1.0.0"
+                  />
+                </div>
                 <span
-                  class="font-bold"
+                  v-else
+                  @click.stop="canEditMetadata && startEditVersionInSidebar(v.id, v.version)"
+                  class="font-bold cursor-pointer hover:underline"
                   :style="selectedVersion?.id === v.id ? 'color: #0058bc;' : 'color: #1a1b1f;'"
+                  :title="canEditMetadata ? 'Click to edit version' : ''"
                 >v{{ v.version }}</span>
                 <div class="flex items-center gap-1">
                   <button
@@ -198,7 +234,32 @@
           >
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
               <div>
-                <h3 class="text-2xl font-bold" style="color: #1a1b1f;">Version v{{ selectedVersion.version }}</h3>
+                <div v-if="editingVersion" class="flex items-center gap-2">
+                  <span class="text-2xl font-bold" style="color: #717786;">Version v</span>
+                  <input
+                    v-model="editVersion"
+                    ref="versionInput"
+                    @blur="saveVersion"
+                    @keydown.enter="saveVersion"
+                    @keydown.escape="cancelEditVersion"
+                    class="text-2xl font-bold px-2 py-1 rounded border outline-none w-32"
+                    style="color: #1a1b1f; border-color: #0058bc;"
+                    placeholder="1.0.0"
+                  />
+                  <button @click="saveVersion" class="p-1 rounded hover:bg-green-100" style="color: #047857;">
+                    <span class="material-symbols-outlined text-xl">check</span>
+                  </button>
+                  <button @click="cancelEditVersion" class="p-1 rounded hover:bg-red-100" style="color: #991b1b;">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                  </button>
+                </div>
+                <h3
+                  v-else
+                  @click="startEditVersion"
+                  class="text-2xl font-bold cursor-pointer hover:underline"
+                  style="color: #1a1b1f;"
+                  :title="canEditMetadata ? 'Click to edit version' : ''"
+                >Version v{{ selectedVersion.version }}</h3>
                 <p class="text-sm mt-1" style="color: #717786;">Status Management & Operations</p>
               </div>
 
@@ -627,10 +688,13 @@ const canManageEndpoints = computed(() => userRole.value !== 'API_DEVELOPER');
 // Inline editing state
 const editingName = ref(false);
 const editingDesc = ref(false);
+const editingVersion = ref(false);
 const editName = ref('');
 const editDesc = ref('');
+const editVersion = ref('');
 const nameInput = ref<HTMLInputElement | null>(null);
 const descInput = ref<HTMLTextAreaElement | null>(null);
+const versionInput = ref<HTMLInputElement | null>(null);
 
 // Version filter
 const statusFilter = ref('ALL');
@@ -761,6 +825,81 @@ const saveDesc = async () => {
 const cancelEditDesc = () => {
   editingDesc.value = false;
   editDesc.value = '';
+};
+
+// Inline Version Edit
+const editingVersionId = ref<string | null>(null);
+const editVersionSidebar = ref('');
+
+const startEditVersion = async () => {
+  if (!canEditMetadata.value || !selectedVersion.value) return;
+  editVersion.value = selectedVersion.value.version;
+  editingVersion.value = true;
+  await nextTick();
+  versionInput.value?.focus();
+  versionInput.value?.select();
+};
+
+const startEditVersionInSidebar = async (versionId: string, currentVersion: string) => {
+  if (!canEditMetadata.value) return;
+  editingVersionId.value = versionId;
+  editVersionSidebar.value = currentVersion;
+  await nextTick();
+  const inputEl = document.querySelector(`[data-version-input="${versionId}"]`) as HTMLInputElement;
+  inputEl?.focus();
+  inputEl?.select();
+};
+
+const saveVersion = async () => {
+  if (!api.value || !selectedVersion.value || !editVersion.value.trim()) {
+    cancelEditVersion();
+    return;
+  }
+  const oldVersion = selectedVersion.value.version;
+  const newVersion = editVersion.value.trim();
+  if (oldVersion === newVersion) {
+    cancelEditVersion();
+    return;
+  }
+  try {
+    await registry.updateVersion(api.value.id, oldVersion, newVersion);
+    await fetchData();
+    cancelEditVersion();
+  } catch (err: any) {
+    error.value = err.message;
+  }
+};
+
+const saveVersionInSidebar = async (versionId: string) => {
+  if (!api.value || !editVersionSidebar.value.trim()) {
+    cancelEditVersionInSidebar();
+    return;
+  }
+  const versionToEdit = api.value.versions.find((v: any) => v.id === versionId);
+  if (!versionToEdit) return;
+  const oldVersion = versionToEdit.version;
+  const newVersion = editVersionSidebar.value.trim();
+  if (oldVersion === newVersion) {
+    cancelEditVersionInSidebar();
+    return;
+  }
+  try {
+    await registry.updateVersion(api.value.id, oldVersion, newVersion);
+    await fetchData();
+    cancelEditVersionInSidebar();
+  } catch (err: any) {
+    error.value = err.message;
+  }
+};
+
+const cancelEditVersionInSidebar = () => {
+  editingVersionId.value = null;
+  editVersionSidebar.value = '';
+};
+
+const cancelEditVersion = () => {
+  editingVersion.value = false;
+  editVersion.value = '';
 };
 
 // Inline Domain Edit

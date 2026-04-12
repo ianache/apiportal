@@ -254,6 +254,35 @@ export const useRegistryStore = defineStore('registry', {
       }
     },
 
+    async updateVersion(apiId: string, oldVersion: string, newVersion: string) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const auth = useAuthStore();
+        const token = await auth.getToken();
+        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${bffBase}/apis/${apiId}/versions/${oldVersion}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ version: newVersion })
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.message || 'Failed to update version');
+        }
+        await this.fetchApiById(apiId);
+        return await res.json();
+      } catch (err: any) {
+        this.error = err.message;
+        throw err;
+      } finally {
+        this.loading = false;
+      }
+    },
+
     async deleteVersion(apiId: string, version: string) {
       try {
         this.loading = true;
