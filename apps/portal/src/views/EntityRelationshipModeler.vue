@@ -65,6 +65,25 @@
           <span class="material-symbols-outlined" style="font-size:18px;">save</span>
           <span>Save</span>
         </button>
+
+        <div class="toolbar-separator"></div>
+
+        <!-- Snap to Grid Toggle -->
+        <button 
+          @click="snapToGrid = !snapToGrid" 
+          class="toolbar-btn" 
+          :class="{ 'toolbar-btn--active': snapToGrid }"
+          :title="snapToGrid ? 'Disable Snap to Grid' : 'Enable Snap to Grid'"
+        >
+          <span class="material-symbols-outlined" style="font-size:18px;">
+            {{ snapToGrid ? 'grid_on' : 'grid_off' }}
+          </span>
+          <span>Snap</span>
+        </button>
+
+        <span class="text-xs font-medium px-2 py-1 bg-gray-100 rounded-md text-gray-600 min-w-[50px] text-center">
+          {{ Math.round(zoomLevel * 100) }}%
+        </span>
       </div>
 
       <!-- Right -->
@@ -120,12 +139,26 @@
       <div 
         ref="canvasRef" 
         class="er-canvas" 
-        :class="{ 'er-canvas--drop-target': draggingFromPanel }"
+        :class="{ 
+          'er-canvas--drop-target': draggingFromPanel,
+          'er-canvas--panning': isPanning
+        }"
+        @mousedown="onCanvasMouseDown"
+        @wheel="handleWheel"
         @click="onCanvasClick"
         @dragover.prevent="onCanvasDragOver"
         @drop="onCanvasDrop"
       >
-        <svg class="er-svg" :width="canvasWidth" :height="canvasHeight">
+        <div 
+          class="er-canvas-content" 
+          :style="{ 
+            transform: `scale(${zoomLevel})`,
+            transformOrigin: '0 0',
+            width: `${canvasWidth}px`,
+            height: `${canvasHeight}px`
+          }"
+        >
+          <svg class="er-svg" :width="canvasWidth" :height="canvasHeight">
           <!-- Grid -->
           <defs>
             <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -136,41 +169,61 @@
 
           <!-- Relationships -->
           <g v-for="rel in canvasRelationships" :key="rel.id">
-            <!-- Hit area (thicker, transparent) -->
-            <path
-              :d="getRelationshipPath(rel)"
-              fill="none"
-              stroke="transparent"
-              stroke-width="12"
-              class="relationship-line-hit-area"
-              @click.stop="selectRelationship(rel)"
-            />
-            <!-- Visible line -->
-            <path
-              :d="getRelationshipPath(rel)"
-              fill="none"
-              :stroke="selectedItem?.type === 'relationship' && selectedItem.id === rel.id ? '#dc2626' : '#0058bc'"
-              stroke-width="2"
-              marker-end="url(#arrowhead)"
-              class="relationship-line"
-              style="pointer-events: none;"
-            />
-            <!-- Source multiplicity -->
-            <text
-              :x="getMultiplicityPosition(rel, 'source').x"
-              :y="getMultiplicityPosition(rel, 'source').y"
-              class="multiplicity-label"
-              text-anchor="middle"
-              @click.stop="selectRelationship(rel)"
-            >{{ formatMultiplicity(rel.sourceMultiplicity) }}</text>
-            <!-- Target multiplicity -->
-            <text
-              :x="getMultiplicityPosition(rel, 'target').x"
-              :y="getMultiplicityPosition(rel, 'target').y"
-              class="multiplicity-label"
-              text-anchor="middle"
-              @click.stop="selectRelationship(rel)"
-            >{{ formatMultiplicity(rel.targetMultiplicity) }}</text>
+            <template v-if="getRelationshipPoints(rel)">
+              <!-- Hit area (thicker, transparent) -->
+              <path
+                :d="getRelationshipPath(rel)"
+                fill="none"
+                stroke="transparent"
+                stroke-width="12"
+                class="relationship-line-hit-area"
+                @click.stop="selectRelationship(rel)"
+              />
+              <!-- Visible line -->
+              <path
+                :d="getRelationshipPath(rel)"
+                fill="none"
+                :stroke="selectedItem?.type === 'relationship' && selectedItem.id === rel.id ? '#dc2626' : '#0058bc'"
+                stroke-width="2"
+                marker-end="url(#arrowhead)"
+                class="relationship-line"
+                style="pointer-events: none;"
+              />
+              
+              <!-- Start point circle -->
+              <circle
+                :cx="getRelationshipPoints(rel).sx"
+                :cy="getRelationshipPoints(rel).sy"
+                r="4"
+                :fill="selectedItem?.type === 'relationship' && selectedItem.id === rel.id ? '#dc2626' : '#0058bc'"
+                style="pointer-events: none;"
+              />
+              <!-- End point circle -->
+              <circle
+                :cx="getRelationshipPoints(rel).tx"
+                :cy="getRelationshipPoints(rel).ty"
+                r="4"
+                :fill="selectedItem?.type === 'relationship' && selectedItem.id === rel.id ? '#dc2626' : '#0058bc'"
+                style="pointer-events: none;"
+              />
+
+              <!-- Source multiplicity -->
+              <text
+                :x="getMultiplicityPosition(rel, 'source').x"
+                :y="getMultiplicityPosition(rel, 'source').y"
+                class="multiplicity-label"
+                text-anchor="middle"
+                @click.stop="selectRelationship(rel)"
+              >{{ formatMultiplicity(rel.sourceMultiplicity) }}</text>
+              <!-- Target multiplicity -->
+              <text
+                :x="getMultiplicityPosition(rel, 'target').x"
+                :y="getMultiplicityPosition(rel, 'target').y"
+                class="multiplicity-label"
+                text-anchor="middle"
+                @click.stop="selectRelationship(rel)"
+              >{{ formatMultiplicity(rel.targetMultiplicity) }}</text>
+            </template>
           </g>
 
           <!-- Arrow marker definition -->
@@ -185,6 +238,7 @@
         <div
           v-for="visual in activeTableVisuals"
           :key="visual.id"
+          :ref="el => { if (el) updateTableWidth(visual, el as any) }"
           class="er-table"
           :class="{ 'er-table--selected': selectedItem?.type === 'table' && selectedItem.id === visual.tableId, 'er-table--dragging': draggingTableId === visual.tableId }"
           :style="{ left: visual.x + 'px', top: visual.y + 'px' }"
@@ -224,7 +278,7 @@
               <span class="er-column__key er-column__key--fk" v-else-if="col.isForeignKey">FK</span>
               <span class="er-column__key er-column__key--none" v-else></span>
               <span class="er-column__name">{{ col.name }}</span>
-              <span class="er-column__type">{{ col.dataType }}</span>
+              <span class="er-column__type">{{ formatDataType(col) }}</span>
             </div>
           </div>
 
@@ -236,6 +290,7 @@
             @drop="onDropColumn($event, getTableById(visual.tableId)!)"
           >
             <span class="text-xs" style="color:#a0a7b5;">Drop to link</span>
+          </div>
           </div>
         </div>
 
@@ -374,11 +429,17 @@
             </div>
 
             <div class="panel-section">
-              <label class="panel-label">COLUMNS</label>
-              <button @click="addColumn" class="panel-btn panel-btn--add">
-                <span class="material-symbols-outlined" style="font-size:14px;">add</span>
-                Add Column
-              </button>
+              <label class="panel-label">DESCRIPTION</label>
+              <textarea v-model="tableForm.description" @change="updateTable" class="panel-input" placeholder="Table purpose..." rows="2" style="resize:vertical;min-height:60px;"></textarea>
+            </div>
+
+            <div class="panel-section">
+              <div class="flex items-center justify-between mb-2">
+                <label class="panel-label mb-0">COLUMNS</label>
+                <button @click="addColumn" class="panel-icon-btn" title="Add Column">
+                  <span class="material-symbols-outlined" style="font-size:20px;">add_circle</span>
+                </button>
+              </div>
 
               <div class="columns-list">
                 <div v-for="col in tableForm.columns" :key="col.id" class="column-item">
@@ -390,7 +451,7 @@
                     <span v-else-if="col.isForeignKey" class="column-item__fk">FK</span>
                     <span v-else class="column-item__badge-none"></span>
                     <span class="column-item__name">{{ col.name }}</span>
-                    <span class="column-item__type">{{ col.dataType }}</span>
+                    <span class="column-item__type">{{ formatDataType(col) }}</span>
                     <button @click.stop="deleteColumn(col.id)" class="column-item__delete">
                       <span class="material-symbols-outlined" style="font-size:14px;color:#991b1b;">delete</span>
                     </button>
@@ -402,10 +463,14 @@
                       <input v-model="col.name" @change="updateTable" class="panel-input" />
                     </div>
                     <div class="panel-field">
+                      <label class="panel-label">DESCRIPTION</label>
+                      <input v-model="col.description" @change="updateTable" class="panel-input" placeholder="Field purpose..." />
+                    </div>
+                    <div class="panel-field">
                       <label class="panel-label">DATA TYPE</label>
                       <select v-model="col.dataType" @change="updateTable" class="panel-select">
                         <option value="UUID">UUID</option>
-                        <option value="VARCHAR(255)">VARCHAR(255)</option>
+                        <option value="VARCHAR">VARCHAR</option>
                         <option value="TEXT">TEXT</option>
                         <option value="INTEGER">INTEGER</option>
                         <option value="BIGINT">BIGINT</option>
@@ -415,6 +480,17 @@
                         <option value="TIMESTAMP">TIMESTAMP</option>
                         <option value="JSONB">JSONB</option>
                       </select>
+                    </div>
+
+                    <div v-if="['VARCHAR', 'DECIMAL'].includes(col.dataType)" class="panel-section--grid mb-4">
+                      <div class="panel-field mb-0">
+                        <label class="panel-label">LENGTH</label>
+                        <input type="number" v-model.number="col.length" @change="updateTable" class="panel-input" />
+                      </div>
+                      <div v-if="col.dataType === 'DECIMAL'" class="panel-field mb-0">
+                        <label class="panel-label">DECIMALS</label>
+                        <input type="number" v-model.number="col.decimalPlaces" @change="updateTable" class="panel-input" />
+                      </div>
                     </div>
                     <div class="panel-field panel-field--row">
                       <label class="checkbox-label">
@@ -429,6 +505,13 @@
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div class="panel-section border-t border-gray-100 pt-4 mt-2">
+              <button @click="deleteTable(tableForm.id)" class="panel-btn panel-btn--danger">
+                <span class="material-symbols-outlined" style="font-size:14px;">delete</span>
+                Delete Table from Model
+              </button>
             </div>
           </div>
         </template>
@@ -505,6 +588,44 @@
             </div>
           </div>
         </template>
+
+        <!-- Model Properties (Canvas) -->
+        <template v-else-if="selectedItem.type === 'canvas'">
+          <div class="panel-header">
+            <span class="text-sm font-bold">Model Properties</span>
+            <button @click="selectedItem = null" class="panel-close">
+              <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+            </button>
+          </div>
+
+          <div class="panel-body">
+            <div class="panel-section">
+              <label class="panel-label">CANVAS NAME</label>
+              <input v-model="canvasForm.name" @change="updateCanvas" class="panel-input" placeholder="Main Diagram" />
+            </div>
+
+            <div class="panel-section">
+              <label class="panel-label">DESCRIPTION</label>
+              <textarea v-model="canvasForm.description" @change="updateCanvas" class="panel-input" placeholder="Explain the purpose of this diagram part..." rows="4" style="resize:vertical;min-height:100px;"></textarea>
+            </div>
+
+            <div class="panel-section border-t border-gray-100 pt-4 mt-2">
+              <div class="flex items-center gap-2 mb-4">
+                <span class="material-symbols-outlined text-gray-400" style="font-size:18px;">info</span>
+                <span class="text-xs text-gray-500">Design settings for the active workspace.</span>
+              </div>
+              
+              <button 
+                v-if="canvases.length > 1" 
+                @click="deleteCanvas(canvasForm.id)" 
+                class="panel-btn panel-btn--danger"
+              >
+                <span class="material-symbols-outlined" style="font-size:14px;">delete_sweep</span>
+                Delete Entire Canvas
+              </button>
+            </div>
+          </div>
+        </template>
       </aside>
 
     </div>
@@ -522,6 +643,9 @@ interface Column {
   id: string;
   name: string;
   dataType: string;
+  length?: number;
+  decimalPlaces?: number;
+  description?: string;
   isPrimaryKey: boolean;
   isForeignKey: boolean;
   isNullable: boolean;
@@ -531,6 +655,7 @@ interface Column {
 interface Table {
   id: string;
   name: string;
+  description?: string;
   columns: Column[];
 }
 
@@ -539,12 +664,21 @@ interface TableVisual {
   tableId: string;
   x: number;
   y: number;
+  width?: number;
+}
+
+function updateTableWidth(visual: TableVisual, el: HTMLElement) {
+  if (el && visual.width !== el.offsetWidth) {
+    visual.width = el.offsetWidth;
+  }
 }
 
 interface Canvas {
   id: string;
   name: string;
+  description?: string;
   tableVisuals: TableVisual[];
+  zoom?: number;
 }
 
 interface Relationship {
@@ -571,6 +705,12 @@ const canvasWidth = ref(2000);
 const canvasHeight = ref(2000);
 
 // State
+const GRID_SIZE = 20;
+const snapToGrid = ref(true);
+const zoomLevel = ref(1);
+const MIN_ZOOM = 0.2;
+const MAX_ZOOM = 3;
+const ZOOM_SPEED = 0.001;
 const tables = ref<Table[]>([]);
 const relationships = ref<Relationship[]>([]);
 const canvases = ref<Canvas[]>([]);
@@ -591,6 +731,8 @@ const generatedDDL = ref('');
 const selectedDbEngine = ref('PostgreSQL');
 
 // Drag state
+const isPanning = ref(false);
+const panStart = ref({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
 const draggingTableId = ref<string | null>(null);
 const dragTableStart = ref({ x: 0, y: 0, tableX: 0, tableY: 0 });
 const draggingColumn = ref<{ table: Table; column: Column } | null>(null);
@@ -605,6 +747,7 @@ const draggingTableDefId = ref<string | null>(null);
 const tableForm = reactive({
   id: '',
   name: '',
+  description: '',
   columns: [] as Column[]
 });
 
@@ -616,6 +759,12 @@ const relForm = reactive({
   targetColumnId: '',
   sourceMultiplicity: '1',
   targetMultiplicity: '1'
+});
+
+const canvasForm = reactive({
+  id: '',
+  name: '',
+  description: ''
 });
 
 const expandedColumns = ref<Set<string>>(new Set());
@@ -642,6 +791,16 @@ function getColumnName(tableId: string, columnId: string) {
   return col?.name || '';
 }
 
+function formatDataType(col: Column) {
+  if (col.dataType === 'VARCHAR' && col.length) {
+    return `VARCHAR(${col.length})`;
+  }
+  if (col.dataType === 'DECIMAL' && col.length) {
+    return `DECIMAL(${col.length},${col.decimalPlaces || 0})`;
+  }
+  return col.dataType;
+}
+
 const activeCanvas = computed(() => {
   return canvases.value.find(c => c.id === activeCanvasId.value);
 });
@@ -659,6 +818,37 @@ function getCanvasById(id: string) {
 }
 
 // Canvas operations
+function onCanvasMouseDown(e: MouseEvent) {
+  if (e.ctrlKey) {
+    e.preventDefault();
+    isPanning.value = true;
+    panStart.value = {
+      x: e.clientX,
+      y: e.clientY,
+      scrollLeft: canvasRef.value?.scrollLeft || 0,
+      scrollTop: canvasRef.value?.scrollTop || 0
+    };
+    document.addEventListener('mousemove', onPanning);
+    document.addEventListener('mouseup', stopPanning);
+  }
+}
+
+function onPanning(e: MouseEvent) {
+  if (!isPanning.value || !canvasRef.value) return;
+  
+  const dx = e.clientX - panStart.value.x;
+  const dy = e.clientY - panStart.value.y;
+  
+  canvasRef.value.scrollLeft = panStart.value.scrollLeft - dx;
+  canvasRef.value.scrollTop = panStart.value.scrollTop - dy;
+}
+
+function stopPanning() {
+  isPanning.value = false;
+  document.removeEventListener('mousemove', onPanning);
+  document.removeEventListener('mouseup', stopPanning);
+}
+
 function addCanvas(name?: string) {
   const newCanvas: Canvas = {
     id: uid(),
@@ -673,6 +863,35 @@ function addCanvas(name?: string) {
 function selectCanvas(canvasId: string) {
   activeCanvasId.value = canvasId;
   selectedItem.value = { type: 'canvas', id: canvasId };
+  
+  const canvas = getCanvasById(canvasId);
+  if (canvas) {
+    canvasForm.id = canvas.id;
+    canvasForm.name = canvas.name;
+    canvasForm.description = canvas.description || '';
+    
+    if (canvas.zoom) {
+      zoomLevel.value = canvas.zoom;
+    } else {
+      zoomLevel.value = 1;
+    }
+  }
+}
+
+function handleWheel(e: WheelEvent) {
+  if (e.ctrlKey) {
+    e.preventDefault();
+    const delta = -e.deltaY;
+    const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoomLevel.value + delta * ZOOM_SPEED));
+    
+    if (newZoom !== zoomLevel.value) {
+      zoomLevel.value = newZoom;
+      // Update current canvas state
+      if (activeCanvas.value) {
+        activeCanvas.value.zoom = newZoom;
+      }
+    }
+  }
 }
 
 function deleteCanvas(canvasId: string) {
@@ -754,8 +973,16 @@ function onDragVisual(e: MouseEvent) {
   const dx = e.clientX - dragTableStart.value.x;
   const dy = e.clientY - dragTableStart.value.y;
 
-  visual.x = dragTableStart.value.tableX + dx;
-  visual.y = dragTableStart.value.tableY + dy;
+  let newX = dragTableStart.value.tableX + dx;
+  let newY = dragTableStart.value.tableY + dy;
+
+  if (snapToGrid.value) {
+    newX = Math.round(newX / GRID_SIZE) * GRID_SIZE;
+    newY = Math.round(newY / GRID_SIZE) * GRID_SIZE;
+  }
+
+  visual.x = newX;
+  visual.y = newY;
 }
 
 function stopDragVisual() {
@@ -790,20 +1017,25 @@ function onCanvasDragOver(e: DragEvent) {
 
 function onCanvasDrop(e: DragEvent) {
   if (!draggingFromPanel.value || !e.dataTransfer) return;
-  
+
   const tableId = e.dataTransfer.getData('text/plain');
   if (tableId && !getTableVisualForTable(tableId)) {
     const rect = (e.target as HTMLElement).closest('.er-canvas')?.getBoundingClientRect();
     if (rect) {
-      const x = e.clientX - rect.left + (e.target as HTMLElement).closest('.er-canvas')!.scrollLeft;
-      const y = e.clientY - rect.top + (e.target as HTMLElement).closest('.er-canvas')!.scrollTop;
+      let x = e.clientX - rect.left + (e.target as HTMLElement).closest('.er-canvas')!.scrollLeft;
+      let y = e.clientY - rect.top + (e.target as HTMLElement).closest('.er-canvas')!.scrollTop;
+
+      if (snapToGrid.value) {
+        x = Math.round(x / GRID_SIZE) * GRID_SIZE;
+        y = Math.round(y / GRID_SIZE) * GRID_SIZE;
+      }
+
       addTableVisualToCanvas(tableId, x, y);
     }
   }
   draggingFromPanel.value = false;
   draggingTableDefId.value = null;
 }
-
 function startResizePanel(e: MouseEvent) {
   const startX = e.clientX;
   const startWidth = sidePanelWidth.value;
@@ -827,10 +1059,11 @@ function addTable() {
   const newTable: Table = {
     id: uid(),
     name: 'new_table',
+    description: '',
     columns: [
-      { id: uid(), name: 'id', dataType: 'UUID', isPrimaryKey: true, isForeignKey: false, isNullable: false },
-      { id: uid(), name: 'created_at', dataType: 'TIMESTAMP', isPrimaryKey: false, isForeignKey: false, isNullable: false },
-      { id: uid(), name: 'updated_at', dataType: 'TIMESTAMP', isPrimaryKey: false, isForeignKey: false, isNullable: false }
+      { id: uid(), name: 'id', dataType: 'UUID', description: 'Primary Key', isPrimaryKey: true, isForeignKey: false, isNullable: false },
+      { id: uid(), name: 'created_at', dataType: 'TIMESTAMP', description: 'Record creation date', isPrimaryKey: false, isForeignKey: false, isNullable: false },
+      { id: uid(), name: 'updated_at', dataType: 'TIMESTAMP', description: 'Last record update date', isPrimaryKey: false, isForeignKey: false, isNullable: false }
     ]
   };
   tables.value.push(newTable);
@@ -846,6 +1079,7 @@ function selectTable(table: Table) {
   selectedItem.value = { type: 'table', id: table.id };
   tableForm.id = table.id;
   tableForm.name = table.name;
+  tableForm.description = table.description || '';
   tableForm.columns = [...table.columns];
 }
 
@@ -853,7 +1087,16 @@ function updateTable() {
   const table = getTableById(tableForm.id);
   if (table) {
     table.name = tableForm.name;
+    table.description = tableForm.description;
     table.columns = [...tableForm.columns];
+  }
+}
+
+function updateCanvas() {
+  const canvas = getCanvasById(canvasForm.id);
+  if (canvas) {
+    canvas.name = canvasForm.name;
+    canvas.description = canvasForm.description;
   }
 }
 
@@ -873,7 +1116,9 @@ function addColumn() {
   const newCol: Column = {
     id: uid(),
     name: 'new_column',
-    dataType: 'VARCHAR(255)',
+    dataType: 'VARCHAR',
+    length: 255,
+    description: '',
     isPrimaryKey: false,
     isForeignKey: false,
     isNullable: true
@@ -932,7 +1177,11 @@ function deleteRelationship() {
 
 // Canvas interactions
 function onCanvasClick() {
-  selectedItem.value = null;
+  if (activeCanvasId.value) {
+    selectCanvas(activeCanvasId.value);
+  } else {
+    selectedItem.value = null;
+  }
 }
 
 // Column drag for relationships
@@ -975,15 +1224,30 @@ function onDropColumn(e: DragEvent, targetTable: Table) {
   const sourceTable = draggingColumn.value.table;
   const sourceCol = draggingColumn.value.column;
 
-  // Create relationship
+  // 1. Create a new Foreign Key column in the target table
+  // Use a predictable name: source_table_source_column
+  const fkName = `${sourceTable.name}_${sourceCol.id.startsWith('pk_') || sourceCol.name === 'id' ? sourceCol.name : 'id'}`;
+  const newFkCol: Column = {
+    id: uid(),
+    name: fkName,
+    dataType: sourceCol.dataType,
+    isPrimaryKey: false,
+    isForeignKey: true,
+    isNullable: true,
+    references: { tableId: sourceTable.id, columnId: sourceCol.id }
+  };
+  
+  targetTable.columns.push(newFkCol);
+
+  // 2. Create the relationship linked to the new column
   const newRel: Relationship = {
     id: uid(),
     sourceTableId: sourceTable.id,
     sourceColumnId: sourceCol.id,
     targetTableId: targetTable.id,
-    targetColumnId: '', // User must select target column
+    targetColumnId: newFkCol.id,
     sourceMultiplicity: '1',
-    targetMultiplicity: '1..*'
+    targetMultiplicity: '0..*'
   };
 
   relationships.value.push(newRel);
@@ -995,17 +1259,55 @@ function onDropColumn(e: DragEvent, targetTable: Table) {
 }
 
 // SVG path calculations
-function getRelationshipPath(rel: Relationship): string {
+const TABLE_WIDTH = 200; // Estimated or fixed base width
+const HEADER_HEIGHT = 38;
+const COLUMN_HEIGHT = 28;
+const COLUMN_PADDING_TOP = 4;
+
+function getRelationshipPoints(rel: Relationship) {
   const sourceVisual = activeTableVisuals.value.find(tv => tv.tableId === rel.sourceTableId);
   const targetVisual = activeTableVisuals.value.find(tv => tv.tableId === rel.targetTableId);
-  if (!sourceVisual || !targetVisual) return '';
+  const sourceTable = getTableById(rel.sourceTableId);
+  const targetTable = getTableById(rel.targetTableId);
 
-  const sx = sourceVisual.x + 200; // Right side of table
-  const sy = sourceVisual.y + 40;   // Middle height
-  const tx = targetVisual.x;        // Left side of target
-  const ty = targetVisual.y + 40;  // Middle height
+  if (!sourceVisual || !targetVisual || !sourceTable || !targetTable) return null;
 
-  // Simple curved path
+  const sColIndex = sourceTable.columns.findIndex(c => c.id === rel.sourceColumnId);
+  const tColIndex = targetTable.columns.findIndex(c => c.id === rel.targetColumnId);
+
+  if (sColIndex === -1 || tColIndex === -1) return null;
+
+  const sy = sourceVisual.y + HEADER_HEIGHT + COLUMN_PADDING_TOP + (sColIndex * COLUMN_HEIGHT) + (COLUMN_HEIGHT / 2);
+  const ty = targetVisual.y + HEADER_HEIGHT + COLUMN_PADDING_TOP + (tColIndex * COLUMN_HEIGHT) + (COLUMN_HEIGHT / 2);
+
+  // Use dynamic width or fallback to 200
+  const sWidth = sourceVisual.width || 200;
+  const tWidth = targetVisual.width || 200;
+
+  // Determine which side to connect to
+  let sx, tx;
+  if (sourceVisual.x + (sWidth / 2) < targetVisual.x) {
+    // Source is to the left
+    sx = sourceVisual.x + sWidth;
+    tx = targetVisual.x;
+  } else if (targetVisual.x + (tWidth / 2) < sourceVisual.x) {
+    // Source is to the right
+    sx = sourceVisual.x;
+    tx = targetVisual.x + tWidth;
+  } else {
+    // Vertically aligned or overlapping
+    sx = sourceVisual.x + sWidth;
+    tx = targetVisual.x;
+  }
+
+  return { sx, sy, tx, ty };
+}
+
+function getRelationshipPath(rel: Relationship): string {
+  const points = getRelationshipPoints(rel);
+  if (!points) return '';
+
+  const { sx, sy, tx, ty } = points;
   const midX = (sx + tx) / 2;
   return `M ${sx} ${sy} C ${midX} ${sy}, ${midX} ${ty}, ${tx} ${ty}`;
 }
@@ -1022,14 +1324,16 @@ function formatMultiplicity(m: string): string {
 }
 
 function getMultiplicityPosition(rel: Relationship, end: 'source' | 'target'): { x: number; y: number } {
-  const sourceVisual = activeTableVisuals.value.find(tv => tv.tableId === rel.sourceTableId);
-  const targetVisual = activeTableVisuals.value.find(tv => tv.tableId === rel.targetTableId);
-  if (!sourceVisual || !targetVisual) return { x: 0, y: 0 };
+  const points = getRelationshipPoints(rel);
+  if (!points) return { x: 0, y: 0 };
 
+  const { sx, sy, tx, ty } = points;
   if (end === 'source') {
-    return { x: sourceVisual.x + 200, y: sourceVisual.y + 35 };
+    const offsetX = sx < tx ? 10 : -10;
+    return { x: sx + offsetX, y: sy - 10 };
   } else {
-    return { x: targetVisual.x, y: targetVisual.y + 35 };
+    const offsetX = tx < sx ? 10 : -10;
+    return { x: tx + offsetX, y: ty - 10 };
   }
 }
 
@@ -1213,7 +1517,7 @@ function applyGeneratedSchema() {
 
 // DDL Generation
 async function generateDDL() {
-  if (tables.value.length === 0 || sqlLoading.value) return;
+  if (tables.value.length === 0 || sqlLoading.value || !activeCanvas.value) return;
 
   sqlLoading.value = true;
   generatedDDL.value = '';
@@ -1222,12 +1526,36 @@ async function generateDDL() {
     const token = await auth.getToken();
     const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
+    // 1. Get IDs of tables in the current canvas
+    const canvasTableIds = new Set(activeCanvas.value.tableVisuals.map(tv => tv.tableId));
+
+    // 2. Filter tables and sanitize foreign keys
+    const filteredTables = tables.value
+      .filter(t => canvasTableIds.has(t.id))
+      .map(t => ({
+        ...t,
+        columns: t.columns.map(col => {
+          // If it's a FK but references a table NOT in the current canvas, treat as simple attribute
+          if (col.isForeignKey && col.references && !canvasTableIds.has(col.references.tableId)) {
+            const sanitizedCol = { ...col, isForeignKey: false };
+            delete (sanitizedCol as any).references;
+            return sanitizedCol;
+          }
+          return col;
+        })
+      }));
+
+    // 3. Filter relationships
+    const filteredRelationships = relationships.value.filter(r => 
+      canvasTableIds.has(r.sourceTableId) && canvasTableIds.has(r.targetTableId)
+    );
+
     const res = await fetch(`${bffBase}/ai/ddl-generate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({
-        tables: tables.value,
-        relationships: relationships.value,
+        tables: filteredTables,
+        relationships: filteredRelationships,
         databaseEngine: selectedDbEngine.value,
         provider: llmPrefs.provider,
         apiKey: llmPrefs.currentApiKey,
@@ -1278,8 +1606,12 @@ async function saveDesign() {
       domainId: domainId.value,
       tables: tables.value,
       relationships: relationships.value,
-      canvases: canvases.value,
-      activeCanvasId: activeCanvasId.value
+      canvases: canvases.value.map(c => ({
+        ...c,
+        zoom: c.id === activeCanvasId.value ? zoomLevel.value : c.zoom
+      })),
+      activeCanvasId: activeCanvasId.value,
+      snapToGrid: snapToGrid.value
     };
 
     await fetch(`${bffBase}/domains/${domainId.value}/er-model`, {
@@ -1316,13 +1648,21 @@ onMounted(async () => {
         tables.value = data.tables.map((t: any) => ({
           id: t.id,
           name: t.name,
+          description: t.description || '',
           columns: t.columns || []
         }));
       }
       if (data.relationships) relationships.value = data.relationships;
+      if (data.snapToGrid !== undefined) snapToGrid.value = data.snapToGrid;
       if (data.canvases && data.canvases.length > 0) {
         canvases.value = data.canvases;
         activeCanvasId.value = data.activeCanvasId || data.canvases[0].id;
+        
+        // Restore zoom level
+        const currentCanvas = canvases.value.find(c => c.id === activeCanvasId.value);
+        if (currentCanvas && currentCanvas.zoom) {
+          zoomLevel.value = currentCanvas.zoom;
+        }
       } else {
         const mainCanvas: Canvas = {
           id: uid(),
@@ -1588,8 +1928,21 @@ onMounted(async () => {
   background: #ffffff;
 }
 
+.er-canvas--panning {
+  cursor: grabbing !important;
+}
+
+.er-canvas--panning * {
+  cursor: grabbing !important;
+}
+
 .er-canvas--drop-target {
   background: #f0f0ff;
+}
+
+.er-canvas-content {
+  position: relative;
+  transition: transform 0.1s ease-out;
 }
 
 .er-svg {
@@ -2101,6 +2454,28 @@ onMounted(async () => {
   margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.panel-label.mb-0 {
+  margin-bottom: 0;
+}
+
+.panel-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0058bc;
+  padding: 4px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.panel-icon-btn:hover {
+  background: #f4f3f8;
+  color: #dc2626;
 }
 
 .panel-input, .panel-select {
