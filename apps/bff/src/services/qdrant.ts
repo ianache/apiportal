@@ -141,8 +141,8 @@ class QDrantService {
       body: JSON.stringify(requestBody),
     });
     
-    console.log(`[QDrant] Search results:`, result);
-    return (result as any).results || [];
+    console.log(`[QDrant] Search results:`, JSON.stringify(result, null, 2));
+    return (result as any).result || [];
   }
 }
 

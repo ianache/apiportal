@@ -436,6 +436,54 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
     return { openapi: apiVersion.openApiSpec };
   });
 
+  // Update version (PATCH /apis/:id/versions/:version)
+  fastify.patch('/apis/:id/versions/:version', async (request, reply) => {
+    try {
+      if (!request.user) {
+        return reply.code(401).send({ error: 'Unauthorized', message: 'User context not found' });
+      }
+
+      // RBAC: Developers cannot update versions
+      if (request.user.role === 'API_DEVELOPER') {
+        return reply.code(403).send({ error: 'Forbidden', message: 'Developers cannot update versions' });
+      }
+
+      const { id, version } = request.params as { id: string; version: string };
+      const { version: newVersion } = request.body as { version: string };
+
+      if (!newVersion) {
+        return reply.code(400).send({ error: 'Bad Request', message: 'New version name is required' });
+      }
+
+      const apiVersion = await fastify.prisma.aPIVersion.findFirst({
+        where: { apiId: id, version }
+      });
+
+      if (!apiVersion) {
+        return reply.code(404).send({ error: 'Version not found' });
+      }
+
+      // Check if the new version name already exists for this API
+      const existing = await fastify.prisma.aPIVersion.findFirst({
+        where: { apiId: id, version: newVersion }
+      });
+
+      if (existing) {
+        return reply.code(400).send({ error: 'Bad Request', message: `Version ${newVersion} already exists for this API` });
+      }
+
+      const updated = await fastify.prisma.aPIVersion.update({
+        where: { id: apiVersion.id },
+        data: { version: newVersion }
+      });
+
+      return updated;
+    } catch (err: any) {
+      fastify.log.error(err, 'Failed to update version');
+      throw err;
+    }
+  });
+
   // Update endpoint (PATCH /apis/:id/versions/:version/endpoints/:endpointId)
   fastify.patch('/apis/:id/versions/:version/endpoints/:endpointId', async (request, reply) => {
     try {

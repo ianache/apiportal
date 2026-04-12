@@ -3,50 +3,68 @@
     <div class="p-8 max-w-5xl mx-auto w-full" style="font-family:'Inter',sans-serif;">
 
       <!-- Header -->
-      <header class="flex items-center gap-4 mb-8">
-        <button @click="router.push('/domains')" class="toolbar-btn">
-          <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span>
-        </button>
+      <header class="flex items-center justify-between mb-8">
+        <div class="flex items-center gap-4">
+          <button @click="router.push('/domains')" class="toolbar-btn">
+            <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span>
+          </button>
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:#eff6ff;">
+              <span class="material-symbols-outlined" style="font-size:20px;color:#0058bc;">psychology</span>
+            </div>
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest" style="color:#0058bc;">Knowledge Base</p>
+              <h1 class="text-2xl font-bold" style="color:#1a1b1f;">{{ domainTitle }}</h1>
+            </div>
+          </div>
+        </div>
+
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:#eff6ff;">
-            <span class="material-symbols-outlined" style="font-size:20px;color:#0058bc;">psychology</span>
-          </div>
-          <div>
-            <p class="text-xs font-bold uppercase tracking-widest" style="color:#0058bc;">Knowledge Base</p>
-            <h1 class="text-2xl font-bold" style="color:#1a1b1f;">{{ domainTitle }}</h1>
-          </div>
+          <button
+            @click="openAddPanel"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
+            style="background:#0058bc;color:#fff;"
+          >
+            <span class="material-symbols-outlined" style="font-size:18px;">add</span>
+            + Add Knowledge Base
+          </button>
+          <button
+            @click="showTypeManager = true"
+            class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border"
+            style="background:#fff;color:#414755;border-color:#e3e2e7;"
+          >
+            <span class="material-symbols-outlined" style="font-size:18px;">settings</span>
+            Manage Types
+          </button>
         </div>
       </header>
 
-      <!-- Search Bar -->
-      <div class="mb-6">
-        <div class="relative">
+      <!-- Search Row -->
+      <div class="mb-6 flex items-center gap-3">
+        <div class="relative flex-1">
           <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2" style="font-size:20px;color:#717786;">search</span>
           <input
             v-model="searchQuery"
             type="text"
             placeholder="Search knowledge base..."
-            class="w-full pl-12 pr-4 py-3.5 rounded-2xl border text-sm outline-none transition-all"
+            class="w-full pl-12 pr-10 py-2.5 rounded-xl border text-sm outline-none transition-all"
             style="background:#fff;border-color:#e3e2e7;color:#1a1b1f;"
             @keydown.enter="executeSearch"
           />
           <button
             v-if="searchQuery"
             @click="clearSearch"
-            class="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100"
+            class="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100"
           >
             <span class="material-symbols-outlined" style="font-size:18px;color:#717786;">close</span>
           </button>
         </div>
-      </div>
 
-      <!-- Type Filter & Add Button -->
-      <div class="mb-6 flex items-center gap-4">
-        <div class="flex items-center gap-2 flex-1">
-          <label class="text-sm font-medium" style="color:#414755;">Filter by type:</label>
+        <div class="flex items-center gap-2">
+          <label class="text-sm font-medium whitespace-nowrap" style="color:#414755;">Filter by type:</label>
           <select
             v-model="filterTypeId"
-            class="px-3 py-2 rounded-xl border text-sm outline-none"
+            class="px-3 py-2.5 rounded-xl border text-sm outline-none min-w-[140px]"
             style="background:#fff;border-color:#e3e2e7;color:#1a1b1f;"
           >
             <option value="">All types</option>
@@ -54,28 +72,12 @@
           </select>
           <button
             @click="executeSearch"
-            class="px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+            class="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all"
             style="background:#0058bc;color:#fff;"
           >
             Search
           </button>
         </div>
-        <button
-          @click="openAddPanel"
-          class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-90"
-          style="background:#0058bc;color:#fff;"
-        >
-          <span class="material-symbols-outlined" style="font-size:18px;">add</span>
-          Add Knowledge
-        </button>
-        <button
-          @click="showTypeManager = true"
-          class="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border"
-          style="background:#fff;color:#414755;border-color:#e3e2e7;"
-        >
-          <span class="material-symbols-outlined" style="font-size:18px;">settings</span>
-          Manage Types
-        </button>
       </div>
 
       <!-- Loading -->
@@ -134,6 +136,10 @@
               <div class="flex items-center gap-2 mb-1">
                 <h3 class="result-title">{{ result.title }}</h3>
                 <span class="type-badge">{{ result.typeName }}</span>
+                <span class="score-badge" :title="`Relevance score: ${(result.score * 100).toFixed(1)}%`"
+                  :style="{ opacity: result.score > 0.7 ? 1 : 0.7 }">
+                  {{ (result.score * 100).toFixed(0) }}% match
+                </span>
               </div>
               <p class="result-snippet">{{ result.content }}</p>
               <div v-if="result.metadata && Object.keys(result.metadata).length > 0" class="flex flex-wrap gap-2 mt-2">
@@ -777,6 +783,19 @@ async function deleteType(id: string) {
   font-weight: 600;
   background: #eff6ff;
   color: #0058bc;
+}
+
+.score-badge {
+  display: inline-flex;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #dcfce7;
 }
 
 .field-label {

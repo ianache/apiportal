@@ -177,11 +177,12 @@ const knowledgePieceRoutes: FastifyPluginAsync = async (fastify) => {
       domainId: z.string().optional(),
       typeId: z.string().optional(),
       limit: z.number().min(1).max(100).default(20),
+      minScore: z.number().min(0).max(1).optional().default(0.4), // Default threshold
     });
 
-    const { query, domainId, typeId, limit } = schema.parse(request.body);
+    const { query, domainId, typeId, limit, minScore } = schema.parse(request.body);
 
-    fastify.log.info(`Searching knowledge base with query: "${query}"`);
+    fastify.log.info(`Searching knowledge base with query: "${query}" (minScore: ${minScore})`);
 
     try {
       const queryEmbedding = await embeddingService.generateEmbedding(query);
@@ -190,16 +191,23 @@ const knowledgePieceRoutes: FastifyPluginAsync = async (fastify) => {
       const searchResults = await qdrantService.searchPoints(queryEmbedding, limit, { domainId, typeId });
       fastify.log.info(`QDrant returned ${searchResults.length} results`);
 
-      const results = searchResults.map((result: any) => ({
-        id: result.id,
-        title: result.payload?.title || '',
-        content: result.payload?.content || '',
-        metadata: result.payload?.metadata || {},
-        typeId: result.payload?.typeId || '',
-        domainId: result.payload?.domainId || '',
-        score: result.score,
-        createdAt: result.payload?.createdAt,
-      }));
+      const results = searchResults
+        .filter((result: any) => result.score >= minScore)
+        .map((result: any) => ({
+          id: result.id,
+          title: result.payload?.title || '',
+          content: result.payload?.content || '',
+          metadata: result.payload?.metadata || {},
+          typeId: result.payload?.typeId || '',
+          domainId: result.payload?.domainId || '',
+          score: result.score,
+          createdAt: result.payload?.createdAt,
+        }));
+
+      fastify.log.info(`${results.length} results kept after score filtering (minScore: ${minScore})`);
+      if (searchResults.length > 0 && results.length === 0) {
+        fastify.log.info(`Top score was: ${searchResults[0].score}`);
+      }
 
       return { results, total: results.length };
     } catch (error) {
