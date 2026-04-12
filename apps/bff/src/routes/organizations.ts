@@ -18,7 +18,12 @@ const productSchema = z.object({
 const swciSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional(),
-  type: z.enum(['API', 'DATABASE', 'MICROSERVICE', 'FRONTEND', 'EXTERNAL_SERVICE', 'MESSAGE_BROKER']),
+  typeId: z.string().uuid(),
+  apiVersionId: z.string().uuid().optional().nullable(),
+  properties: z.array(z.object({
+    specificationId: z.string(),
+    value: z.string()
+  })).optional(),
 });
 
 const organizationRoutes: FastifyPluginAsync = async (fastify) => {
@@ -226,6 +231,15 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
 
     return fastify.prisma.softwareConfigurationItem.findMany({
       where: { organizationId: orgId },
+      include: {
+        type: {
+          include: { specifications: true }
+        },
+        properties: true,
+        apiVersion: {
+          include: { api: true }
+        }
+      },
       orderBy: { name: 'asc' }
     });
   });
@@ -235,11 +249,22 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
     if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
     const { orgId } = request.params as { orgId: string };
     
-    const data = swciSchema.parse(request.body);
+    const { properties, ...rest } = swciSchema.parse(request.body);
+    
     return fastify.prisma.softwareConfigurationItem.create({
       data: {
-        ...data,
-        organizationId: orgId
+        ...rest,
+        organizationId: orgId,
+        properties: properties ? {
+          create: properties.map(p => ({
+            specificationId: p.specificationId,
+            value: p.value
+          }))
+        } : undefined
+      },
+      include: {
+        type: { include: { specifications: true } },
+        properties: true
       }
     });
   });
@@ -249,10 +274,41 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
     if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
     const { id } = request.params as { id: string };
     
-    const data = swciSchema.partial().parse(request.body);
-    return fastify.prisma.softwareConfigurationItem.update({
+    const { properties, ...rest } = swciSchema.partial().parse(request.body);
+    
+    // Update basic info
+    await fastify.prisma.softwareConfigurationItem.update({
       where: { id },
-      data
+      data: rest
+    });
+
+    // Update properties if provided
+    if (properties) {
+      for (const p of properties) {
+        await fastify.prisma.property.upsert({
+          where: { swciId_specificationId: { swciId: id, specificationId: p.specificationId } },
+          update: { value: p.value },
+          create: { swciId: id, specificationId: p.specificationId, value: p.value }
+        });
+      }
+    }
+
+    return fastify.prisma.softwareConfigurationItem.findUnique({
+      where: { id },
+      include: {
+        type: { include: { specifications: true } },
+        properties: true,
+        apiVersion: { include: { api: true } }
+      }
+    });
+  });
+
+  // GET /configuration-item-types
+  fastify.get('/configuration-item-types', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    return fastify.prisma.configurationItemType.findMany({
+      include: { specifications: true },
+      orderBy: { name: 'asc' }
     });
   });
 };

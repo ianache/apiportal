@@ -45,9 +45,8 @@
         <div class="p-4 border-bottom">
           <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">SWCI Components</h2>
           
-          <!-- Add New SWCI -->
           <button 
-            @click="showCreateSWCI = true"
+            @click="openCreateSWCI"
             class="w-full flex items-center justify-center gap-2 py-2 mb-4 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-all text-xs font-bold uppercase"
           >
             <span class="material-symbols-outlined" style="font-size:16px;">add</span>
@@ -74,10 +73,10 @@
             @dragstart="onDragStart($event, item)"
           >
             <div class="flex items-center gap-3">
-              <span class="material-symbols-outlined text-indigo-500" style="font-size:20px;">{{ getIconForType(item.type) }}</span>
+              <span class="material-symbols-outlined text-indigo-500" style="font-size:20px;">{{ item.type?.icon || 'settings_input_component' }}</span>
               <div class="flex-1 overflow-hidden">
                 <p class="text-sm font-bold text-slate-700 truncate">{{ item.name }}</p>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{{ item.type }}</p>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{{ item.type?.name }}</p>
               </div>
             </div>
           </div>
@@ -124,34 +123,74 @@
                 class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all"
               />
             </div>
+
             <div>
-              <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Description</label>
-              <textarea 
-                v-model="editForm.description" 
-                rows="4"
-                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all resize-none"
-              ></textarea>
-            </div>
-            <div>
-              <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Type</label>
+              <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Component Type</label>
               <select 
-                v-model="editForm.type"
-                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-300 transition-all appearance-none"
+                v-model="editForm.typeId"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 transition-all appearance-none"
               >
-                <option value="API">API</option>
-                <option value="DATABASE">Database</option>
-                <option value="MICROSERVICE">Microservice</option>
-                <option value="FRONTEND">Frontend</option>
-                <option value="EXTERNAL_SERVICE">External Service</option>
-                <option value="MESSAGE_BROKER">Message Broker</option>
+                <option v-for="t in productStore.configItemTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
               </select>
             </div>
-            <div class="pt-4 border-t">
+            
+            <!-- API / Microservice linkage -->
+            <div v-if="isApiType" class="pt-4 border-t">
+              <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Linked API</label>
+              <select 
+                v-model="editForm.selectedApiId"
+                @change="onApiChange"
+                class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 transition-all mb-3"
+              >
+                <option value="">None</option>
+                <option v-for="api in registryStore.apis" :key="api.id" :value="api.id">{{ api.name }}</option>
+              </select>
+              
+              <template v-if="editForm.selectedApiId">
+                <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Version</label>
+                <select 
+                  v-model="editForm.apiVersionId"
+                  class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 transition-all"
+                >
+                  <option v-for="v in selectedApiVersions" :key="v.id" :value="v.id">{{ v.version }}</option>
+                </select>
+              </template>
+            </div>
+
+            <!-- Dynamic Properties -->
+            <div v-if="selectedTypeSpecs.length > 0" class="space-y-4 pt-4 border-t">
+              <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-900">Type Specifications</h3>
+              <div v-for="spec in selectedTypeSpecs" :key="spec.id">
+                <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                  {{ spec.name }} <span v-if="spec.required" class="text-red-500">*</span>
+                </label>
+                
+                <!-- Boolean (Checkbox) -->
+                <div v-if="spec.dataType === 'boolean'" class="flex items-center">
+                  <input type="checkbox" v-model="editForm.properties[spec.id]" class="w-4 h-4 rounded border-slate-200 text-indigo-600 focus:ring-indigo-500" />
+                </div>
+                
+                <!-- Integer (Number) -->
+                <input v-else-if="spec.dataType === 'integer'" 
+                  type="number" 
+                  v-model.number="editForm.properties[spec.id]" 
+                  class="w-full px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:ring-2 focus:ring-indigo-100" 
+                />
+                
+                <!-- String (Text) -->
+                <input v-else 
+                  type="text" 
+                  v-model="editForm.properties[spec.id]" 
+                  class="w-full px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:ring-2 focus:ring-indigo-100" 
+                />
+              </div>
+            </div>
+
+            <div class="pt-6 border-t">
               <button 
                 @click="updateSWCI"
                 class="w-full py-3 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800 transition-all"
               >Update SWCI Info</button>
-              <p class="mt-2 text-[10px] text-center text-slate-400 font-medium italic">Changes will affect all diagrams using this SWCI</p>
             </div>
           </template>
 
@@ -188,20 +227,15 @@
           </div>
           <div>
             <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Type</label>
-            <select v-model="newSWCI.type" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 transition-all">
-              <option value="API">API</option>
-              <option value="DATABASE">Database</option>
-              <option value="MICROSERVICE">Microservice</option>
-              <option value="FRONTEND">Frontend</option>
-              <option value="EXTERNAL_SERVICE">External Service</option>
-              <option value="MESSAGE_BROKER">Message Broker</option>
+            <select v-model="newSWCI.typeId" class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 transition-all">
+              <option v-for="t in productStore.configItemTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
             </select>
           </div>
         </div>
 
         <div class="flex gap-3 mt-8">
           <button @click="showCreateSWCI = false" class="flex-1 py-3 font-bold text-slate-500 rounded-xl hover:bg-slate-50 transition-all">Cancel</button>
-          <button @click="handleCreateSWCI" :disabled="!newSWCI.name" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 active:scale-95 disabled:opacity-50 transition-all">Create Component</button>
+          <button @click="handleCreateSWCI" :disabled="!newSWCI.name || !newSWCI.typeId" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 active:scale-95 disabled:opacity-50 transition-all">Create Component</button>
         </div>
       </div>
     </div>
@@ -216,6 +250,7 @@ import { VueFlow, useVueFlow, ConnectionMode, type Node, type Edge, type Connect
 import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
 import { useProductStore } from '../stores/products';
+import { useRegistryStore } from '../stores/registry';
 import SWCINode from '../components/designer/SWCINode.vue';
 
 // --- Flow Components ---
@@ -226,7 +261,8 @@ const nodeTypes = {
 const route = useRoute();
 const router = useRouter();
 const productStore = useProductStore();
-const { addNodes, addEdges, toObject, fromObject, onNodesDelete, onEdgesDelete } = useVueFlow();
+const registryStore = useRegistryStore();
+const { addNodes, addEdges, toObject, fromObject } = useVueFlow();
 
 const productId = route.params.id as string;
 const product = ref<any>(null);
@@ -240,14 +276,17 @@ const edges = ref<Edge[]>([]);
 
 const newSWCI = reactive({
   name: '',
-  type: 'MICROSERVICE'
+  typeId: ''
 });
 
 const editForm = reactive({
   id: '',
   name: '',
   description: '',
-  type: ''
+  typeId: '',
+  apiVersionId: null as string | null,
+  selectedApiId: '',
+  properties: {} as Record<string, any>
 });
 
 const defaultEdgeOptions = {
@@ -262,11 +301,29 @@ const filteredSWCIs = computed(() => {
   return productStore.swcis.filter(s => s.name.toLowerCase().includes(swciSearch.value.toLowerCase()));
 });
 
+const isApiType = computed(() => {
+  const type = productStore.configItemTypes.find(t => t.id === editForm.typeId);
+  return type?.name === 'API' || type?.name === 'MICROSERVICE';
+});
+
+const selectedTypeSpecs = computed(() => {
+  const type = productStore.configItemTypes.find(t => t.id === editForm.typeId);
+  return type?.specifications || [];
+});
+
+const selectedApiVersions = computed(() => {
+  if (!editForm.selectedApiId) return [];
+  const api = registryStore.apis.find(a => a.id === editForm.selectedApiId);
+  return api?.versions || [];
+});
+
 // --- Methods ---
 onMounted(async () => {
   try {
     product.value = await productStore.getProduct(productId);
     await productStore.fetchSWCIs(product.value.organizationId);
+    await productStore.fetchConfigItemTypes();
+    await registryStore.fetchApis();
     
     if (product.value.diagram) {
       fromObject(product.value.diagram);
@@ -288,7 +345,7 @@ const onDrop = (event: DragEvent) => {
   if (!data) return;
 
   const swci = JSON.parse(data);
-  const position = { x: event.clientX - 300, y: event.clientY - 100 }; // rough offset
+  const position = { x: event.clientX - 300, y: event.clientY - 100 };
 
   const newNode: Node = {
     id: `node-${Date.now()}`,
@@ -298,7 +355,8 @@ const onDrop = (event: DragEvent) => {
     data: { 
       swciId: swci.id,
       name: swci.name,
-      type: swci.type,
+      type: swci.type?.name,
+      icon: swci.type?.icon,
       description: swci.description
     },
   };
@@ -317,10 +375,31 @@ const onConnect = (params: Connection) => {
 
 const onNodeClick = ({ node }: { node: Node }) => {
   selectedElement.value = node;
-  editForm.id = node.data.swciId;
-  editForm.name = node.data.name;
-  editForm.description = node.data.description || '';
-  editForm.type = node.data.type;
+  
+  // Find full SWCI data from store
+  const swci = productStore.swcis.find(s => s.id === node.data.swciId);
+  if (swci) {
+    editForm.id = swci.id;
+    editForm.name = swci.name;
+    editForm.description = swci.description || '';
+    editForm.typeId = swci.typeId;
+    editForm.apiVersionId = swci.apiVersionId || null;
+    editForm.selectedApiId = swci.apiVersion?.apiId || '';
+    
+    // Load properties
+    const props: Record<string, any> = {};
+    swci.properties?.forEach(p => {
+      const spec = swci.type?.specifications?.find(s => s.id === p.specificationId);
+      if (spec?.dataType === 'boolean') props[p.specificationId] = p.value === 'true';
+      else if (spec?.dataType === 'integer') props[p.specificationId] = parseInt(p.value);
+      else props[p.specificationId] = p.value;
+    });
+    editForm.properties = props;
+  }
+};
+
+const onApiChange = () => {
+  editForm.apiVersionId = null;
 };
 
 const onEdgeClick = ({ edge }: { edge: Edge }) => {
@@ -334,10 +413,17 @@ const onPaneClick = () => {
 const updateSWCI = async () => {
   if (!editForm.id) return;
   try {
-    await productStore.updateSWCI(editForm.id, {
+    const propsToSave = Object.entries(editForm.properties).map(([specId, val]) => ({
+      specificationId: specId,
+      value: String(val)
+    }));
+
+    const updated = await productStore.updateSWCI(editForm.id, {
       name: editForm.name,
       description: editForm.description,
-      type: editForm.type
+      typeId: editForm.typeId,
+      apiVersionId: editForm.apiVersionId,
+      properties: propsToSave
     });
     
     // Update all nodes in canvas that use this SWCI
@@ -345,8 +431,14 @@ const updateSWCI = async () => {
       if (n.data.swciId === editForm.id) {
         return {
           ...n,
-          data: { ...n.data, name: editForm.name, type: editForm.type, description: editForm.description },
-          label: editForm.name
+          data: { 
+            ...n.data, 
+            name: updated.name, 
+            type: updated.type?.name, 
+            icon: updated.type?.icon,
+            description: updated.description 
+          },
+          label: updated.name
         };
       }
       return n;
@@ -358,15 +450,20 @@ const updateSWCI = async () => {
   }
 };
 
+const openCreateSWCI = () => {
+  newSWCI.name = '';
+  newSWCI.typeId = productStore.configItemTypes[0]?.id || '';
+  showCreateSWCI.value = true;
+};
+
 const handleCreateSWCI = async () => {
   if (!product.value) return;
   try {
     await productStore.createSWCI(product.value.organizationId, {
       name: newSWCI.name,
-      type: newSWCI.type
+      typeId: newSWCI.typeId
     });
     showCreateSWCI.value = false;
-    newSWCI.name = '';
   } catch (err) {
     alert('Failed to create SWCI');
   }
@@ -385,18 +482,6 @@ const onSave = async () => {
   }
 };
 
-const getIconForType = (type: string) => {
-  const icons: Record<string, string> = {
-    API: 'api',
-    DATABASE: 'database',
-    MICROSERVICE: 'Settings_input_component',
-    FRONTEND: 'web',
-    EXTERNAL_SERVICE: 'cloud',
-    MESSAGE_BROKER: 'swap_horiz'
-  };
-  return icons[type] || 'help';
-};
-
 const goBack = () => {
   if (product.value) {
     router.push(`/organizations/${product.value.organizationId}/products`);
@@ -405,16 +490,12 @@ const goBack = () => {
   }
 };
 
-const formatDate = (date: string) =>
-  new Date(date).toLocaleDateString();
-
 </script>
 
 <style>
 @import '@vue-flow/core/dist/style.css';
 @import '@vue-flow/core/dist/theme-default.css';
 @import '@vue-flow/controls/dist/style.css';
-@import '@vue-flow/minimap/dist/style.css';
 
 .vue-flow__node-swci {
   padding: 0;

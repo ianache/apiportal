@@ -57,3 +57,15 @@
 - Se ha actualizado @documentations/apiportal.drawio en hoja "architecture_swci" incorporando los nuevos conceptos añadidos (PropertySpecification y Property), las asociaciones y atributos definidos a los conceptos.
 - Cuando el Node para el SWCI sea de tipo API o Microservice se debe seleccionar de la lista de API disponibles cual es el API al que hace referencia el nodo. Este SWCI debe estar asociado a una version de API (API Version) y debe estar asociado a un tipo de SWCI (SoftwareConfigurationType) que debe ser API o Microservice.
 - Los ConfigurationItemType cuentan con una lista de atributos asociados que deben ser mostrados en el panel de propiedades del nodo. Por lo tanto, al seleccionar un nodo se debe mostrar en el panel de propiedades del nodo los atributos asociados al tipo de SWCI seleccionado con el valor correspondiente segun el tipo de datos de la propiedad. Por ejemplo, si el tipo de SWCI es API y tiene asociado un atributo de tipo "string" se debe mostrar un input de tipo texto para editar el valor del atributo. Si el tipo de SWCI es API y tiene asociado un atributo de tipo "integer" se debe mostrar un input de tipo numero para editar el valor del atributo. Si el tipo de SWCI es API y tiene asociado un atributo de tipo "boolean" se debe mostrar un input de tipo checkbox para editar el valor del atributo.
+
+## Iteration #6 - SWCI Node Connection
+
+- No me está permitiendo usar el punto de conexion de la derecha como origen para relacionar un nodo con otro nodo del diagrama por cualquier de los 4 puntos de conexion. Todo punto de conexion debe poder ser source y target sin limitación. El sentido de la relacion (flecha) es del punto de conexion desde el que se hace el drag hasta el punto de conexion donde se realiza el drop.
+
+- Fix: cuando hago drag del punto de conexion del borde inferior de un nodo (source) y drop sobre el punto de conexion del borde superior de un nodo (target) el sentido de la flecha sale invertido. El sentido de la fecla siempre tiene que estar orientada de souce a target y por ende la cabeza de la flecha siempre debe pintarse en el extremo del target en la relacion/conexion.
+
+## Iteracion #7 - SWCI Types and Toolbar Organization
+
+- Las herramientas/componentes SWCI que se colocan en el panel izquierdo deben estar organizados por tipo de SWCI y dentro de cada tipo de SWCI debe estar ordenado alfabeticamente por nombre. Por ejemplo, si hay 3 tipos de SWCI (API, Base de Datos, Microservicio) deben estar ordenados alfabeticamente y dentro de cada tipo de SWCI debe estar ordenado alfabeticamente por nombre.
+- El agrupamiento de las herramientas/componentes SWCI debe ser un marco con un titulo que indique el tipo de SWCI y dentro del marco deben estar las herramientas/componentes SWCI ordenados alfabeticamente por nombre. Alineado a la izquierda el nombre del Tipo de SWCI y a la derecha un icono para expandir/contraer el agrupamiento. Por defecto el agrupamiento debe estar contraido.
+- Añadir al panel flotando del canvas debajo el icono del candado para "block" otro icono "snap" que permita activar/desactivar el snap a la grilla. Por defecto el snap debe estar activado.

@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { useAuthStore } from './auth';
-import type { Product, SoftwareConfigurationItem } from 'shared-types';
+import type { Product, SoftwareConfigurationItem, ConfigurationItemType } from 'shared-types';
 
 export const useProductStore = defineStore('products', () => {
   const products = ref<Product[]>([]);
   const swcis = ref<SoftwareConfigurationItem[]>([]);
+  const configItemTypes = ref<ConfigurationItemType[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -128,7 +129,7 @@ export const useProductStore = defineStore('products', () => {
     }
   };
 
-  const createSWCI = async (orgId: string, data: { name: string; description?: string; type: string }) => {
+  const createSWCI = async (orgId: string, data: any) => {
     try {
       const auth = useAuthStore();
       const token = await auth.getToken();
@@ -151,7 +152,7 @@ export const useProductStore = defineStore('products', () => {
     }
   };
 
-  const updateSWCI = async (id: string, data: { name?: string; description?: string; type?: string }) => {
+  const updateSWCI = async (id: string, data: any) => {
     try {
       const auth = useAuthStore();
       const token = await auth.getToken();
@@ -177,9 +178,27 @@ export const useProductStore = defineStore('products', () => {
     }
   };
 
+  const fetchConfigItemTypes = async () => {
+    try {
+      const auth = useAuthStore();
+      const token = await auth.getToken();
+      const env = (window as any).NEXUS_ENV || import.meta.env;
+      const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
+      const response = await fetch(`${bffBase}/configuration-item-types`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        configItemTypes.value = await response.json();
+      }
+    } catch (err) {
+      console.error('Failed to fetch config types', err);
+    }
+  };
+
   return {
     products,
     swcis,
+    configItemTypes,
     loading,
     error,
     fetchProducts,
@@ -188,6 +207,7 @@ export const useProductStore = defineStore('products', () => {
     updateProduct,
     fetchSWCIs,
     createSWCI,
-    updateSWCI
+    updateSWCI,
+    fetchConfigItemTypes
   };
 });

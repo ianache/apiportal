@@ -8,7 +8,7 @@
       <!-- Icon -->
       <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm"
            :style="{ background: getBgForType(data.type) }">
-        <span class="material-symbols-outlined text-white" style="font-size: 20px;">{{ getIconForType(data.type) }}</span>
+        <span class="material-symbols-outlined text-white" style="font-size: 20px;">{{ data.icon || getIconForType(data.type) }}</span>
       </div>
 
       <!-- Content -->
@@ -28,11 +28,24 @@
       </div>
     </div>
 
-    <!-- Connection Handles -->
-    <Handle type="target" :position="Position.Top" class="handle-custom" />
-    <Handle type="source" :position="Position.Bottom" class="handle-custom" />
-    <Handle type="target" :position="Position.Left" class="handle-custom" />
-    <Handle type="source" :position="Position.Right" class="handle-custom" />
+    <!-- Connection Handles: Both source and target for all 4 positions -->
+    <!-- We put source AFTER target in DOM so it's on top for dragging initiation -->
+    
+    <!-- Top -->
+    <Handle type="target" :position="Position.Top" id="t-t" class="handle-custom omni-handle target-h" />
+    <Handle type="source" :position="Position.Top" id="t-s" class="handle-custom omni-handle source-h" />
+    
+    <!-- Bottom -->
+    <Handle type="target" :position="Position.Bottom" id="b-t" class="handle-custom omni-handle target-h" />
+    <Handle type="source" :position="Position.Bottom" id="b-s" class="handle-custom omni-handle source-h" />
+    
+    <!-- Left -->
+    <Handle type="target" :position="Position.Left" id="l-t" class="handle-custom omni-handle target-h" />
+    <Handle type="source" :position="Position.Left" id="l-s" class="handle-custom omni-handle source-h" />
+    
+    <!-- Right -->
+    <Handle type="target" :position="Position.Right" id="r-t" class="handle-custom omni-handle target-h" />
+    <Handle type="source" :position="Position.Right" id="r-s" class="handle-custom omni-handle source-h" />
   </div>
 </template>
 
@@ -55,12 +68,12 @@ const getIconForType = (type: string) => {
   const icons: Record<string, string> = {
     API: 'api',
     DATABASE: 'database',
-    MICROSERVICE: 'Settings_input_component',
+    MICROSERVICE: 'settings_input_component',
     FRONTEND: 'web',
     EXTERNAL_SERVICE: 'cloud',
     MESSAGE_BROKER: 'swap_horiz'
   };
-  return icons[type] || 'help';
+  return icons[type] || 'settings_input_component';
 };
 
 const getBgForType = (type: string) => {
@@ -87,15 +100,31 @@ const getBgForType = (type: string) => {
 }
 
 .handle-custom {
-  width: 8px !important;
-  height: 8px !important;
+  width: 10px !important;
+  height: 10px !important;
   background: #cbd5e1 !important;
   border: 2px solid white !important;
   transition: all 0.2s;
+  z-index: 10;
 }
 
 .handle-custom:hover {
   background: #4338ca !important;
   transform: scale(1.2);
+  z-index: 20;
+}
+
+/* Ensure source handles are easy to grab to start connection */
+.source-h {
+  z-index: 15;
+}
+
+/* Target handles are underneath but still accessible for connection drops */
+.target-h {
+  z-index: 10;
+}
+
+.omni-handle {
+  pointer-events: all !important;
 }
 </style>

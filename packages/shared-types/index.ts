@@ -57,12 +57,38 @@ export type SoftwareConfigurationType = 'API' | 'DATABASE' | 'MICROSERVICE' | 'F
 
 export type SoftwareConfigurationDependencyType = 'REST_CALL' | 'GRPC' | 'PUBSUB' | 'JDBC' | 'SOAP';
 
+export interface ConfigurationItemType {
+  id: string;
+  name: string;
+  icon?: string;
+  specifications?: PropertySpecification[];
+}
+
+export interface PropertySpecification {
+  id: string;
+  name: string;
+  dataType: 'string' | 'integer' | 'boolean';
+  required: boolean;
+  typeId: string;
+}
+
+export interface Property {
+  id: string;
+  value: string;
+  specificationId: string;
+  swciId: string;
+}
+
 export interface SoftwareConfigurationItem {
   id: string;
   name: string;
   description?: string;
-  type: SoftwareConfigurationType;
+  typeId: string;
+  type?: ConfigurationItemType;
   organizationId: string;
+  apiVersionId?: string | null;
+  apiVersion?: APIVersion | null;
+  properties?: Property[];
   createdAt: string;
   updatedAt: string;
 }

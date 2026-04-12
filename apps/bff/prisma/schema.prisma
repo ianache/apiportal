@@ -67,6 +67,7 @@ model APIVersion {
   api         API           @relation(fields: [apiId], references: [id], onDelete: Cascade)
   approver    User?         @relation("VersionApprover", fields: [approvedBy], references: [id])
   creator     User          @relation("VersionCreator", fields: [createdBy], references: [id])
+  swcis       SoftwareConfigurationItem[]
 
   @@unique([apiId, version])
 }
@@ -248,32 +249,48 @@ model Product {
   diagram        Json?
 }
 
+model ConfigurationItemType {
+  id             String                  @id @default(uuid())
+  name           String                  @unique // e.g. "API", "DATABASE", "MICROSERVICE"
+  icon           String?
+  specifications PropertySpecification[]
+  swcis          SoftwareConfigurationItem[]
+}
+
+model PropertySpecification {
+  id          String                @id @default(uuid())
+  name        String
+  dataType    String                // "string", "integer", "boolean"
+  required    Boolean               @default(false)
+  typeId      String
+  type        ConfigurationItemType @relation(fields: [typeId], references: [id], onDelete: Cascade)
+  properties  Property[]
+}
+
+model Property {
+  id              String                @id @default(uuid())
+  value           String                // Stored as string, parsed in frontend
+  specificationId String
+  specification   PropertySpecification @relation(fields: [specificationId], references: [id], onDelete: Cascade)
+  swciId          String
+  swci            SoftwareConfigurationItem @relation(fields: [swciId], references: [id], onDelete: Cascade)
+
+  @@unique([swciId, specificationId])
+}
+
 model SoftwareConfigurationItem {
-  id             String                    @id @default(uuid())
+  id             String                @id @default(uuid())
   name           String
   description    String?
-  type           SoftwareConfigurationType @default(MICROSERVICE)
+  typeId         String
+  type           ConfigurationItemType @relation(fields: [typeId], references: [id])
   organizationId String
-  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
-}
-
-enum SoftwareConfigurationType {
-  API
-  DATABASE
-  MICROSERVICE
-  FRONTEND
-  EXTERNAL_SERVICE
-  MESSAGE_BROKER
-}
-
-enum SoftwareConfigurationDependencyType {
-  REST_CALL
-  GRPC
-  PUBSUB
-  JDBC
-  SOAP
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  apiVersionId   String?
+  apiVersion     APIVersion?           @relation(fields: [apiVersionId], references: [id])
+  properties     Property[]
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
 }
 
 enum Role {
