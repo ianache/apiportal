@@ -136,6 +136,16 @@
 
           <!-- Relationships -->
           <g v-for="rel in canvasRelationships" :key="rel.id">
+            <!-- Hit area (thicker, transparent) -->
+            <path
+              :d="getRelationshipPath(rel)"
+              fill="none"
+              stroke="transparent"
+              stroke-width="12"
+              class="relationship-line-hit-area"
+              @click.stop="selectRelationship(rel)"
+            />
+            <!-- Visible line -->
             <path
               :d="getRelationshipPath(rel)"
               fill="none"
@@ -143,7 +153,7 @@
               stroke-width="2"
               marker-end="url(#arrowhead)"
               class="relationship-line"
-              @click.stop="selectRelationship(rel)"
+              style="pointer-events: none;"
             />
             <!-- Source multiplicity -->
             <text
@@ -376,7 +386,9 @@
                     <span class="material-symbols-outlined" style="font-size:14px;color:#717786;">
                       {{ expandedColumns.has(col.id) ? 'expand_more' : 'chevron_right' }}
                     </span>
-                    <span class="column-item__pk" :class="{ 'column-item__pk--active': col.isPrimaryKey }">PK</span>
+                    <span v-if="col.isPrimaryKey" class="column-item__pk">PK</span>
+                    <span v-else-if="col.isForeignKey" class="column-item__fk">FK</span>
+                    <span v-else class="column-item__badge-none"></span>
                     <span class="column-item__name">{{ col.name }}</span>
                     <span class="column-item__type">{{ col.dataType }}</span>
                     <button @click.stop="deleteColumn(col.id)" class="column-item__delete">
@@ -1600,7 +1612,8 @@ onMounted(async () => {
 /* Table */
 .er-table {
   position: absolute;
-  width: 200px;
+  min-width: 200px;
+  width: max-content;
   background: #ffffff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -1640,8 +1653,7 @@ onMounted(async () => {
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  margin-right: 12px;
 }
 
 .er-table__close {
@@ -1684,10 +1696,11 @@ onMounted(async () => {
 .er-column {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
   padding: 6px 10px;
   cursor: pointer;
   transition: background 0.1s;
+  white-space: nowrap;
 }
 
 .er-column:hover {
@@ -1722,6 +1735,7 @@ onMounted(async () => {
   flex: 1;
   font-size: 12px;
   color: #1a1b1f;
+  padding-right: 20px;
 }
 
 .er-column__type {
@@ -1734,10 +1748,16 @@ onMounted(async () => {
 .relationship-line {
   cursor: pointer;
   transition: stroke 0.2s;
+  pointer-events: auto;
 }
 
 .relationship-line:hover {
   stroke-width: 3;
+}
+
+.relationship-line-hit-area {
+  cursor: pointer;
+  pointer-events: auto;
 }
 
 .multiplicity-label {
@@ -1745,6 +1765,7 @@ onMounted(async () => {
   font-weight: 700;
   fill: #0058bc;
   cursor: pointer;
+  pointer-events: auto;
 }
 
 .multiplicity-label:hover {
@@ -2168,10 +2189,23 @@ onMounted(async () => {
   border-radius: 3px;
   background: #f59e0b;
   color: #ffffff;
+  min-width: 20px;
+  text-align: center;
 }
 
-.column-item__pk--active {
-  background: #f59e0b;
+.column-item__fk {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: #8b5cf6;
+  color: #ffffff;
+  min-width: 20px;
+  text-align: center;
+}
+
+.column-item__badge-none {
+  min-width: 20px;
 }
 
 .column-item__name {

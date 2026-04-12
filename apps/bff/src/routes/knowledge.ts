@@ -1,5 +1,7 @@
 import { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { embeddingService } from '../services/embedding.js';
+import { qdrantService } from '../services/qdrant.js';
 
 const fieldSchema = z.object({
   name: z.string().min(1),
@@ -134,56 +136,76 @@ const knowledgePieceRoutes: FastifyPluginAsync = async (fastify) => {
       }
     });
 
+    try {
+      const textToEmbed = `${data.title}\n\n${data.content}`;
+      fastify.log.info(`Generating embedding for: ${data.title}`);
+      const embedding = await embeddingService.generateEmbedding(textToEmbed);
+      fastify.log.info({ vectorSize: embedding.length, vectorSample: embedding.slice(0, 5) }, `Embedding generated`);
+
+      fastify.log.info(`Ensuring collection 'kbapi' exists with vector size ${embedding.length}`);
+      await qdrantService.ensureCollection(embedding.length);
+      fastify.log.info(`Collection 'kbapi' ready`);
+
+      const point = {
+        id: piece.id,
+        vector: embedding,
+        payload: {
+          title: data.title,
+          content: data.content,
+          typeId: data.typeId,
+          domainId: data.domainId,
+          metadata: data.metadata || {},
+          createdAt: piece.createdAt.toISOString(),
+        }
+      };
+      fastify.log.info({ pointId: point.id, vectorLength: point.vector.length }, `Upserting point to QDrant`);
+      await qdrantService.upsertPoint(point);
+      fastify.log.info(`Point ${piece.id} upserted successfully to collection 'kbapi'`);
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Failed to store embedding in QDrant');
+    }
+
     return piece;
   });
 
-  // POST /knowledge/search - Search knowledge pieces
+  // POST /knowledge/search - Search knowledge pieces using QDrant vector search
   fastify.post('/knowledge/search', async (request, reply) => {
     if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
 
     const schema = z.object({
-      query: z.string().min(1).optional(),
-      domainId: z.string(),
+      query: z.string().min(1),
+      domainId: z.string().optional(),
       typeId: z.string().optional(),
       limit: z.number().min(1).max(100).default(20),
-      offset: z.number().min(0).default(0),
     });
 
-    const { query, domainId, typeId, limit, offset } = schema.parse(request.body);
+    const { query, domainId, typeId, limit } = schema.parse(request.body);
 
-    const where: any = { domainId };
-    if (typeId) where.typeId = typeId;
+    fastify.log.info(`Searching knowledge base with query: "${query}"`);
 
-    let pieces = await fastify.prisma.knowledgePiece.findMany({
-      where,
-      take: limit,
-      skip: offset,
-      orderBy: { createdAt: 'desc' },
-      include: { 
-        type: { select: { id: true, name: true, fields: true } }
-      }
-    });
+    try {
+      const queryEmbedding = await embeddingService.generateEmbedding(query);
+      fastify.log.info(`Query embedding generated, vector size: ${queryEmbedding.length}`);
 
-    let results = pieces.map(piece => ({
-      id: piece.id,
-      title: piece.title,
-      content: piece.content,
-      metadata: piece.metadata,
-      typeName: piece.type.name,
-      createdAt: piece.createdAt,
-    }));
+      const searchResults = await qdrantService.searchPoints(queryEmbedding, limit, { domainId, typeId });
+      fastify.log.info(`QDrant returned ${searchResults.length} results`);
 
-    if (query) {
-      const q = query.toLowerCase();
-      results = results.filter(r => 
-        r.title.toLowerCase().includes(q) || 
-        r.content.toLowerCase().includes(q)
-      );
+      const results = searchResults.map((result: any) => ({
+        id: result.id,
+        title: result.payload?.title || '',
+        content: result.payload?.content || '',
+        metadata: result.payload?.metadata || {},
+        typeId: result.payload?.typeId || '',
+        domainId: result.payload?.domainId || '',
+        score: result.score,
+        createdAt: result.payload?.createdAt,
+      }));
+
+      return { results, total: results.length };
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Failed to search in QDrant');
+      return reply.code(500).send({ error: 'Search failed', details: (error as Error).message });
     }
-
-    const total = await fastify.prisma.knowledgePiece.count({ where });
-
-    return { results, total };
   });
 
   // GET /knowledge/:id - Get a knowledge piece
@@ -192,18 +214,20 @@ const knowledgePieceRoutes: FastifyPluginAsync = async (fastify) => {
 
     const { id } = request.params as { id: string };
     const piece = await fastify.prisma.knowledgePiece.findUnique({
-      where: { id },
-      include: { 
-        type: { select: { id: true, name: true, fields: true } }
-      }
+      where: { id }
     });
     if (!piece) return reply.code(404).send({ error: 'Knowledge piece not found' });
+
+    const type = await fastify.prisma.knowledgePieceType.findUnique({
+      where: { id: piece.typeId },
+      select: { id: true, name: true, fields: true }
+    });
 
     return {
       id: piece.id,
       typeId: piece.typeId,
-      typeName: piece.type.name,
-      typeFields: piece.type.fields,
+      typeName: type?.name || 'Unknown',
+      typeFields: type?.fields || [],
       domainId: piece.domainId,
       title: piece.title,
       content: piece.content,
@@ -222,6 +246,13 @@ const knowledgePieceRoutes: FastifyPluginAsync = async (fastify) => {
     if (!existing) return reply.code(404).send({ error: 'Knowledge piece not found' });
 
     await fastify.prisma.knowledgePiece.delete({ where: { id } });
+
+    try {
+      await qdrantService.deletePoint(id);
+    } catch (error) {
+      fastify.log.error({ err: error }, 'Failed to delete embedding from QDrant');
+    }
+
     return reply.code(204).send();
   });
 
