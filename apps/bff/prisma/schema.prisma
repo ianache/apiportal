@@ -19,6 +19,7 @@ model User {
   auditLogs             AuditLog[]
   favorites             UserAPIFavorite[]
   createdOrganizations  Organization[]    @relation("OrganizationCreator")
+  ownedOrganizations    Organization[]    @relation("OrganizationOwner")
   createdProducts       Product[]         @relation("ProductCreator")
 }
 
@@ -220,40 +221,59 @@ model KnowledgePiece {
 }
 
 model Organization {
-  id          String    @id @default(uuid())
-  name        String    @unique
+  id          String                      @id @default(uuid())
+  name        String                      @unique
   description String?
   createdById String
-  createdBy   User      @relation("OrganizationCreator", fields: [createdById], references: [id])
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdBy   User                        @relation("OrganizationCreator", fields: [createdById], references: [id])
+  ownerId     String?
+  owner       User?                       @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
   products    Product[]
-  apis        API[]     @relation("OrganizationApis")
+  apis        API[]                       @relation("OrganizationApis")
+  swcis       SoftwareConfigurationItem[]
 }
 
 model Product {
-  id             String                      @id @default(uuid())
+  id             String       @id @default(uuid())
   name           String
   description    String?
   organizationId String
-  organization   Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdById    String
-  createdBy      User                        @relation("ProductCreator", fields: [createdById], references: [id])
-  createdAt      DateTime                    @default(now())
-  updatedAt      DateTime                    @updatedAt
-  swcis          SoftwareConfigurationItem[]
+  createdBy      User         @relation("ProductCreator", fields: [createdById], references: [id])
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   diagram        Json?
 }
 
 model SoftwareConfigurationItem {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  productId   String
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  diagram     Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             String                    @id @default(uuid())
+  name           String
+  description    String?
+  type           SoftwareConfigurationType @default(MICROSERVICE)
+  organizationId String
+  organization   Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+}
+
+enum SoftwareConfigurationType {
+  API
+  DATABASE
+  MICROSERVICE
+  FRONTEND
+  EXTERNAL_SERVICE
+  MESSAGE_BROKER
+}
+
+enum SoftwareConfigurationDependencyType {
+  REST_CALL
+  GRPC
+  PUBSUB
+  JDBC
+  SOAP
 }
 
 enum Role {

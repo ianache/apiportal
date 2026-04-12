@@ -330,7 +330,7 @@ grep -E "^$VAR_NAME=.+" .env .env.local 2>/dev/null | grep -v "your-.*-here|xxx|
 DATABASE_URL=your-database-url-here
 STRIPE_SECRET_KEY=sk_test_xxx
 API_KEY=placeholder
-NEXT_PUBLIC_API_URL=http://localhost:3000  # Still pointing to localhost in prod
+NEXT_PUBLIC_API_URL=http://localhost:3001  # Still pointing to localhost in prod
 ```
 
 **Wiring check:**

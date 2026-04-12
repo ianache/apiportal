@@ -89,7 +89,7 @@ user_setup:
         location: "Stripe Dashboard → Developers → Webhooks → Add endpoint"
         details: "URL: https://[your-domain]/api/webhooks/stripe, Events: checkout.session.completed, customer.subscription.*"
     local_dev:
-      - "Run: stripe listen --forward-to localhost:3000/api/webhooks/stripe"
+      - "Run: stripe listen --forward-to localhost:3001/api/webhooks/stripe"
       - "Use the webhook secret from CLI output for local testing"
 ```
 
@@ -162,7 +162,7 @@ Complete these items for Stripe integration to function.
 
 For local webhook testing:
 ```bash
-stripe listen --forward-to localhost:3000/api/webhooks/stripe
+stripe listen --forward-to localhost:3001/api/webhooks/stripe
 ```
 Use the webhook signing secret from CLI output (starts with `whsec_`).
 
@@ -178,7 +178,7 @@ grep STRIPE .env.local
 npm run build
 
 # Test webhook endpoint (should return 400 bad signature, not 500 crash)
-curl -X POST http://localhost:3000/api/webhooks/stripe \
+curl -X POST http://localhost:3001/api/webhooks/stripe \
   -H "Content-Type: application/json" \
   -d '{}'
 ```
@@ -289,7 +289,7 @@ After completing setup:
 grep SENDGRID .env.local
 
 # Test email sending (replace with your test email)
-curl -X POST http://localhost:3000/api/test-email \
+curl -X POST http://localhost:3001/api/test-email \
   -H "Content-Type: application/json" \
   -d '{"to": "your@email.com"}'
 ```

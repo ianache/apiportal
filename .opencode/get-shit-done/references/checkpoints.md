@@ -50,14 +50,14 @@ Plans execute autonomously. Checkpoints formalize interaction points where human
 <task type="auto">
   <name>Start dev server for verification</name>
   <action>Run `npm run dev` in background, wait for "ready" message, capture port</action>
-  <verify>fetch http://localhost:3000 returns 200</verify>
-  <done>Dev server running at http://localhost:3000</done>
+  <verify>fetch http://localhost:3001 returns 200</verify>
+  <done>Dev server running at http://localhost:3001</done>
 </task>
 
 <task type="checkpoint:human-verify" gate="blocking">
-  <what-built>Responsive dashboard layout - dev server running at http://localhost:3000</what-built>
+  <what-built>Responsive dashboard layout - dev server running at http://localhost:3001</what-built>
   <how-to-verify>
-    Visit http://localhost:3000/dashboard and verify:
+    Visit http://localhost:3001/dashboard and verify:
     1. Desktop (>1024px): Sidebar left, content right, header top
     2. Tablet (768px): Sidebar collapses to hamburger menu
     3. Mobile (375px): Single column layout, bottom nav appears
@@ -291,7 +291,7 @@ Task: Responsive dashboard layout
 Built: Responsive dashboard at /dashboard
 
 How to verify:
-  1. Visit: http://localhost:3000/dashboard
+  1. Visit: http://localhost:3001/dashboard
   2. Desktop (>1024px): Sidebar visible, content fills remaining space
   3. Tablet (768px): Sidebar collapses to icons
   4. Mobile (375px): Sidebar hidden, hamburger menu appears
@@ -443,10 +443,10 @@ I'll verify: vercel whoami returns your account
 
 | Framework | Start Command | Ready Signal | Default URL |
 |-----------|---------------|--------------|-------------|
-| Next.js | `npm run dev` | "Ready in" or "started server" | http://localhost:3000 |
+| Next.js | `npm run dev` | "Ready in" or "started server" | http://localhost:3001 |
 | Vite | `npm run dev` | "ready in" | http://localhost:5173 |
 | Convex | `npx convex dev` | "Convex functions ready" | N/A (backend only) |
-| Express | `npm start` | "listening on port" | http://localhost:3000 |
+| Express | `npm start` | "listening on port" | http://localhost:3001 |
 | Django | `python manage.py runserver` | "Starting development server" | http://localhost:8000 |
 
 **Server lifecycle:**
@@ -456,7 +456,7 @@ npm run dev &
 DEV_SERVER_PID=$!
 
 # Wait for ready (max 30s) — uses fetch() for cross-platform compatibility
-timeout 30 bash -c 'until node -e "fetch(\"http://localhost:3000\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null; do sleep 1; done'
+timeout 30 bash -c 'until node -e "fetch(\"http://localhost:3001\").then(r=>{process.exit(r.ok?0:1)}).catch(()=>process.exit(1))" 2>/dev/null; do sleep 1; done'
 ```
 
 **Port conflicts:** Kill stale process (`lsof -ti:3000 | xargs kill`) or use alternate port (`--port 3001`).
@@ -489,27 +489,27 @@ timeout 30 bash -c 'until node -e "fetch(\"http://localhost:3000\").then(r=>{pro
 | Auth error | Create auth gate checkpoint |
 | Network timeout | Retry with backoff, then checkpoint if persistent |
 
-**Never present a checkpoint with broken verification environment.** If the local server isn't responding, don't ask user to "visit localhost:3000".
+**Never present a checkpoint with broken verification environment.** If the local server isn't responding, don't ask user to "visit localhost:3001".
 
-> **Cross-platform note:** Use `node -e "fetch('http://localhost:3000').then(r=>console.log(r.status))"` instead of `curl` for health checks. `curl` is broken on Windows MSYS/Git Bash due to SSL/path mangling issues.
+> **Cross-platform note:** Use `node -e "fetch('http://localhost:3001').then(r=>console.log(r.status))"` instead of `curl` for health checks. `curl` is broken on Windows MSYS/Git Bash due to SSL/path mangling issues.
 
 ```xml
 <!-- WRONG: Checkpoint with broken environment -->
 <task type="checkpoint:human-verify">
   <what-built>Dashboard (server failed to start)</what-built>
-  <how-to-verify>Visit http://localhost:3000...</how-to-verify>
+  <how-to-verify>Visit http://localhost:3001...</how-to-verify>
 </task>
 
 <!-- RIGHT: Fix first, then checkpoint -->
 <task type="auto">
   <name>Fix server startup issue</name>
   <action>Investigate error, fix root cause, restart server</action>
-  <verify>fetch http://localhost:3000 returns 200</verify>
+  <verify>fetch http://localhost:3001 returns 200</verify>
 </task>
 
 <task type="checkpoint:human-verify">
-  <what-built>Dashboard - server running at http://localhost:3000</what-built>
-  <how-to-verify>Visit http://localhost:3000/dashboard...</how-to-verify>
+  <what-built>Dashboard - server running at http://localhost:3001</what-built>
+  <how-to-verify>Visit http://localhost:3001/dashboard...</how-to-verify>
 </task>
 ```
 
@@ -610,15 +610,15 @@ timeout 30 bash -c 'until node -e "fetch(\"http://localhost:3000\").then(r=>{pro
 <task type="auto">
   <name>Start dev server for auth testing</name>
   <action>Run `npm run dev` in background, wait for ready signal</action>
-  <verify>fetch http://localhost:3000 returns 200</verify>
-  <done>Dev server running at http://localhost:3000</done>
+  <verify>fetch http://localhost:3001 returns 200</verify>
+  <done>Dev server running at http://localhost:3001</done>
 </task>
 
 <!-- ONE checkpoint at end verifies the complete flow -->
 <task type="checkpoint:human-verify" gate="blocking">
-  <what-built>Complete authentication flow - dev server running at http://localhost:3000</what-built>
+  <what-built>Complete authentication flow - dev server running at http://localhost:3001</what-built>
   <how-to-verify>
-    1. Visit: http://localhost:3000/login
+    1. Visit: http://localhost:3001/login
     2. Click "Sign in with GitHub"
     3. Complete GitHub OAuth flow
     4. Verify: Redirected to /dashboard, user name displayed
@@ -639,7 +639,7 @@ timeout 30 bash -c 'until node -e "fetch(\"http://localhost:3000\").then(r=>{pro
   <what-built>Dashboard component</what-built>
   <how-to-verify>
     1. Run: npm run dev
-    2. Visit: http://localhost:3000/dashboard
+    2. Visit: http://localhost:3001/dashboard
     3. Check layout is correct
   </how-to-verify>
 </task>
@@ -653,13 +653,13 @@ timeout 30 bash -c 'until node -e "fetch(\"http://localhost:3000\").then(r=>{pro
 <task type="auto">
   <name>Start dev server</name>
   <action>Run `npm run dev` in background</action>
-  <verify>fetch http://localhost:3000 returns 200</verify>
+  <verify>fetch http://localhost:3001 returns 200</verify>
 </task>
 
 <task type="checkpoint:human-verify" gate="blocking">
-  <what-built>Dashboard at http://localhost:3000/dashboard (server running)</what-built>
+  <what-built>Dashboard at http://localhost:3001/dashboard (server running)</what-built>
   <how-to-verify>
-    Visit http://localhost:3000/dashboard and verify:
+    Visit http://localhost:3001/dashboard and verify:
     1. Layout matches design
     2. No console errors
   </how-to-verify>
@@ -723,9 +723,9 @@ timeout 30 bash -c 'until node -e "fetch(\"http://localhost:3000\").then(r=>{pro
 
 <!-- GOOD -->
 <task type="checkpoint:human-verify">
-  <what-built>Responsive dashboard - server running at http://localhost:3000</what-built>
+  <what-built>Responsive dashboard - server running at http://localhost:3001</what-built>
   <how-to-verify>
-    Visit http://localhost:3000/dashboard and verify:
+    Visit http://localhost:3001/dashboard and verify:
     1. Desktop (>1024px): Sidebar visible, content area fills remaining space
     2. Tablet (768px): Sidebar collapses to icons
     3. Mobile (375px): Sidebar hidden, hamburger menu in header

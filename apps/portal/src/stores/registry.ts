@@ -16,7 +16,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -35,7 +36,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${id}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -59,7 +61,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis`, {
           method: 'POST',
           headers: {
@@ -89,7 +92,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/status`, {
           method: 'POST',
           headers: {
@@ -118,7 +122,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${id}`, {
           method: 'PATCH',
           headers: {
@@ -150,7 +155,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const payload: any = { version };
         if (baseVersion) payload.baseVersion = baseVersion;
         const res = await fetch(`${bffBase}/apis/${apiId}/versions`, {
@@ -183,7 +189,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/endpoints`, {
           method: 'POST',
           headers: {
@@ -210,7 +217,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/endpoints/${endpointId}`, {
           method: 'PATCH',
           headers: {
@@ -236,7 +244,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/endpoints/${endpointId}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
@@ -260,7 +269,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${apiId}/versions/${oldVersion}`, {
           method: 'PATCH',
           headers: {
@@ -288,7 +298,8 @@ export const useRegistryStore = defineStore('registry', {
         this.loading = true;
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${token}` }
@@ -311,7 +322,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/definition`, {
           method: 'PUT',
           headers: {
@@ -335,7 +347,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/openapi`, {
           method: 'PUT',
           headers: {
@@ -359,7 +372,8 @@ export const useRegistryStore = defineStore('registry', {
       try {
         const auth = useAuthStore();
         const token = await auth.getToken();
-        const bffBase = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
         const res = await fetch(`${bffBase}/apis/${apiId}/versions/${version}/openapi`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });

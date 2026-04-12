@@ -91,6 +91,22 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
         name: payload.name as string | undefined,
         role: appRole,
       };
+
+      // Synchronize user with local database
+      await fastify.prisma.user.upsert({
+        where: { sub: request.user.sub },
+        update: {
+          email: request.user.email,
+          name: request.user.name,
+          role: request.user.role,
+        },
+        create: {
+          sub: request.user.sub,
+          email: request.user.email,
+          name: request.user.name,
+          role: request.user.role,
+        },
+      });
     } catch (err) {
       fastify.log.warn(`Token validation failed: ${err}`);
       return reply.code(401).send({ error: 'Unauthorized', message: 'Invalid or expired token' });

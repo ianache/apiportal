@@ -30,6 +30,16 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/organizations/:id/products',
+    component: () => import('../views/OrganizationProducts.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/products/:id/designer',
+    component: () => import('../views/ProductDesigner.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/explorer/:id/spec/:version?',
     component: () => import('../views/ApiSpecViewer.vue'),
     meta: { requiresAuth: true }

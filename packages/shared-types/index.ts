@@ -35,6 +35,8 @@ export interface Organization {
   name: string;
   description?: string;
   createdById: string;
+  ownerId?: string | null;
+  owner?: User | null;
   createdAt: string;
   updatedAt: string;
   apiCount?: number;
@@ -49,6 +51,20 @@ export interface Product {
   createdAt: string;
   updatedAt: string;
   diagram?: any;
+}
+
+export type SoftwareConfigurationType = 'API' | 'DATABASE' | 'MICROSERVICE' | 'FRONTEND' | 'EXTERNAL_SERVICE' | 'MESSAGE_BROKER';
+
+export type SoftwareConfigurationDependencyType = 'REST_CALL' | 'GRPC' | 'PUBSUB' | 'JDBC' | 'SOAP';
+
+export interface SoftwareConfigurationItem {
+  id: string;
+  name: string;
+  description?: string;
+  type: SoftwareConfigurationType;
+  organizationId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface APIVersion {

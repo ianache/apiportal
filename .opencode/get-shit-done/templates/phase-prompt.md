@@ -407,12 +407,12 @@ Output: Working dashboard component.
 <task type="auto">
   <name>Start dev server</name>
   <action>Run `npm run dev` in background, wait for ready</action>
-  <verify>fetch http://localhost:3000 returns 200</verify>
+  <verify>fetch http://localhost:3001 returns 200</verify>
 </task>
 
 <task type="checkpoint:human-verify" gate="blocking">
-  <what-built>Dashboard - server at http://localhost:3000</what-built>
-  <how-to-verify>Visit localhost:3000/dashboard. Check: desktop grid, mobile stack, no scroll issues.</how-to-verify>
+  <what-built>Dashboard - server at http://localhost:3001</what-built>
+  <how-to-verify>Visit localhost:3001/dashboard. Check: desktop grid, mobile stack, no scroll issues.</how-to-verify>
   <resume-signal>Type "approved" or describe issues</resume-signal>
 </task>
 </tasks>
@@ -528,7 +528,7 @@ user_setup:
         location: "Stripe Dashboard → Developers → Webhooks → Add endpoint"
         details: "URL: https://[your-domain]/api/webhooks/stripe"
     local_dev:
-      - "stripe listen --forward-to localhost:3000/api/webhooks/stripe"
+      - "stripe listen --forward-to localhost:3001/api/webhooks/stripe"
 ```
 
 **The automation-first rule:** `user_setup` contains ONLY what the agent literally cannot do:
