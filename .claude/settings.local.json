@@ -12,7 +12,13 @@
       "Skill(gsd:plan-phase)",
       "Bash(npx prisma:*)",
       "Bash(npx vue-tsc:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(python3:*)",
+      "Bash(sed -n '251,257p' \"C:\\\\Users\\\\ianache\\\\Desktop\\\\DATA\\\\01-DOCUMENTOS\\\\02-PROYECTOS\\\\103-APIManager\\\\apps\\\\portal\\\\src\\\\views\\\\TransformationDesigner.vue\")",
+      "Bash(sed -n '315,350p' \"C:\\\\Users\\\\ianache\\\\Desktop\\\\DATA\\\\01-DOCUMENTOS\\\\02-PROYECTOS\\\\103-APIManager\\\\apps\\\\portal\\\\src\\\\views\\\\TransformationDesigner.vue\")",
+      "Bash(sed -n '351,380p' \"C:\\\\Users\\\\ianache\\\\Desktop\\\\DATA\\\\01-DOCUMENTOS\\\\02-PROYECTOS\\\\103-APIManager\\\\apps\\\\portal\\\\src\\\\views\\\\TransformationDesigner.vue\")",
+      "Bash(sed -n '1,15p' \"C:\\\\Users\\\\ianache\\\\Desktop\\\\DATA\\\\01-DOCUMENTOS\\\\02-PROYECTOS\\\\103-APIManager\\\\apps\\\\portal\\\\src\\\\components\\\\designer\\\\SchemaNode.vue\")",
+      "Bash(sed -n '75,100p' \"C:\\\\Users\\\\ianache\\\\Desktop\\\\DATA\\\\01-DOCUMENTOS\\\\02-PROYECTOS\\\\103-APIManager\\\\apps\\\\portal\\\\src\\\\components\\\\designer\\\\SchemaNode.vue\")"
     ]
   }
 }

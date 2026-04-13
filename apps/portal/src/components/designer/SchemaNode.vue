@@ -1,12 +1,12 @@
 <template>
-  <div class="schema-node bg-white border-r border-l flex flex-col overflow-hidden"
+  <div class="schema-node bg-white border-r border-l flex flex-col"
     :style="{ width: '320px', height: '100%', borderColor: '#e3e2e7' }">
     
     <!-- section-header (Standardized Label) -->
     <div class="h-12 flex items-center justify-center border-b" 
       :style="{ background: type === 'input' ? '#f8f9fc' : '#f8f9fc', borderColor: '#e3e2e7' }">
       <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">
-        {{ type === 'input' ? 'Input Structure' : 'Output Structure' }}
+        {{ isInput ? 'Input Structure' : 'Output Structure' }}
       </span>
     </div>
 
@@ -14,14 +14,14 @@
     <div class="p-4 border-b flex items-center justify-between" style="background: #ffffff; border-color: #f0f0f5;">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
-          :style="{ background: type === 'input' ? '#0058bc' : '#10b981' }">
+          :style="{ background: isInput ? '#0058bc' : '#10b981' }">
           <span class="material-symbols-outlined text-white text-xl">
-            {{ type === 'input' ? 'login' : 'logout' }}
+            {{ isInput ? 'login' : 'logout' }}
           </span>
         </div>
         <div>
           <h2 class="text-xs font-black text-slate-700 uppercase tracking-tight leading-tight">
-            {{ type === 'input' ? 'Input Structure' : 'Output Structure' }}
+            {{ isInput ? 'Input Structure' : 'Output Structure' }}
           </h2>
           <p class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Data Schema</p>
         </div>
@@ -49,7 +49,7 @@
       <div v-for="field in data.fields" :key="field.id" 
         class="field-item relative flex items-center p-2 rounded-xl hover:bg-slate-50 group transition-all">
         
-        <Handle v-if="type === 'input'"
+        <Handle v-if="isInput"
           type="source"
           :position="Position.Right"
           :id="field.id"
@@ -61,7 +61,7 @@
           <span class="text-xs font-bold text-slate-600 truncate">{{ field.name }}</span>
         </div>
 
-        <Handle v-if="type === 'output'"
+        <Handle v-if="!isInput"
           type="target"
           :position="Position.Left"
           :id="field.id"
@@ -73,17 +73,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { Handle, Position } from '@vue-flow/core';
 
 const props = defineProps<{
   id: string;
-  type: 'input' | 'output';
+  type: string;
   data: {
+    side?: 'input' | 'output';
     fields: Array<{ id: string; name: string }>;
     onSchemaLoaded?: (schema: any) => void;
+    height?: number;
   };
 }>();
+
+const isInput = computed(() => props.data.side === 'input' || props.type === 'input' || props.type === 'schemaInput');
 
 const emit = defineEmits(['schema-loaded']);
 const fileInput = ref<HTMLInputElement | null>(null);

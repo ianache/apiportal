@@ -249,8 +249,8 @@ import TxNode from '../components/designer/TxNode.vue';
 import SchemaNode from '../components/designer/SchemaNode.vue';
 
 const nodeTypes = {
-  input: markRaw(SchemaNode),
-  output: markRaw(SchemaNode),
+  schemaInput: markRaw(SchemaNode),
+  schemaOutput: markRaw(SchemaNode),
   txNode: markRaw(TxNode),
   source: markRaw(TxNode), target: markRaw(TxNode), mapper: markRaw(TxNode), filter: markRaw(TxNode), script: markRaw(TxNode),
 };
@@ -310,34 +310,63 @@ const onSchemaLoaded = ({ nodeId, schema }: { nodeId: string, schema: any }) => 
   if (fields.length > 0) node.data = { ...node.data, fields };
 };
 
-const initializeDefaultNodes = () => [
-  {
-    id: 'input-schema', type: 'input', position: { x: 0, y: 0 },
-    draggable: false, selectable: false, deletable: false,
-    data: {
-      fields: Array.from({ length: 15 }, (_, i) => ({ id: `input-schema_f_${i}`, name: `field_source_${i+1}` })),
-      onSchemaLoaded: (schema: any) => onSchemaLoaded({ nodeId: 'input-schema', schema })
+const HEADER_HEIGHT = 64;
+const getSchemaNodeHeight = (zoom = 1) => (window.innerHeight - HEADER_HEIGHT) / zoom;
+
+const initializeDefaultNodes = () => {
+  const h = getSchemaNodeHeight();
+  return [
+    {
+      id: 'input-schema', type: 'schemaInput', position: { x: 0, y: 0 },
+      style: { width: '320px', height: `${h}px`, overflow: 'hidden' },
+      draggable: false, selectable: false, deletable: false,
+      data: {
+        side: 'input',
+        height: h,
+        fields: Array.from({ length: 15 }, (_, i) => ({ id: `input-schema_f_${i}`, name: `field_source_${i+1}` })),
+        onSchemaLoaded: (schema: any) => onSchemaLoaded({ nodeId: 'input-schema', schema })
+      }
+    },
+    {
+      id: 'output-schema', type: 'schemaOutput', position: { x: 800, y: 0 },
+      style: { width: '320px', height: `${h}px`, overflow: 'hidden' },
+      draggable: false, selectable: false, deletable: false,
+      data: {
+        side: 'output',
+        height: h,
+        fields: Array.from({ length: 15 }, (_, i) => ({ id: `output-schema_f_${i}`, name: `target_property_${i+1}` })),
+        onSchemaLoaded: (schema: any) => onSchemaLoaded({ nodeId: 'output-schema', schema })
+      }
     }
-  },
-  {
-    id: 'output-schema', type: 'output', position: { x: 800, y: 0 },
-    draggable: false, selectable: false, deletable: false,
-    data: {
-      fields: Array.from({ length: 15 }, (_, i) => ({ id: `output-schema_f_${i}`, name: `target_property_${i+1}` })),
-      onSchemaLoaded: (schema: any) => onSchemaLoaded({ nodeId: 'output-schema', schema })
-    }
-  }
-];
+  ];
+};
 
 onViewportChange(({ x, y, zoom }) => {
+  const h = getSchemaNodeHeight(zoom);
+  const nodeStyle = { width: '320px', height: `${h}px`, overflow: 'hidden' };
   const inputNode = findNode('input-schema');
-  if (inputNode) inputNode.position = { x: -x / zoom, y: -y / zoom };
+  if (inputNode) {
+    inputNode.position = { x: -x / zoom, y: -y / zoom };
+    inputNode.style = nodeStyle;
+    inputNode.data = { ...inputNode.data, height: h };
+  }
   const outputNode = findNode('output-schema');
   if (outputNode) {
     const canvasWidth = window.innerWidth - 320;
     outputNode.position = { x: (canvasWidth - 320 - x) / zoom, y: -y / zoom };
+    outputNode.style = nodeStyle;
+    outputNode.data = { ...outputNode.data, height: h };
   }
 });
+
+const onWindowResize = () => {
+  const h = getSchemaNodeHeight();
+  const nodeStyle = { width: '320px', height: `${h}px`, overflow: 'hidden' };
+  const inputNode = findNode('input-schema');
+  if (inputNode) { inputNode.style = nodeStyle; inputNode.data = { ...inputNode.data, height: h }; }
+  const outputNode = findNode('output-schema');
+  if (outputNode) { outputNode.style = nodeStyle; outputNode.data = { ...outputNode.data, height: h }; }
+};
 
 const startPaletteDrag = (e: MouseEvent) => {
   draggingPalette.value = true;
@@ -359,6 +388,7 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
 onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown);
+  window.addEventListener('resize', onWindowResize);
   const id = route.params.id as string;
   try {
     const token = await auth.getToken();
@@ -372,8 +402,16 @@ onMounted(async () => {
         const flow = transformation.value.definition;
         nodes.value = flow.nodes || [];
         edges.value = flow.edges || [];
+        const initH = getSchemaNodeHeight();
+        const initStyle = { width: '320px', height: `${initH}px`, overflow: 'hidden' };
         nodes.value.forEach(n => {
-          if (n.id === 'input-schema' || n.id === 'output-schema') n.data.onSchemaLoaded = (schema: any) => onSchemaLoaded({ nodeId: n.id, schema });
+          if (n.id === 'input-schema' || n.id === 'output-schema') {
+            n.type = n.id === 'input-schema' ? 'schemaInput' : 'schemaOutput';
+            n.style = initStyle;
+            n.data.side = n.id === 'input-schema' ? 'input' : 'output';
+            n.data.height = initH;
+            n.data.onSchemaLoaded = (schema: any) => onSchemaLoaded({ nodeId: n.id, schema });
+          }
         });
         if (!nodes.value.find(n => n.id === 'input-schema')) nodes.value.push(initializeDefaultNodes()[0]);
         if (!nodes.value.find(n => n.id === 'output-schema')) nodes.value.push(initializeDefaultNodes()[1]);
@@ -383,7 +421,10 @@ onMounted(async () => {
   } catch (err) { console.error(err); }
 });
 
-onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeyDown);
+  window.removeEventListener('resize', onWindowResize);
+});
 const onNodeClick = (event: any) => { selectedNode.value = event.node; selectedEdge.value = null; };
 const onEdgeClick = (event: any) => { selectedEdge.value = event.edge; selectedNode.value = null; };
 const deleteSelectedNode = () => { if (selectedNode.value) { removeNodes([selectedNode.value.id]); selectedNode.value = null; } };
@@ -411,6 +452,15 @@ const handleSave = async () => {
 @import '@vue-flow/core/dist/style.css';
 @import '@vue-flow/core/dist/theme-default.css';
 .transformation-canvas { width: 100%; height: 100%; }
+/* Schema panel nodes: reset VueFlow built-in node styling */
+.vue-flow__node-schemaInput,
+.vue-flow__node-schemaOutput {
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+}
 .vue-flow__edge-path { stroke-dasharray: 5; animation: dash 1s linear infinite; }
 .vue-flow__edge.selected .vue-flow__edge-path { stroke: #3b82f6 !important; stroke-width: 3; filter: drop-shadow(0 0 4px rgba(59, 130, 246, 0.5)); }
 @keyframes dash { from { stroke-dashoffset: 10; } to { stroke-dashoffset: 0; } }
