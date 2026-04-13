@@ -83,16 +83,17 @@ model Environment {
 }
 
 model Domain {
-  id           String        @id @default(uuid())
-  name         String        @unique
-  title        String
-  description  String?
-  labels       String[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  conceptModel Json?
-  erModel      Json?
-  integrations Integration[]
+  id              String               @id @default(uuid())
+  name            String               @unique
+  title           String
+  description     String?
+  labels          String[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  conceptModel    Json?
+  erModel         Json?
+  integrations    Integration[]
+  transformations DataTransformation[] @relation("DomainTransformations")
 }
 
 model Integration {
@@ -125,6 +126,17 @@ model NodeTypeCatalog {
   id          String   @id @default(uuid())
   name        String   @unique
   description String?
+  properties  Json     @default("[]")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TxNodeTypeCatalog {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  icon        String?  @default("transform")
+  color       String?  @default("#0058bc")
   properties  Json     @default("[]")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -222,18 +234,19 @@ model KnowledgePiece {
 }
 
 model Organization {
-  id          String                      @id @default(uuid())
-  name        String                      @unique
-  description String?
-  createdById String
-  createdBy   User                        @relation("OrganizationCreator", fields: [createdById], references: [id])
-  ownerId     String?
-  owner       User?                       @relation("OrganizationOwner", fields: [ownerId], references: [id])
-  createdAt   DateTime                    @default(now())
-  updatedAt   DateTime                    @updatedAt
-  products    Product[]
-  apis        API[]                       @relation("OrganizationApis")
-  swcis       SoftwareConfigurationItem[]
+  id              String                      @id @default(uuid())
+  name            String                      @unique
+  description     String?
+  createdById     String
+  createdBy       User                        @relation("OrganizationCreator", fields: [createdById], references: [id])
+  ownerId         String?
+  owner           User?                       @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+  products        Product[]
+  apis            API[]                       @relation("OrganizationApis")
+  swcis           SoftwareConfigurationItem[]
+  transformations DataTransformation[]        @relation("OrganizationTransformations")
 }
 
 model Product {
@@ -291,6 +304,23 @@ model SoftwareConfigurationItem {
   properties     Property[]
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
+}
+
+model DataTransformation {
+  id             String        @id @default(uuid())
+  name           String
+  description    String?
+  source         String?
+  target         String?
+  code           String?
+  language       String        @default("javascript")
+  definition     Json?
+  organizationId String?
+  organization   Organization? @relation("OrganizationTransformations", fields: [organizationId], references: [id])
+  domainId       String?
+  domain         Domain?       @relation("DomainTransformations", fields: [domainId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 }
 
 enum Role {

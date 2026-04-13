@@ -108,11 +108,11 @@
           <template #body>
             <div class="space-y-4 py-2">
               <div class="flex flex-col">
-                <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Associated APIs</span>
+                <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Products</span>
                 <div class="flex items-end gap-2">
-                  <span class="text-3xl font-black text-slate-900">{{ org.apiCount || 0 }}</span>
+                  <span class="text-3xl font-black text-slate-900">{{ org.productCount || 0 }}</span>
                   <span class="text-[11px] font-bold text-emerald-500 flex items-center mb-1">
-                    <span class="material-symbols-outlined text-[14px]">link</span>
+                    <span class="material-symbols-outlined text-[14px]">inventory_2</span>
                   </span>
                 </div>
               </div>

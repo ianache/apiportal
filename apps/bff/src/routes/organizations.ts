@@ -35,7 +35,10 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
     const organizations = await fastify.prisma.organization.findMany({
       include: {
         _count: {
-          select: { apis: true }
+          select: { 
+            apis: true,
+            products: true
+          }
         },
         owner: true
       },
@@ -44,7 +47,8 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
     
     return organizations.map(org => ({
       ...org,
-      apiCount: org._count.apis
+      apiCount: org._count.apis,
+      productCount: org._count.products
     }));
   });
 
@@ -57,7 +61,10 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
       where: { id },
       include: {
         _count: {
-          select: { apis: true }
+          select: { 
+            apis: true,
+            products: true
+          }
         },
         owner: true,
         products: true,
@@ -69,7 +76,8 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
     
     return {
       ...organization,
-      apiCount: organization._count.apis
+      apiCount: organization._count.apis,
+      productCount: organization._count.products
     };
   });
 
@@ -134,12 +142,52 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
     if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
     const { orgId } = request.params as { orgId: string };
 
-    return fastify.prisma.product.findMany({
+    const products = await fastify.prisma.product.findMany({
       where: { organizationId: orgId },
       include: {
         createdBy: true
       },
       orderBy: { name: 'asc' }
+    });
+
+    // Obtener todos los SWCIs de la organización para cruzar tipos e iconos
+    const swcis = await fastify.prisma.softwareConfigurationItem.findMany({
+      where: { organizationId: orgId },
+      include: { type: true }
+    });
+
+    // Enriquecer productos con el conteo por tipo basado en el diagrama
+    return products.map(product => {
+      const diagram = (product.diagram as any) || { nodes: [] };
+      const nodes = diagram.nodes || [];
+      
+      // Mapear IDs de SWCI presentes en el diagrama
+      const swciIdsInDiagram = nodes
+        .filter((n: any) => n.type === 'swci' && n.data?.swciId)
+        .map((n: any) => n.data.swciId);
+
+      // Contar por tipo
+      const typeCounts: Record<string, { name: string, icon: string, count: number }> = {};
+      
+      swciIdsInDiagram.forEach((id: string) => {
+        const swci = swcis.find(s => s.id === id);
+        if (swci && swci.type) {
+          if (!typeCounts[swci.typeId]) {
+            typeCounts[swci.typeId] = {
+              name: swci.type.name,
+              icon: swci.type.icon || 'settings_input_component',
+              count: 0
+            };
+          }
+          typeCounts[swci.typeId].count++;
+        }
+      });
+
+      return {
+        ...product,
+        swciSummary: Object.values(typeCounts).sort((a, b) => a.name.localeCompare(b.name)),
+        totalSwcis: swciIdsInDiagram.length
+      };
     });
   });
 

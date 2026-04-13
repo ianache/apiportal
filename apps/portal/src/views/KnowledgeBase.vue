@@ -26,7 +26,7 @@
             style="background:#0058bc;color:#fff;"
           >
             <span class="material-symbols-outlined" style="font-size:18px;">add</span>
-            + Add Knowledge Base
+            Add Knowledge
           </button>
           <button
             @click="showTypeManager = true"

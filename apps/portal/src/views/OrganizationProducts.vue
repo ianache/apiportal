@@ -105,11 +105,25 @@
           <template #body>
             <div class="space-y-4 py-2">
               <div class="flex flex-col">
-                <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400">Configuration Items</span>
-                <div class="flex items-end gap-2">
-                  <span class="text-3xl font-black text-slate-900">{{ (product as any)._count?.swcis || 0 }}</span>
-                  <span class="text-[11px] font-bold text-indigo-500 flex items-center mb-1">
-                    <span class="material-symbols-outlined text-[14px]">account_tree</span>
+                <span class="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Configuration Items</span>
+                
+                <!-- SWCI Summary by Type -->
+                <div v-if="(product as any).swciSummary?.length > 0" class="flex flex-wrap gap-x-4 gap-y-2">
+                  <div 
+                    v-for="summary in (product as any).swciSummary" 
+                    :key="summary.name"
+                    class="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100"
+                    :title="summary.name"
+                  >
+                    <span class="text-sm font-black text-slate-900">{{ summary.count }}</span>
+                    <span class="material-symbols-outlined text-indigo-500" style="font-size: 16px;">{{ summary.icon }}</span>
+                  </div>
+                </div>
+                
+                <div v-else class="flex items-end gap-2">
+                  <span class="text-3xl font-black text-slate-900 text-slate-200">0</span>
+                  <span class="text-[11px] font-bold text-slate-200 flex items-center mb-1">
+                    <span class="material-symbols-outlined text-[14px]">inventory_2</span>
                   </span>
                 </div>
               </div>

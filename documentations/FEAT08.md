@@ -69,3 +69,46 @@
 - Las herramientas/componentes SWCI que se colocan en el panel izquierdo deben estar organizados por tipo de SWCI y dentro de cada tipo de SWCI debe estar ordenado alfabeticamente por nombre. Por ejemplo, si hay 3 tipos de SWCI (API, Base de Datos, Microservicio) deben estar ordenados alfabeticamente y dentro de cada tipo de SWCI debe estar ordenado alfabeticamente por nombre.
 - El agrupamiento de las herramientas/componentes SWCI debe ser un marco con un titulo que indique el tipo de SWCI y dentro del marco deben estar las herramientas/componentes SWCI ordenados alfabeticamente por nombre. Alineado a la izquierda el nombre del Tipo de SWCI y a la derecha un icono para expandir/contraer el agrupamiento. Por defecto el agrupamiento debe estar contraido.
 - Añadir al panel flotando del canvas debajo el icono del candado para "block" otro icono "snap" que permita activar/desactivar el snap a la grilla. Por defecto el snap debe estar activado.
+
+## Iteration #8 - Save On Exit
+- Necesitamos un componente reutilizable para Confirmar o Rechazar acciones. Este componente debe tener dos botones, uno para confirmar y otro para rechazar. El boton de confirmar debe tener un color verde y el boton de rechazar debe tener un color rojo. El componente debe recibir como parametros el titulo del mensaje, el mensaje y el texto de los botones. Por defecto el boton de confirmar debe estar seleccionado y el boton de rechazar debe estar deseleccionado.
+- Cuando se sale del diseñador visual del producto (cerrando la pestaña o navegando a otra pagina) se debe guardar el producto y su arquitectura en la base de datos. Por lo tanto, al salir del diseñador visual del producto se debe guardar el producto y su arquitectura en la base de datos y cerrar el diseñador visual del producto.
+- Se debe informar al usuario si existen cambios sin guardar al intentar salir del diseñador visual del producto y se debe preguntar si desea guardar los cambios. Si el usuario confirma se debe guardar el producto y su arquitectura en la base de datos y cerrar el diseñador visual del producto. Si el usuario cancela se debe cerrar el diseñador visual del producto sin guardar los cambios.
+- Utilizar el componente reutilizable de confirmacion para confirmar o rechazar la accion de guardar el producto y su arquitectura en la base de datos.
+
+## Iteracion #9 - Cards summary
+
+- En el Card de Organizacion en "Associated APIs" se debe indicar "Products" y el contador debe ser la cantidad de productos definidos en la organizacion.
+- En el Card del Producto debajo de "Configuration Items" debe figurar el contedo por de numero de SWCI por tipo incluyendo el valor del contador y a su derecha el icono representativo de cada tipo.
+- Necesito que se añada un SWCI Type adicional para "App Mobile" con atributos tal como Tipo (Android o iOS)
+
+## Iteracion #10 - Data Transformation Managment
+
+- Se debe tomar como base "API Explorer" y generar un componente reutilizable que tenga un panel superior separado en dos parters: a la izquierda sun subpanel con un titulo resaltado (por ejemplo "Data Transformation"), debajo una descripcion de la pagina, y otro subpanel a la derecha para colocar botones de accion (por ejemplo "Save", "Cancel", etc.). Debajo de este panel un cuerpo donde debe ir el contenido específico cuando se reutilice este componente.
+- Analizar el modelo conceptual en @documentations/apiportal.drawio en la pagina "transformation".
+- Se debe añadir una nueva opción al menú principal lateral "Data Transformations" que debe estar debajo de "Integrations" y debe tener un icono representativo.
+- Utilizar el componente reutilizable para crear la nueva página de gestión de "Data Transformation" que tendrá por titulo "Data Transformation" y descripcion "Gestión de las transformaciones de datos requeridas para las Integraciones". En el subpanel de comando debe tener los botones "New Transformation" y a su izquierda dos botones para cambiar la forma de visualización del contenido (tabla o tarjetas). 
+- El cuerpo de la pagina debe mostrar un listado de las transformaciones de datos requeridas para las Integraciones en formato tabla con las columnas: "Name", "Description", "Source" (nombre de la fuente), "Target" (nombre del target), "Actions" ("Open", "Delete").
+- El cuerpo de la pagina debe mostrar (cuando se seleccione la opcion "Cards") un listado de las transformaciones de datos requeridas para las Integraciones en formato tarjetas (usando el componente reutilizable para CardTemplate) con la siguiente informacion: "Name", "Description", "Source" (nombre de la fuente), "Target" (nombre del target), "Actions" ("Open", "Delete").
+
+## Iteracion #11 - Plantilla de Busquedas
+
+- Utilizar como base la imagen siguiente @documentations/images/plantilla_panel_busqueda.png para generar un componente reutilizable SearchTemplate.vue. En la parte superior y a la izquierda del boton "Search" se tiene la sección de los campos de busqueda. Debajo de la linea divisoria aparecerán campo y valor ingresado y a la derecha "x Clear All" (el icono de la x debe ser un icono de cerrar/eliminar).
+- El componente reutilizable SearchTemplate.vue debe tener los siguientes parametros: 
+    - fields: array de objetos con los campos de busqueda. Cada objeto debe tener las propiedades: "name", "label", "type", "value", "placeholder", "required", "disabled", "readonly", "options", "rules", "events", "attributes", "style", "class", "slot", "scopedSlots"
+    - search: funcion que se ejecuta cuando se hace click en el boton "Search". Esta funcion debe recibir como parametro un objeto con los valores de los campos de busqueda.
+    - clear: funcion que se ejecuta cuando se hace click en el boton "Clear All". Esta funcion debe limpiar todos los campos de busqueda.
+
+- Utilizar el componente reutilizable SearchTemplate.vue para generar el componente de busqueda de "Data Transformation" considerando como campos para la busqueda los siguientes: "Name", "Description", "Source" (nombre de la fuente), "Target" (nombre del target). 
+
+## Iteracion #12 - Editor de Transformacion
+
+- Al seleccionar "New Transformation" se debe abrir un modal que permita crear una nueva transformacion. Este modal debe tener los siguientes campos: "Name", "Description", Organization (de las organizaciones disponibles) y Domain (de los dominios disponibles). 
+- El Card de la transformacion (usar el CardTemplate.vuew) debe tener un boton "Edit" que permita editar la transformacion. Debe abrirse un editor de transformación con una página independiente alineada al diseño visual en @documentations\images\data_transformation_designer.png
+- A la izquierda del editor se debe tener un panel con herramientas desde la que se pueden arrastrar y soltar elementos en el editor en la zona central "Tx Area" (que es el área de transformación) 
+
+## Iteracion #13 - Schema Load
+
+- Necesito poder cargar un documento con un "JSON Schema specification" en "Input Structure" y en "Output Structure" se debe parsear y generar la estructura a visualizar en ambos casos.
+- En la barra flotante de tareas en el canvas debe aparecer el icono (emogi) de cada "Tx Node Type". La barra de herramientas debe poder reposicionarse haciendo drag and drop. Ajustar "Settings > Tx Node Type" para que en cada "parameter" se pueda indicar si es "input" (visualmente se asocia con un punto de conexion en el nodo en el diagrama del Canvas) o "variable" (no visible como punto de conexión) permitiendo en el Editor de Propiedades proporcionar su valor.
+- En el panel de Properties para nodos de transformacion separar la edicion de las propiedades de tipo "input" (mostrar sin posibilidad de edicion del campo source vinculado a la propiedad) de las propiedades de tipo "variable" que son editables.

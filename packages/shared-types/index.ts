@@ -40,6 +40,7 @@ export interface Organization {
   createdAt: string;
   updatedAt: string;
   apiCount?: number;
+  productCount?: number;
 }
 
 export interface Product {

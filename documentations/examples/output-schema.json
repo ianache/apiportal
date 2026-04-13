@@ -1,0 +1,36 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Esquema de Viaje con Fecha de Envío",
+    "type": "object",
+    "required": [
+        "fechaEnvio",
+        "origen",
+        "destino",
+        "estado"
+    ],
+    "properties": {
+        "fechaEnvio": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Fecha del envío (AAAA-MM-DDTHH:mm:ss)."
+        },
+        "origen": {
+            "type": "string",
+            "minLength": 1
+        },
+        "destino": {
+            "type": "string",
+            "minLength": 1
+        },
+        "estado": {
+            "type": "string",
+            "enum": [
+                "programado",
+                "en curso",
+                "completado",
+                "cancelado"
+            ]
+        }
+    },
+    "additionalProperties": false
+}

@@ -80,6 +80,16 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/transformations',
+    component: () => import('../views/DataTransformations.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/transformations/:id/design',
+    component: () => import('../views/TransformationDesigner.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/domains',
     component: () => import('../views/settings/SettingsDomains.vue'),
     meta: { requiresAuth: true }
@@ -108,6 +118,7 @@ const routes = [
       { path: 'preferences',  component: () => import('../views/settings/SettingsPreferences.vue') },
       { path: 'domains',      component: () => import('../views/settings/SettingsDomains.vue') },
       { path: 'node-types',   component: () => import('../views/settings/SettingsNodeTypes.vue') },
+      { path: 'tx-node-types', component: () => import('../views/settings/SettingsTxNodeTypes.vue') },
       { path: 'status',       component: Dashboard }
     ]
   }

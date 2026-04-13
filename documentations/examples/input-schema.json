@@ -1,0 +1,46 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Esquema de Viaje",
+    "description": "Un esquema que define la estructura de un documento de viaje.",
+    "type": "object",
+    "required": [
+        "fecha",
+        "hora",
+        "origen",
+        "destino",
+        "estado"
+    ],
+    "properties": {
+        "fecha": {
+            "type": "string",
+            "format": "date",
+            "description": "Fecha del viaje en formato YYYY-MM-DD."
+        },
+        "hora": {
+            "type": "string",
+            "format": "time",
+            "description": "Hora del viaje en formato HH:mm:ss."
+        },
+        "origen": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Lugar de salida."
+        },
+        "destino": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Lugar de llegada."
+        },
+        "estado": {
+            "type": "string",
+            "enum": [
+                "programado",
+                "en curso",
+                "completado",
+                "cancelado"
+            ],
+            "description": "Estado actual del viaje."
+        }
+    },
+    "additionalProperties": false
+}

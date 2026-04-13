@@ -12,10 +12,12 @@ import organizationRoutes from './routes/organizations.js';
 import userRoutes from './routes/users.js';
 import integrationRoutes from './routes/integrations.js';
 import nodeTypesCatalogRoutes from './routes/nodeTypesCatalog.js';
+import txNodeTypesCatalogRoutes from './routes/txNodeTypesCatalog.js';
 import llmProvidersRoutes from './routes/llmProviders.js';
 import userPreferencesRoute from './routes/userPreferences.js';
 import favoritesRoutes from './routes/favorites.js';
 import knowledgeRoutes from './routes/knowledge.js';
+import transformationRoutes from './routes/transformations.js';
 
 const schema = {
   type: 'object',
@@ -63,10 +65,12 @@ fastify.register(organizationRoutes);
 fastify.register(userRoutes);
 fastify.register(integrationRoutes);
 fastify.register(nodeTypesCatalogRoutes);
+fastify.register(txNodeTypesCatalogRoutes);
 fastify.register(llmProvidersRoutes, { prefix: '/llm-providers' });
 fastify.register(userPreferencesRoute, { prefix: '/user-preferences' });
 fastify.register(favoritesRoutes, { prefix: '/favorites' });
 fastify.register(knowledgeRoutes);
+fastify.register(transformationRoutes);
 
 const start = async () => {
   try {

@@ -7,7 +7,7 @@
 
       <!-- Left -->
       <div class="flex items-center gap-3">
-        <button @click="goBack"
+        <button @click="handleBack"
           class="flex items-center gap-1.5 text-sm font-medium transition-opacity hover:opacity-60"
           style="color:#414755;">
           <span class="material-symbols-outlined" style="font-size:18px;">arrow_back</span>Back
@@ -18,6 +18,7 @@
           <span class="text-sm font-bold" style="color:#1a1b1f;">
             {{ product?.name ?? 'Product' }} Designer
           </span>
+          <span v-if="isDirty" class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-700 uppercase tracking-widest">Unsaved Changes</span>
         </div>
       </div>
 
@@ -64,23 +65,37 @@
           </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-3 space-y-2">
-          <div
-            v-for="item in filteredSWCIs"
-            :key="item.id"
-            class="p-3 rounded-xl border bg-slate-50 cursor-grab active:cursor-grabbing hover:border-indigo-300 hover:shadow-sm transition-all group"
-            draggable="true"
-            @dragstart="onDragStart($event, item)"
-          >
-            <div class="flex items-center gap-3">
-              <span class="material-symbols-outlined text-indigo-500" style="font-size:20px;">{{ item.type?.icon || 'settings_input_component' }}</span>
-              <div class="flex-1 overflow-hidden">
-                <p class="text-sm font-bold text-slate-700 truncate">{{ item.name }}</p>
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{{ item.type?.name }}</p>
+        <!-- Grouped SWCI Components -->
+        <div class="flex-1 overflow-y-auto p-3 space-y-4">
+          <div v-for="group in groupedSWCIs" :key="group.typeName" class="rounded-xl border border-slate-100 overflow-hidden bg-white shadow-sm">
+            <button 
+              @click="toggleGroup(group.typeName)"
+              class="w-full flex items-center justify-between p-3 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+            >
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-indigo-500" style="font-size:18px;">{{ group.icon || 'folder' }}</span>
+                <span class="text-[10px] font-black uppercase tracking-widest text-slate-700">{{ group.typeName }}</span>
+              </div>
+              <span class="material-symbols-outlined text-slate-400 transition-transform" :class="expandedGroups[group.typeName] ? 'rotate-180' : ''">expand_more</span>
+            </button>
+
+            <div v-show="expandedGroups[group.typeName]" class="p-2 space-y-2 border-t border-slate-50 animate-in slide-in-from-top-1 duration-200">
+              <div
+                v-for="item in group.items"
+                :key="item.id"
+                class="p-2.5 rounded-lg border border-transparent bg-slate-50/30 cursor-grab active:cursor-grabbing hover:border-indigo-200 hover:bg-indigo-50/30 transition-all group"
+                draggable="true"
+                @dragstart="onDragStart($event, item)"
+              >
+                <div class="flex items-center gap-2">
+                  <span class="material-symbols-outlined text-indigo-400" style="font-size:16px;">{{ item.type?.icon || 'settings_input_component' }}</span>
+                  <p class="text-xs font-bold text-slate-600 truncate">{{ item.name }}</p>
+                </div>
               </div>
             </div>
           </div>
-          <div v-if="filteredSWCIs.length === 0" class="text-center py-10">
+
+          <div v-if="groupedSWCIs.length === 0" class="text-center py-10">
             <p class="text-xs text-slate-400 italic">No components found</p>
           </div>
         </div>
@@ -97,12 +112,30 @@
           @edge-click="onEdgeClick"
           @pane-click="onPaneClick"
           @connect="onConnect"
+          @nodes-change="onNodesChange"
+          @edges-change="onEdgesChange"
           :delete-key-code="['Delete', 'Backspace']"
           :connection-mode="ConnectionMode.Loose"
+          :snap-to-grid="snapToGrid"
+          :snap-grid="[20, 20]"
           fit-view-on-init
         >
           <Background :gap="24" :size="1.5" pattern-color="#d4d2db" variant="dots" />
-          <Controls position="bottom-right" />
+          
+          <!-- Custom Toolbar in Canvas -->
+          <div class="absolute bottom-6 right-6 flex flex-col gap-2 z-50">
+            <button 
+              @click="snapToGrid = !snapToGrid"
+              class="w-10 h-10 rounded-xl bg-white shadow-lg border border-slate-100 flex items-center justify-center transition-all hover:bg-slate-50 active:scale-95"
+              :title="snapToGrid ? 'Disable Snap' : 'Enable Snap'"
+              :style="{ color: snapToGrid ? '#4338ca' : '#94a3b8' }"
+            >
+              <span class="material-symbols-outlined" :style="{ fontVariationSettings: snapToGrid ? `'FILL' 1` : `'FILL' 0` }">
+                {{ snapToGrid ? 'grid_on' : 'grid_off' }}
+              </span>
+            </button>
+            <Controls position="bottom-right" style="position: static; margin: 0;" />
+          </div>
         </VueFlow>
       </main>
 
@@ -134,7 +167,6 @@
               </select>
             </div>
             
-            <!-- API / Microservice linkage -->
             <div v-if="isApiType" class="pt-4 border-t">
               <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Linked API</label>
               <select 
@@ -157,27 +189,20 @@
               </template>
             </div>
 
-            <!-- Dynamic Properties -->
             <div v-if="selectedTypeSpecs.length > 0" class="space-y-4 pt-4 border-t">
               <h3 class="text-[10px] font-black uppercase tracking-widest text-slate-900">Type Specifications</h3>
               <div v-for="spec in selectedTypeSpecs" :key="spec.id">
                 <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
                   {{ spec.name }} <span v-if="spec.required" class="text-red-500">*</span>
                 </label>
-                
-                <!-- Boolean (Checkbox) -->
                 <div v-if="spec.dataType === 'boolean'" class="flex items-center">
                   <input type="checkbox" v-model="editForm.properties[spec.id]" class="w-4 h-4 rounded border-slate-200 text-indigo-600 focus:ring-indigo-500" />
                 </div>
-                
-                <!-- Integer (Number) -->
                 <input v-else-if="spec.dataType === 'integer'" 
                   type="number" 
                   v-model.number="editForm.properties[spec.id]" 
                   class="w-full px-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:ring-2 focus:ring-indigo-100" 
                 />
-                
-                <!-- String (Text) -->
                 <input v-else 
                   type="text" 
                   v-model="editForm.properties[spec.id]" 
@@ -214,7 +239,8 @@
       </aside>
     </div>
 
-    <!-- ── Create SWCI Modal ─────────────────────────── -->
+    <!-- ── Modals ─────────────────────────── -->
+    <!-- Create SWCI Modal -->
     <div v-if="showCreateSWCI" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/50 backdrop-blur-sm">
       <div class="bg-white rounded-[32px] w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200">
         <h2 class="text-2xl font-black text-slate-900 mb-2">New SWCI</h2>
@@ -240,18 +266,30 @@
       </div>
     </div>
 
+    <!-- Reusable Confirmation Modal for Exit -->
+    <ConfirmationModal
+      :show="showExitModal"
+      title="Unsaved Changes"
+      message="You have unsaved changes in your diagram. Do you want to save them before leaving?"
+      confirmText="Save and Exit"
+      rejectText="Discard and Exit"
+      @confirm="confirmExit(true)"
+      @reject="confirmExit(false)"
+    />
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, markRaw, reactive } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, computed, onMounted, markRaw, reactive, onUnmounted } from 'vue';
+import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { VueFlow, useVueFlow, ConnectionMode, type Node, type Edge, type Connection } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
 import { useProductStore } from '../stores/products';
 import { useRegistryStore } from '../stores/registry';
 import SWCINode from '../components/designer/SWCINode.vue';
+import ConfirmationModal from '../components/ConfirmationModal.vue';
 
 // --- Flow Components ---
 const nodeTypes = {
@@ -270,9 +308,17 @@ const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle');
 const swciSearch = ref('');
 const showCreateSWCI = ref(false);
 const selectedElement = ref<any>(null);
+const snapToGrid = ref(true);
+
+// Unsaved changes state
+const isDirty = ref(false);
+const showExitModal = ref(false);
+let nextRoute: any = null;
 
 const nodes = ref<Node[]>([]);
 const edges = ref<Edge[]>([]);
+
+const expandedGroups = ref<Record<string, boolean>>({});
 
 const newSWCI = reactive({
   name: '',
@@ -296,9 +342,26 @@ const defaultEdgeOptions = {
 };
 
 // --- Computed ---
-const filteredSWCIs = computed(() => {
-  if (!swciSearch.value) return productStore.swcis;
-  return productStore.swcis.filter(s => s.name.toLowerCase().includes(swciSearch.value.toLowerCase()));
+const groupedSWCIs = computed(() => {
+  const query = swciSearch.value.toLowerCase();
+  const items = productStore.swcis.filter(s => s.name.toLowerCase().includes(query));
+  const groups: Record<string, { typeName: string, icon: string, items: any[] }> = {};
+  items.forEach(item => {
+    const typeName = item.type?.name || 'Uncategorized';
+    if (!groups[typeName]) {
+      groups[typeName] = {
+        typeName,
+        icon: item.type?.icon || 'settings_input_component',
+        items: []
+      };
+    }
+    groups[typeName].items.push(item);
+  });
+  const sortedGroupKeys = Object.keys(groups).sort();
+  return sortedGroupKeys.map(key => {
+    groups[key].items.sort((a, b) => a.name.localeCompare(b.name));
+    return groups[key];
+  });
 });
 
 const isApiType = computed(() => {
@@ -317,21 +380,68 @@ const selectedApiVersions = computed(() => {
   return api?.versions || [];
 });
 
-// --- Methods ---
+// --- Lifecycle & Guards ---
 onMounted(async () => {
+  window.addEventListener('beforeunload', handleBeforeUnload);
   try {
     product.value = await productStore.getProduct(productId);
     await productStore.fetchSWCIs(product.value.organizationId);
     await productStore.fetchConfigItemTypes();
     await registryStore.fetchApis();
-    
+    productStore.configItemTypes.forEach(t => expandedGroups.value[t.name] = false);
     if (product.value.diagram) {
       fromObject(product.value.diagram);
     }
+    // Set dirty false after initial load
+    setTimeout(() => { isDirty.value = false; }, 500);
   } catch (err) {
     console.error('Initialization error', err);
   }
 });
+
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', handleBeforeUnload);
+});
+
+const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+  if (isDirty.value) {
+    event.preventDefault();
+    event.returnValue = ''; // Standard for modern browsers
+  }
+};
+
+onBeforeRouteLeave((to, _from, next) => {
+  if (isDirty.value) {
+    nextRoute = to;
+    showExitModal.value = true;
+    next(false); // Cancel initial navigation
+  } else {
+    next();
+  }
+});
+
+// --- Methods ---
+const onNodesChange = () => { isDirty.value = true; };
+const onEdgesChange = () => { isDirty.value = true; };
+
+const confirmExit = async (shouldSave: boolean) => {
+  showExitModal.value = false;
+  if (shouldSave) {
+    await onSave();
+  }
+  isDirty.value = false;
+  if (nextRoute) {
+    router.push(nextRoute);
+  }
+};
+
+const handleBack = () => {
+  router.push(`/organizations/${product.value?.organizationId || ''}/products`);
+};
+
+const toggleGroup = (typeName: string) => {
+  expandedGroups.value[typeName] = !expandedGroups.value[typeName];
+};
 
 const onDragStart = (event: DragEvent, swci: any) => {
   if (event.dataTransfer) {
@@ -343,10 +453,8 @@ const onDragStart = (event: DragEvent, swci: any) => {
 const onDrop = (event: DragEvent) => {
   const data = event.dataTransfer?.getData('application/vueflow');
   if (!data) return;
-
   const swci = JSON.parse(data);
   const position = { x: event.clientX - 300, y: event.clientY - 100 };
-
   const newNode: Node = {
     id: `node-${Date.now()}`,
     type: 'swci',
@@ -360,8 +468,8 @@ const onDrop = (event: DragEvent) => {
       description: swci.description
     },
   };
-
   addNodes([newNode]);
+  isDirty.value = true;
 };
 
 const onConnect = (params: Connection) => {
@@ -371,12 +479,11 @@ const onConnect = (params: Connection) => {
     data: { type: 'REST_CALL' }
   };
   addEdges([newEdge]);
+  isDirty.value = true;
 };
 
 const onNodeClick = ({ node }: { node: Node }) => {
   selectedElement.value = node;
-  
-  // Find full SWCI data from store
   const swci = productStore.swcis.find(s => s.id === node.data.swciId);
   if (swci) {
     editForm.id = swci.id;
@@ -385,8 +492,6 @@ const onNodeClick = ({ node }: { node: Node }) => {
     editForm.typeId = swci.typeId;
     editForm.apiVersionId = swci.apiVersionId || null;
     editForm.selectedApiId = swci.apiVersion?.apiId || '';
-    
-    // Load properties
     const props: Record<string, any> = {};
     swci.properties?.forEach(p => {
       const spec = swci.type?.specifications?.find(s => s.id === p.specificationId);
@@ -417,7 +522,6 @@ const updateSWCI = async () => {
       specificationId: specId,
       value: String(val)
     }));
-
     const updated = await productStore.updateSWCI(editForm.id, {
       name: editForm.name,
       description: editForm.description,
@@ -425,26 +529,18 @@ const updateSWCI = async () => {
       apiVersionId: editForm.apiVersionId,
       properties: propsToSave
     });
-    
-    // Update all nodes in canvas that use this SWCI
     nodes.value = nodes.value.map(n => {
       if (n.data.swciId === editForm.id) {
         return {
           ...n,
-          data: { 
-            ...n.data, 
-            name: updated.name, 
-            type: updated.type?.name, 
-            icon: updated.type?.icon,
-            description: updated.description 
-          },
+          data: { ...n.data, name: updated.name, type: updated.type?.name, icon: updated.type?.icon, description: updated.description },
           label: updated.name
         };
       }
       return n;
     });
-    
     selectedElement.value = null;
+    isDirty.value = true;
   } catch (err) {
     alert('Failed to update SWCI');
   }
@@ -475,6 +571,7 @@ const onSave = async () => {
     const diagram = toObject();
     await productStore.updateProduct(productId, { diagram });
     saveStatus.value = 'saved';
+    isDirty.value = false;
     setTimeout(() => { saveStatus.value = 'idle'; }, 2000);
   } catch (err) {
     saveStatus.value = 'idle';
@@ -483,11 +580,7 @@ const onSave = async () => {
 };
 
 const goBack = () => {
-  if (product.value) {
-    router.push(`/organizations/${product.value.organizationId}/products`);
-  } else {
-    router.push('/organizations');
-  }
+  handleBack();
 };
 
 </script>

@@ -81,6 +81,49 @@
               {{ item.label }}
             </router-link>
 
+            <!-- Integration Design Collapsible -->
+            <div>
+              <button
+                @click="integrationOpen = !integrationOpen"
+                class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 text-slate-500 hover:bg-white/70 hover:text-slate-700"
+                :class="{ 'text-slate-700 bg-white/40': integrationOpen || route.path.startsWith('/integrations') || route.path.startsWith('/transformations') }"
+              >
+                <div class="flex items-center gap-2.5">
+                  <span class="material-symbols-outlined" style="font-size: 19px;">architecture</span>
+                  Integration Design
+                </div>
+                <span
+                  class="material-symbols-outlined transition-transform duration-200"
+                  style="font-size: 18px;"
+                  :class="integrationOpen ? 'rotate-180' : ''"
+                >expand_more</span>
+              </button>
+              <div v-show="integrationOpen" class="mt-1 ml-3 pl-3 border-l-2 border-slate-200/60 space-y-0.5">
+                <router-link
+                  to="/integrations"
+                  class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
+                  :class="isActive('/integrations')
+                    ? 'bg-white shadow-sm'
+                    : 'text-slate-500 hover:bg-white/70 hover:text-slate-700'"
+                  :style="isActive('/integrations') ? 'color: #0058bc;' : ''"
+                >
+                  <span class="material-symbols-outlined" style="font-size: 17px;">hub</span>
+                  Integrations
+                </router-link>
+                <router-link
+                  to="/transformations"
+                  class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-150"
+                  :class="isActive('/transformations')
+                    ? 'bg-white shadow-sm'
+                    : 'text-slate-500 hover:bg-white/70 hover:text-slate-700'"
+                  :style="isActive('/transformations') ? 'color: #0058bc;' : ''"
+                >
+                  <span class="material-symbols-outlined" style="font-size: 17px;">transform</span>
+                  Transformations
+                </router-link>
+              </div>
+            </div>
+
             <!-- Organization Collapsible -->
             <div>
               <button
@@ -227,22 +270,24 @@ const mainNav = [
   { path: '/explorer',    icon: 'explore',     label: 'Explorer'     },
   { path: '/domains',    icon: 'category',    label: 'Domains'      },
   { path: '/projects',   icon: 'inventory_2', label: 'APIs Catalog' },
-  { path: '/integrations', icon: 'hub',        label: 'Integrations' },
 ];
 
 const settingsNav = [
   { path: '/settings/environments', icon: 'dns',             label: 'Environments' },
   { path: '/settings/node-types',   icon: 'widgets',         label: 'Node Types'   },
+  { path: '/settings/tx-node-types', icon: 'transform',       label: 'Tx Node Types' },
   { path: '/settings/preferences',  icon: 'manage_accounts', label: 'Preferences'  },
   { path: '/settings/status',       icon: 'analytics',       label: 'Status'       },
 ];
 
 const settingsOpen = ref(false);
 const orgOpen = ref(false);
+const integrationOpen = ref(false);
 
 watchEffect(() => {
   if (route.path.startsWith('/settings')) settingsOpen.value = true;
   if (route.path.startsWith('/organizations')) orgOpen.value = true;
+  if (route.path.startsWith('/integrations') || route.path.startsWith('/transformations')) integrationOpen.value = true;
 });
 
 const favoriteApis = computed(() => {
