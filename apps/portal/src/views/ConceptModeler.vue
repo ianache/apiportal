@@ -76,13 +76,6 @@
           <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>Saved
         </span>
 
-        <button @click="snapToGrid = !snapToGrid"
-          class="flex items-center justify-center w-8 h-8 rounded-xl transition-all"
-          :style="{ background: snapToGrid ? '#e0e7ff' : '#f4f3f8', color: snapToGrid ? '#0058bc' : '#a0a7b5' }"
-          :title="snapToGrid ? 'Disable Snap to Grid' : 'Enable Snap to Grid'">
-          <span class="material-symbols-outlined" style="font-size:16px;">grid_on</span>
-        </button>
-
         <button @click="saveFlow" :disabled="saveStatus === 'saving'"
           class="flex items-center gap-2 px-4 py-1.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-80 disabled:opacity-40"
           style="background:#0058bc;color:#ffffff;">
@@ -108,7 +101,9 @@
             :fit-view-on-init="false"
             :edges-updatable="true"
             :edges-focusable="true"
-            :nodes-connectable="true"
+            :nodes-connectable="!isLocked"
+            :nodes-draggable="!isLocked"
+            :elements-selectable="!isLocked"
             @node-click="onNodeClick"
             @edge-click="onEdgeClick"
             @pane-click="onPaneClick"
@@ -231,6 +226,16 @@
             </template>
           </VueFlow>
         </div>
+
+        <!-- ── Diagram Toolbar ──────────────────────────── -->
+        <DiagramToolbar
+          :canvas-ref="canvasContainer"
+          v-model:snap-to-grid="snapToGrid"
+          v-model:is-locked="isLocked"
+          @zoom-in="zoomIn()"
+          @zoom-out="zoomOut()"
+          @fit-view="fitView()"
+        />
       </div>
 
       <!-- Properties Panel -->
@@ -721,6 +726,7 @@ import '@vue-flow/core/dist/style.css';
 import { useDomainsStore } from '../stores/domains';
 import { useLLMPreferencesStore } from '../stores/preferences';
 import { useAuthStore } from '../stores/auth';
+import DiagramToolbar from '../components/designer/DiagramToolbar.vue';
 
 interface Attribute {
   id: string;
@@ -778,7 +784,8 @@ const auth = useAuthStore();
 
 const domainId = computed(() => route.params.id as string);
 const domainTitle = ref('');
-const { addEdge, findNode, updateEdge, setViewport } = useVueFlow();
+const { addEdge, findNode, updateEdge, setViewport, zoomIn, zoomOut, fitView } = useVueFlow();
+const isLocked = ref(false);
 
 const nodes = ref<ConceptNode[]>([]);
 const edges = ref<RelationEdge[]>([]);

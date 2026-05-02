@@ -33,13 +33,6 @@
           <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>Saved
         </span>
 
-        <button @click="snapToGrid = !snapToGrid"
-          class="flex items-center justify-center w-8 h-8 rounded-xl transition-all"
-          :style="{ background: snapToGrid ? '#e0e7ff' : '#f4f3f8', color: snapToGrid ? '#0058bc' : '#a0a7b5' }"
-          :title="snapToGrid ? 'Disable Snap to Grid' : 'Enable Snap to Grid'">
-          <span class="material-symbols-outlined" style="font-size:16px;">grid_on</span>
-        </button>
-
         <button @click="exportFlow"
           class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold transition-opacity hover:opacity-80"
           style="background:#f4f3f8;color:#414755;">
@@ -72,6 +65,9 @@
         :pan-on-drag="true"
         :multi-selection-key-code="'Control'"
         :delete-key-code="['Delete', 'Backspace']"
+        :nodes-draggable="!isLocked"
+        :nodes-connectable="!isLocked"
+        :elements-selectable="!isLocked"
         fit-view-on-init
         class="flow-canvas"
         @node-click="onNodeClick"
@@ -81,6 +77,16 @@
         @connect="onConnect">
         <Background :gap="24" :size="1.5" pattern-color="#d4d2db" variant="dots" />
       </VueFlow>
+
+      <!-- ── Diagram Toolbar ──────────────────────────── -->
+      <DiagramToolbar
+        :canvas-ref="canvasRef"
+        v-model:snap-to-grid="snapToGrid"
+        v-model:is-locked="isLocked"
+        @zoom-in="zoomIn()"
+        @zoom-out="zoomOut()"
+        @fit-view="fitView()"
+      />
 
       <!-- ── Selection action bar ───────────────────────── -->
       <Transition name="action-bar">
@@ -490,6 +496,7 @@ import FlowNode from '../components/integration/FlowNode.vue';
 import FilterNode from '../components/integration/FilterNode.vue';
 import SubFlowNode from '../components/integration/SubFlowNode.vue';
 import CodeEditor from '../components/designer/CodeEditor.vue';
+import DiagramToolbar from '../components/designer/DiagramToolbar.vue';
 import { NODE_TYPE_CATALOG, CATEGORIES, CATEGORY_COLORS, findNodeType } from '../stores/nodeTypes';
 import { useIntegrationsStore } from '../stores/integrations';
 import { useDomainsStore } from '../stores/domains';
@@ -533,7 +540,8 @@ const defaultEdgeOptions = {
 };
 
 // ── Vue Flow composable ───────────────────────────────────
-const { addNodes, addEdges, updateNode, project } = useVueFlow();
+const { addNodes, addEdges, updateNode, project, zoomIn, zoomOut, fitView } = useVueFlow();
+const isLocked = ref(false);
 
 // ── Canvas ref ────────────────────────────────────────────
 const canvasRef = ref<HTMLElement | null>(null);

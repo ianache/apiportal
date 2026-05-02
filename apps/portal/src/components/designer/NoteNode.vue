@@ -30,10 +30,10 @@
     
     <!-- Note Content -->
     <div class="p-3 overflow-auto" style="height: calc(100% - 28px);">
-      <div 
-        v-html="renderedContent" 
-        class="prose max-w-none prose-headings:mt-2 prose-headings:mb-1 prose-p:my-1"
-        :style="{ fontSize: data.fontSize || '14px' }"
+      <div
+        v-html="renderedContent"
+        class="note-markdown"
+        :style="{ fontSize: `${data.fontSize || 14}px` }"
       ></div>
     </div>
   </div>
@@ -42,6 +42,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { useVueFlow, type NodeProps } from '@vue-flow/core';
 
 marked.setOptions({
@@ -63,7 +64,8 @@ const RESIZE_THRESHOLD = 8;
 
 const renderedContent = computed(() => {
   try {
-    return marked.parse(props.data?.content || '') as string;
+    const html = marked.parse(props.data?.content || '') as string;
+    return DOMPurify.sanitize(html);
   } catch (e) {
     return props.data?.content || '';
   }
@@ -293,16 +295,122 @@ const onMouseLeave = () => {
   cursor: nesw-resize;
 }
 
-:deep(.prose) {
+:deep(.note-markdown) {
   word-wrap: break-word;
   overflow-wrap: break-word;
+  line-height: 1.5;
+  color: inherit;
 }
 
-:deep(.prose p) {
-  margin-bottom: 0.5em;
+:deep(.note-markdown h1) {
+  font-size: 1.4em;
+  font-weight: 700;
+  margin: 0 0 0.4em;
+  line-height: 1.2;
 }
 
-:deep(.prose ul), :deep(.prose ol) {
-  padding-left: 1.2em;
+:deep(.note-markdown h2) {
+  font-size: 1.2em;
+  font-weight: 700;
+  margin: 0.6em 0 0.3em;
+  line-height: 1.2;
+}
+
+:deep(.note-markdown h3) {
+  font-size: 1.05em;
+  font-weight: 600;
+  margin: 0.5em 0 0.25em;
+}
+
+:deep(.note-markdown p) {
+  margin: 0 0 0.5em;
+}
+
+:deep(.note-markdown p:last-child) {
+  margin-bottom: 0;
+}
+
+:deep(.note-markdown strong) {
+  font-weight: 700;
+}
+
+:deep(.note-markdown em) {
+  font-style: italic;
+}
+
+:deep(.note-markdown ul),
+:deep(.note-markdown ol) {
+  padding-left: 1.3em;
+  margin: 0.3em 0 0.5em;
+}
+
+:deep(.note-markdown ul) {
+  list-style-type: disc;
+}
+
+:deep(.note-markdown ol) {
+  list-style-type: decimal;
+}
+
+:deep(.note-markdown li) {
+  margin-bottom: 0.2em;
+}
+
+:deep(.note-markdown code) {
+  font-family: monospace;
+  font-size: 0.88em;
+  background: rgba(0,0,0,0.08);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+
+:deep(.note-markdown pre) {
+  background: rgba(0,0,0,0.08);
+  border-radius: 6px;
+  padding: 0.5em 0.75em;
+  overflow-x: auto;
+  margin: 0.4em 0;
+}
+
+:deep(.note-markdown pre code) {
+  background: none;
+  padding: 0;
+  font-size: 0.85em;
+}
+
+:deep(.note-markdown blockquote) {
+  border-left: 3px solid rgba(0,0,0,0.2);
+  margin: 0.4em 0;
+  padding-left: 0.75em;
+  opacity: 0.75;
+}
+
+:deep(.note-markdown hr) {
+  border: none;
+  border-top: 1px solid rgba(0,0,0,0.15);
+  margin: 0.5em 0;
+}
+
+:deep(.note-markdown a) {
+  color: #4338ca;
+  text-decoration: underline;
+}
+
+:deep(.note-markdown table) {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9em;
+  margin: 0.4em 0;
+}
+
+:deep(.note-markdown th),
+:deep(.note-markdown td) {
+  border: 1px solid rgba(0,0,0,0.15);
+  padding: 0.25em 0.5em;
+}
+
+:deep(.note-markdown th) {
+  font-weight: 600;
+  background: rgba(0,0,0,0.05);
 }
 </style>

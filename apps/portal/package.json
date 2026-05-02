@@ -16,6 +16,7 @@
     "@vue-flow/minimap": "^1.5.4",
     "autoprefixer": "^10.4.27",
     "dompurify": "^3.3.3",
+    "html-to-image": "^1.11.13",
     "js-yaml": "^4.1.1",
     "keycloak-js": "^26.2.3",
     "lucide-vue-next": "^1.0.0",

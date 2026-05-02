@@ -35,9 +35,6 @@
         <button @click="fileInputRef?.click()" class="toolbar-icon-btn" title="Import YAML (OpenAPI or Design)">
           <span class="material-symbols-outlined" style="font-size:19px;">upload_file</span>
         </button>
-        <button @click="snapToGrid = !snapToGrid" class="toolbar-icon-btn" :class="{ 'toolbar-icon-btn--active': snapToGrid }" title="Toggle snap to grid">
-          <span class="material-symbols-outlined" style="font-size:19px;">grid_on</span>
-        </button>
         <button @click="exportDesignYaml" class="toolbar-icon-btn" title="Export Visual Design YAML">
           <span class="material-symbols-outlined" style="font-size:19px;">device_hub</span>
         </button>
@@ -63,16 +60,27 @@
     </header>
 
     <!-- ── Canvas area ─────────────────────────────────── -->
-    <div class="flex-1 relative overflow-hidden">
+    <div ref="canvasRef" class="flex-1 relative overflow-hidden">
 
       <!-- Vue Flow -->
       <VueFlow v-model:nodes="nodes" v-model:edges="edges" :node-types="nodeTypes"
         :default-edge-options="defaultEdgeOptions" :connect-on-click="false"
         :snap-to-grid="snapToGrid" :snap-grid="[24, 24]"
+        :nodes-draggable="!isLocked" :nodes-connectable="!isLocked" :elements-selectable="!isLocked"
         fit-view-on-init class="flow-canvas"
         @node-click="onNodeClick" @edge-click="onEdgeClick" @pane-click="onPaneClick">
         <Background :gap="24" :size="1.5" pattern-color="#d4d2db" variant="dots" />
       </VueFlow>
+
+      <!-- ── Diagram Toolbar ──────────────────────────── -->
+      <DiagramToolbar
+        :canvas-ref="canvasRef"
+        v-model:snap-to-grid="snapToGrid"
+        v-model:is-locked="isLocked"
+        @zoom-in="zoomIn()"
+        @zoom-out="zoomOut()"
+        @fit-view="fitView()"
+      />
 
       <!-- ── LEFT: components panel ──────────────────────── -->
       <Transition name="panel-left-slide">
@@ -612,6 +620,7 @@ import { VueFlow, useVueFlow, MarkerType } from '@vue-flow/core';
 import type { Node, Edge, NodeMouseEvent, EdgeMouseEvent } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import ResourceNode from '../components/designer/ResourceNode.vue';
+import DiagramToolbar from '../components/designer/DiagramToolbar.vue';
 import MarkdownViewer from '../components/MarkdownViewer.vue';
 import { useRegistryStore } from '../stores/registry';
 import { useLLMPreferencesStore } from '../stores/preferences';
@@ -641,7 +650,9 @@ const version  = route.params.version as string;
 const apiName  = ref('');
 
 // ── Vue Flow ─────────────────────────────────────────
-const { removeNodes, updateNode, getViewport, setViewport, fitView } = useVueFlow();
+const { removeNodes, updateNode, getViewport, setViewport, fitView, zoomIn, zoomOut } = useVueFlow();
+const canvasRef = ref<HTMLElement | null>(null);
+const isLocked = ref(false);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const nodeTypes = { resource: markRaw(ResourceNode) } as any;
 const defaultEdgeOptions = {

@@ -31,6 +31,27 @@
           <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>Saved
         </span>
 
+        <!-- Zoom level -->
+        <span
+          class="text-xs font-black tabular-nums px-2.5 py-1 rounded-lg"
+          style="color:#64748b;background:#f1f5f9;min-width:3.5rem;display:inline-block;text-align:center;letter-spacing:0.02em;"
+        >{{ Math.round(currentZoom * 100) }}%</span>
+
+        <!-- Export PNG -->
+        <button
+          @click="exportToPng"
+          :disabled="isExporting"
+          class="flex items-center justify-center w-9 h-9 rounded-xl border transition-all active:scale-95 hover:bg-slate-50 disabled:opacity-40"
+          style="border-color:#e3e2e7;color:#414755;"
+          title="Exportar diagrama a PNG"
+        >
+          <span v-if="!isExporting" class="material-symbols-outlined" style="font-size:18px;">image</span>
+          <span v-else class="material-symbols-outlined animate-spin" style="font-size:16px;">progress_activity</span>
+        </button>
+
+        <!-- Separator -->
+        <div class="self-stretch w-px rounded-full my-2" style="background:#e3e2e7;"></div>
+
         <button @click="openNewDiagramModal"
           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 hover:opacity-90"
           style="background:#e0e7ff;color:#4338ca;border:1px solid #4338ca;">
@@ -151,7 +172,7 @@
       </aside>
 
       <!-- ── Canvas area ─────────────────────────────────── -->
-      <main class="flex-1 relative overflow-hidden bg-slate-50" @drop="onDrop" @dragover.prevent>
+      <main ref="canvasRef" class="flex-1 relative overflow-hidden bg-slate-50" @drop="onDrop" @dragover.prevent>
         <VueFlow
           v-model:nodes="nodes"
           v-model:edges="edges"
@@ -168,24 +189,22 @@
           :connection-mode="ConnectionMode.Loose"
           :snap-to-grid="snapToGrid"
           :snap-grid="[20, 20]"
+          :nodes-draggable="!isLocked"
+          :nodes-connectable="!isLocked"
+          :elements-selectable="!isLocked"
         >
           <Background :gap="24" :size="1.5" pattern-color="#d4d2db" variant="dots" />
-          
-          <!-- Custom Toolbar in Canvas -->
-          <div class="absolute bottom-6 right-6 flex flex-col gap-2 z-50">
-            <button 
-              @click="snapToGrid = !snapToGrid"
-              class="w-10 h-10 rounded-xl bg-white shadow-lg border border-slate-100 flex items-center justify-center transition-all hover:bg-slate-50 active:scale-95"
-              :title="snapToGrid ? 'Disable Snap' : 'Enable Snap'"
-              :style="{ color: snapToGrid ? '#4338ca' : '#94a3b8' }"
-            >
-              <span class="material-symbols-outlined" :style="{ fontVariationSettings: snapToGrid ? `'FILL' 1` : `'FILL' 0` }">
-                {{ snapToGrid ? 'grid_on' : 'grid_off' }}
-              </span>
-            </button>
-            <Controls position="bottom-right" style="position: static; margin: 0;" />
-          </div>
         </VueFlow>
+
+        <!-- ── Diagram Toolbar ────────────────────────────── -->
+        <DiagramToolbar
+          :canvas-ref="canvasRef"
+          v-model:snap-to-grid="snapToGrid"
+          v-model:is-locked="isLocked"
+          @zoom-in="vueFlow.zoomIn()"
+          @zoom-out="vueFlow.zoomOut()"
+          @fit-view="vueFlow.fitView()"
+        />
       </main>
 
       <!-- ── Right Panel: Properties ──────────────────── -->
@@ -332,9 +351,9 @@
             <div class="pt-4 border-t">
               <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Font Size</label>
               <div class="flex items-center gap-3">
-                <input 
-                  type="range" 
-                  v-model="selectedElement.data.fontSize" 
+                <input
+                  type="range"
+                  v-model.number="selectedElement.data.fontSize"
                   @input="updateNoteNode"
                   min="10"
                   max="24"
@@ -453,12 +472,13 @@ import { ref, computed, onMounted, markRaw, reactive, onUnmounted } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { VueFlow, useVueFlow, ConnectionMode, type Node, type Edge, type Connection } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
-import { Controls } from '@vue-flow/controls';
+import { toPng } from 'html-to-image';
 import { marked } from 'marked';
 import { useProductStore } from '../stores/products';
 import { useRegistryStore } from '../stores/registry';
 import SWCINode from '../components/designer/SWCINode.vue';
 import NoteNode from '../components/designer/NoteNode.vue';
+import DiagramToolbar from '../components/designer/DiagramToolbar.vue';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
 
 // Configure marked for safe rendering
@@ -498,6 +518,12 @@ const swciSearch = ref('');
 const showCreateSWCI = ref(false);
 const selectedElement = ref<any>(null);
 const snapToGrid = ref(true);
+
+// Diagram toolbar
+const canvasRef = ref<HTMLElement | null>(null);
+const isLocked = ref(false);
+const currentZoom = ref(1);
+const isExporting = ref(false);
 
 // Unsaved changes state
 const isDirty = ref(false);
@@ -613,14 +639,15 @@ const loadDiagram = (diagramId: string) => {
   // Restore viewport if exists, otherwise fit view
   if (diagram.viewport) {
     setViewport(diagram.viewport);
+    currentZoom.value = diagram.viewport.zoom;
   } else {
-    // Default viewport centered
     setViewport({ x: 0, y: 0, zoom: 1 });
+    currentZoom.value = 1;
   }
 };
 
 const onViewportChange = (viewport: { x: number; y: number; zoom: number }) => {
-  // Save viewport to current diagram
+  currentZoom.value = viewport.zoom;
   if (activeDiagramId.value) {
     const currentDiagram = diagrams.value.find(d => d.id === activeDiagramId.value);
     if (currentDiagram) {
@@ -963,6 +990,27 @@ const openCreateSWCI = () => {
   showCreateSWCI.value = true;
 };
 
+
+const exportToPng = async () => {
+  const flowEl = canvasRef.value?.querySelector('.vue-flow') as HTMLElement | null;
+  if (!flowEl) return;
+  isExporting.value = true;
+  try {
+    const dataUrl = await toPng(flowEl, {
+      backgroundColor: '#faf9fe',
+      pixelRatio: 2,
+    });
+    const link = document.createElement('a');
+    link.download = `${product.value?.name ?? 'diagram'}-${activeDiagram.value?.name ?? 'main'}.png`;
+    link.href = dataUrl;
+    link.click();
+  } catch (err) {
+    console.error('Export PNG failed', err);
+  } finally {
+    isExporting.value = false;
+  }
+};
+
 // --- Note Methods ---
 const addNote = () => {
   const newNode: Node = {
@@ -972,7 +1020,7 @@ const addNote = () => {
     data: {
       content: '# New Note\n\nClick to edit',
       color: '#fef3c7',
-      fontSize: '14px'
+      fontSize: 14
     },
     style: {
       width: '250px',
@@ -1084,7 +1132,6 @@ const goBack = () => {
 <style>
 @import '@vue-flow/core/dist/style.css';
 @import '@vue-flow/core/dist/theme-default.css';
-@import '@vue-flow/controls/dist/style.css';
 
 .vue-flow__node-swci {
   padding: 0;
@@ -1097,23 +1144,4 @@ const goBack = () => {
   stroke-width: 4px !important;
 }
 
-.vue-flow__controls {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: white;
-  padding: 4px;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.vue-flow__controls-button {
-  border: none !important;
-  border-radius: 8px !important;
-  fill: #414755 !important;
-}
-
-.vue-flow__controls-button:hover {
-  background: #f4f3f8 !important;
-}
 </style>

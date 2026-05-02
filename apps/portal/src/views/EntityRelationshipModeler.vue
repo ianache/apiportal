@@ -66,24 +66,6 @@
           <span>Save</span>
         </button>
 
-        <div class="toolbar-separator"></div>
-
-        <!-- Snap to Grid Toggle -->
-        <button 
-          @click="snapToGrid = !snapToGrid" 
-          class="toolbar-btn" 
-          :class="{ 'toolbar-btn--active': snapToGrid }"
-          :title="snapToGrid ? 'Disable Snap to Grid' : 'Enable Snap to Grid'"
-        >
-          <span class="material-symbols-outlined" style="font-size:18px;">
-            {{ snapToGrid ? 'grid_on' : 'grid_off' }}
-          </span>
-          <span>Snap</span>
-        </button>
-
-        <span class="text-xs font-medium px-2 py-1 bg-gray-100 rounded-md text-gray-600 min-w-[50px] text-center">
-          {{ Math.round(zoomLevel * 100) }}%
-        </span>
       </div>
 
       <!-- Right -->
@@ -103,7 +85,7 @@
     </header>
 
     <!-- ── Main Area ───────────────────────────────────── -->
-    <div class="er-main">
+    <div ref="erMainRef" class="er-main">
 
       <!-- Side Panel (Tables List) -->
       <aside v-if="showSidePanel" class="side-panel" :style="{ width: sidePanelWidth + 'px' }">
@@ -411,6 +393,16 @@
         </div>
       </aside>
 
+      <!-- ── Diagram Toolbar ──────────────────────────── -->
+      <DiagramToolbar
+        :canvas-ref="erMainRef"
+        v-model:snap-to-grid="snapToGrid"
+        :show-lock="false"
+        @zoom-in="erZoomIn"
+        @zoom-out="erZoomOut"
+        @fit-view="erFitView"
+      />
+
       <!-- Properties Panel (Right) -->
       <aside v-if="selectedItem && !showAIPanel" class="properties-panel">
         <!-- Table Properties -->
@@ -638,6 +630,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useDomainsStore } from '../stores/domains';
 import { useLLMPreferencesStore } from '../stores/preferences';
 import { useAuthStore } from '../stores/auth';
+import DiagramToolbar from '../components/designer/DiagramToolbar.vue';
 
 interface Column {
   id: string;
@@ -701,6 +694,7 @@ const auth = useAuthStore();
 const domainId = computed(() => route.params.id as string);
 const domainTitle = ref('');
 const canvasRef = ref<HTMLElement | null>(null);
+const erMainRef = ref<HTMLElement | null>(null);
 const canvasWidth = ref(2000);
 const canvasHeight = ref(2000);
 
@@ -711,6 +705,10 @@ const zoomLevel = ref(1);
 const MIN_ZOOM = 0.2;
 const MAX_ZOOM = 3;
 const ZOOM_SPEED = 0.001;
+
+const erZoomIn  = () => { zoomLevel.value = +Math.min(MAX_ZOOM, zoomLevel.value * 1.2).toFixed(2); };
+const erZoomOut = () => { zoomLevel.value = +Math.max(MIN_ZOOM, zoomLevel.value / 1.2).toFixed(2); };
+const erFitView = () => { zoomLevel.value = 1; };
 const tables = ref<Table[]>([]);
 const relationships = ref<Relationship[]>([]);
 const canvases = ref<Canvas[]>([]);
