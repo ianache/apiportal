@@ -8,20 +8,20 @@ datasource db {
 }
 
 model User {
-  id                    String            @id @default(uuid())
-  sub                   String            @unique
-  email                 String            @unique
-  name                  String?
-  role                  Role              @default(API_DEVELOPER)
-  ownedApis             API[]             @relation("ApiOwner")
-  approvedVersions      APIVersion[]      @relation("VersionApprover")
-  createdVersions       APIVersion[]      @relation("VersionCreator")
-  auditLogs             AuditLog[]
-  favorites             UserAPIFavorite[]
-  createdOrganizations  Organization[]    @relation("OrganizationCreator")
-  ownedOrganizations    Organization[]    @relation("OrganizationOwner")
-  createdProducts       Product[]         @relation("ProductCreator")
-  subscriptions         Subscription[]
+  id                   String            @id @default(uuid())
+  sub                  String            @unique
+  email                String            @unique
+  name                 String?
+  role                 Role              @default(API_DEVELOPER)
+  ownedApis            API[]             @relation("ApiOwner")
+  approvedVersions     APIVersion[]      @relation("VersionApprover")
+  createdVersions      APIVersion[]      @relation("VersionCreator")
+  auditLogs            AuditLog[]
+  createdOrganizations Organization[]    @relation("OrganizationCreator")
+  ownedOrganizations   Organization[]    @relation("OrganizationOwner")
+  createdProducts      Product[]         @relation("ProductCreator")
+  subscriptions        Subscription[]
+  favorites            UserAPIFavorite[]
 }
 
 model AuditLog {
@@ -42,33 +42,33 @@ model API {
   updatedAt      DateTime          @updatedAt
   domainId       String?
   label          String?
-  owner          User              @relation("ApiOwner", fields: [ownerId], references: [id])
-  versions       APIVersion[]
-  favorites      UserAPIFavorite[]
   organizationId String?
   organization   Organization?     @relation("OrganizationApis", fields: [organizationId], references: [id])
+  owner          User              @relation("ApiOwner", fields: [ownerId], references: [id])
+  versions       APIVersion[]
   subscriptions  Subscription[]
+  favorites      UserAPIFavorite[]
 
   @@index([domainId])
   @@index([label])
 }
 
 model APIVersion {
-  id          String        @id @default(uuid())
+  id          String                      @id @default(uuid())
   apiId       String
-  version     String        @default("0.1.0")
-  status      APIStatus     @default(DESIGN)
+  version     String                      @default("0.1.0")
+  status      APIStatus                   @default(DESIGN)
   definition  Json?
   flowConfig  Json?
   createdBy   String
   approvedBy  String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
   openApiSpec Json?
   endpoints   APIEndpoint[]
-  api         API           @relation(fields: [apiId], references: [id], onDelete: Cascade)
-  approver    User?         @relation("VersionApprover", fields: [approvedBy], references: [id])
-  creator     User          @relation("VersionCreator", fields: [createdBy], references: [id])
+  api         API                         @relation(fields: [apiId], references: [id], onDelete: Cascade)
+  approver    User?                       @relation("VersionApprover", fields: [approvedBy], references: [id])
+  creator     User                        @relation("VersionCreator", fields: [createdBy], references: [id])
   swcis       SoftwareConfigurationItem[]
 
   @@unique([apiId, version])
@@ -94,8 +94,8 @@ model Domain {
   updatedAt       DateTime             @updatedAt
   conceptModel    Json?
   erModel         Json?
-  integrations    Integration[]
   transformations DataTransformation[] @relation("DomainTransformations")
+  integrations    Integration[]
 }
 
 model Integration {
@@ -118,10 +118,10 @@ model IntegrationVersion {
   version       String
   status        IntegrationVersionStatus @default(Design)
   description   String?
-  definition    Json?
   integrationId String
   createdAt     DateTime                 @default(now())
   updatedAt     DateTime                 @updatedAt
+  definition    Json?
   integration   Integration              @relation(fields: [integrationId], references: [id], onDelete: Cascade)
 }
 
@@ -138,11 +138,11 @@ model TxNodeTypeCatalog {
   id          String   @id @default(uuid())
   name        String   @unique
   description String?
-  icon        String?  @default("transform")
-  color       String?  @default("#0058bc")
   properties  Json     @default("[]")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  color       String?  @default("#0058bc")
+  icon        String?  @default("transform")
 }
 
 model APIEndpoint {
@@ -241,15 +241,15 @@ model Organization {
   name            String                      @unique
   description     String?
   createdById     String
-  createdBy       User                        @relation("OrganizationCreator", fields: [createdById], references: [id])
-  ownerId         String?
-  owner           User?                       @relation("OrganizationOwner", fields: [ownerId], references: [id])
   createdAt       DateTime                    @default(now())
   updatedAt       DateTime                    @updatedAt
-  products        Product[]
+  ownerId         String?
   apis            API[]                       @relation("OrganizationApis")
-  swcis           SoftwareConfigurationItem[]
   transformations DataTransformation[]        @relation("OrganizationTransformations")
+  createdBy       User                        @relation("OrganizationCreator", fields: [createdById], references: [id])
+  owner           User?                       @relation("OrganizationOwner", fields: [ownerId], references: [id])
+  products        Product[]
+  swcis           SoftwareConfigurationItem[]
 }
 
 model Product {
@@ -257,38 +257,56 @@ model Product {
   name           String
   description    String?
   organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdById    String
-  createdBy      User         @relation("ProductCreator", fields: [createdById], references: [id])
+  mainDiagramId  String?      @unique
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  diagram        Json?
+  diagram        Json?        // Deprecated: use diagrams relation
+  diagrams       Diagram[]
+  mainDiagram    Diagram?     @relation("ProductMainDiagram", fields: [mainDiagramId], references: [id])
+  createdBy      User         @relation("ProductCreator", fields: [createdById], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model Diagram {
+  id          String    @id @default(uuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name        String
+  design      Json      @default("{\"nodes\":[],\"edges\":[],\"notes\":[]}")
+  isMain      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  mainProduct Product?  @relation("ProductMainDiagram")
+  
+  @@index([productId])
+  @@unique([productId, isMain])
 }
 
 model ConfigurationItemType {
-  id             String                  @id @default(uuid())
-  name           String                  @unique // e.g. "API", "DATABASE", "MICROSERVICE"
+  id             String                      @id @default(uuid())
+  name           String                      @unique
   icon           String?
   specifications PropertySpecification[]
   swcis          SoftwareConfigurationItem[]
 }
 
 model PropertySpecification {
-  id          String                @id @default(uuid())
-  name        String
-  dataType    String                // "string", "integer", "boolean"
-  required    Boolean               @default(false)
-  typeId      String
-  type        ConfigurationItemType @relation(fields: [typeId], references: [id], onDelete: Cascade)
-  properties  Property[]
+  id         String                @id @default(uuid())
+  name       String
+  dataType   String
+  required   Boolean               @default(false)
+  typeId     String
+  properties Property[]
+  type       ConfigurationItemType @relation(fields: [typeId], references: [id], onDelete: Cascade)
 }
 
 model Property {
-  id              String                @id @default(uuid())
-  value           String                // Stored as string, parsed in frontend
+  id              String                    @id @default(uuid())
+  value           String
   specificationId String
-  specification   PropertySpecification @relation(fields: [specificationId], references: [id], onDelete: Cascade)
   swciId          String
+  specification   PropertySpecification     @relation(fields: [specificationId], references: [id], onDelete: Cascade)
   swci            SoftwareConfigurationItem @relation(fields: [swciId], references: [id], onDelete: Cascade)
 
   @@unique([swciId, specificationId])
@@ -298,15 +316,15 @@ model SoftwareConfigurationItem {
   id             String                @id @default(uuid())
   name           String
   description    String?
-  typeId         String
-  type           ConfigurationItemType @relation(fields: [typeId], references: [id])
-  organizationId String
-  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  apiVersionId   String?
-  apiVersion     APIVersion?           @relation(fields: [apiVersionId], references: [id])
-  properties     Property[]
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
+  organizationId String
+  apiVersionId   String?
+  typeId         String
+  properties     Property[]
+  apiVersion     APIVersion?           @relation(fields: [apiVersionId], references: [id])
+  organization   Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  type           ConfigurationItemType @relation(fields: [typeId], references: [id])
 }
 
 model DataTransformation {
@@ -317,24 +335,24 @@ model DataTransformation {
   target         String?
   code           String?
   language       String        @default("javascript")
-  definition     Json?
   organizationId String?
-  organization   Organization? @relation("OrganizationTransformations", fields: [organizationId], references: [id])
   domainId       String?
-  domain         Domain?       @relation("DomainTransformations", fields: [domainId], references: [id])
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  definition     Json?
+  domain         Domain?       @relation("DomainTransformations", fields: [domainId], references: [id])
+  organization   Organization? @relation("OrganizationTransformations", fields: [organizationId], references: [id])
 }
 
 model Subscription {
   id        String            @id @default(uuid())
   userId    String
   apiId     String
-  status    String            @default("ACTIVE") // ACTIVE, REVOKED
+  status    String            @default("ACTIVE")
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
-  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   api       API               @relation(fields: [apiId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   keys      SubscriptionKey[]
 
   @@unique([userId, apiId])

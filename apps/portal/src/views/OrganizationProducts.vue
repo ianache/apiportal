@@ -97,6 +97,9 @@
           </template>
 
           <template #header-actions>
+            <button v-if="canDeleteProduct" @click.stop="confirmDeleteProduct(product)" class="p-1.5 rounded-full hover:bg-red-50 transition-colors mr-1" style="color: #991b1b;">
+              <span class="material-symbols-outlined text-[20px]">delete</span>
+            </button>
             <button v-if="canAddProduct" @click.stop="openEditModal(product)" class="p-1.5 rounded-full hover:bg-slate-50 transition-colors" style="color: #717786;">
               <span class="material-symbols-outlined text-[20px]">edit</span>
             </button>
@@ -249,6 +252,57 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div
+      v-if="showDeleteModal"
+      class="fixed inset-0 z-[100] flex items-center justify-center p-6"
+      style="background: rgba(26,27,31,0.55); backdrop-filter: blur(4px);"
+    >
+      <div
+        class="rounded-3xl w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200"
+        style="background: #ffffff;"
+      >
+        <div class="flex items-start gap-4 mb-6">
+          <div class="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style="background: #fef2f2;">
+            <span class="material-symbols-outlined text-2xl" style="color: #dc2626;">warning</span>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold" style="color: #1a1b1f;">Delete Product</h2>
+            <p class="text-sm mt-1" style="color: #717786;">
+              Are you sure you want to delete <strong>{{ productToDelete?.name }}</strong>? 
+              This action cannot be undone and will also delete all associated diagrams.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex gap-3">
+          <button
+            @click="showDeleteModal = false; productToDelete = null"
+            class="flex-1 py-3 px-6 rounded-xl font-bold transition-colors hover:bg-gray-50 flex items-center justify-center gap-2"
+            style="color: #414755; border: 1px solid #e3e2e7;"
+          >
+            <span class="material-symbols-outlined text-base">close</span>
+            Cancel
+          </button>
+          <button
+            @click="handleDeleteProduct"
+            :disabled="productStore.loading"
+            class="flex-1 py-3 px-6 rounded-xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2"
+            :style="{
+              background: '#dc2626',
+              color: '#ffffff',
+              opacity: productStore.loading ? 0.5 : 1,
+              cursor: productStore.loading ? 'not-allowed' : 'pointer',
+            }"
+          >
+            <span v-if="productStore.loading" class="material-symbols-outlined animate-spin text-base">progress_activity</span>
+            <span v-else class="material-symbols-outlined text-base">delete</span>
+            {{ productStore.loading ? 'Deleting…' : 'Delete Product' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </Shell>
 </template>
 
@@ -271,8 +325,10 @@ const authStore = useAuthStore();
 const orgId = route.params.id as string;
 const searchQuery = ref('');
 const showModal = ref(false);
+const showDeleteModal = ref(false);
 const isEditing = ref(false);
 const editingId = ref<string | null>(null);
+const productToDelete = ref<Product | null>(null);
 
 const form = reactive({
   name: '',
@@ -297,6 +353,11 @@ const canAddProduct = computed(() => {
                   organization.value.owner?.sub === authStore.user?.sub;
   
   return isManager || isOwner;
+});
+
+const canDeleteProduct = computed(() => {
+  // RBAC: API Designer or API Manager - use auth store's hasRole method
+  return authStore.hasRole('API_DESIGNER') || authStore.hasRole('API_MANAGER');
 });
 
 const filteredProducts = computed(() => {
@@ -369,6 +430,23 @@ const handleSubmit = async () => {
       });
     }
     showModal.value = false;
+  } catch {
+    // error handled by store
+  }
+};
+
+const confirmDeleteProduct = (product: Product) => {
+  productToDelete.value = product;
+  showDeleteModal.value = true;
+};
+
+const handleDeleteProduct = async () => {
+  if (!productToDelete.value) return;
+  
+  try {
+    await productStore.deleteProduct(productToDelete.value.id);
+    showDeleteModal.value = false;
+    productToDelete.value = null;
   } catch {
     // error handled by store
   }

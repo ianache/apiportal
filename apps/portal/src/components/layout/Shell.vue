@@ -274,10 +274,10 @@ const mainNav = [
 
 const settingsNav = [
   { path: '/settings/environments', icon: 'dns',             label: 'Environments' },
+  { path: '/settings/domains',      icon: 'domain',          label: 'Domains'      },
   { path: '/settings/node-types',   icon: 'widgets',         label: 'Node Types'   },
   { path: '/settings/tx-node-types', icon: 'transform',       label: 'Tx Node Types' },
-  { path: '/settings/preferences',  icon: 'manage_accounts', label: 'Preferences'  },
-  { path: '/settings/status',       icon: 'analytics',       label: 'Status'       },
+  { path: '/settings/preferences',  icon: 'manage_accounts', label: 'Preferences'  }
 ];
 
 const settingsOpen = ref(false);

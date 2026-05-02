@@ -77,7 +77,7 @@ export const useProductStore = defineStore('products', () => {
     }
   };
 
-  const updateProduct = async (id: string, data: { name?: string; description?: string; diagram?: any }) => {
+  const updateProduct = async (id: string, data: { name?: string; description?: string; diagram?: any; diagrams?: any[] }) => {
     loading.value = true;
     error.value = null;
     try {
@@ -195,6 +195,113 @@ export const useProductStore = defineStore('products', () => {
     }
   };
 
+  // Diagram Actions
+  const getDiagrams = async (productId: string) => {
+    try {
+      const auth = useAuthStore();
+      const token = await auth.getToken();
+      const env = (window as any).NEXUS_ENV || import.meta.env;
+      const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
+      const response = await fetch(`${bffBase}/products/${productId}/diagrams`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to fetch diagrams');
+      return await response.json();
+    } catch (err: any) {
+      throw err;
+    }
+  };
+
+  const createDiagram = async (productId: string, data: { name: string; design?: any; isMain?: boolean }) => {
+    try {
+      const auth = useAuthStore();
+      const token = await auth.getToken();
+      const env = (window as any).NEXUS_ENV || import.meta.env;
+      const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
+      const response = await fetch(`${bffBase}/products/${productId}/diagrams`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to create diagram');
+      return await response.json();
+    } catch (err: any) {
+      throw err;
+    }
+  };
+
+  const updateDiagram = async (diagramId: string, data: { name?: string; design?: any }) => {
+    try {
+      const auth = useAuthStore();
+      const token = await auth.getToken();
+      const env = (window as any).NEXUS_ENV || import.meta.env;
+      const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
+      const response = await fetch(`${bffBase}/diagrams/${diagramId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error('Failed to update diagram');
+      return await response.json();
+    } catch (err: any) {
+      throw err;
+    }
+  };
+
+  const deleteDiagram = async (diagramId: string) => {
+    try {
+      const auth = useAuthStore();
+      const token = await auth.getToken();
+      const env = (window as any).NEXUS_ENV || import.meta.env;
+      const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
+      const response = await fetch(`${bffBase}/diagrams/${diagramId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to delete diagram');
+      return await response.json();
+    } catch (err: any) {
+      throw err;
+    }
+  };
+
+  const deleteProduct = async (productId: string) => {
+    loading.value = true;
+    error.value = null;
+    try {
+      const auth = useAuthStore();
+      const token = await auth.getToken();
+      const env = (window as any).NEXUS_ENV || import.meta.env;
+      const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
+      const response = await fetch(`${bffBase}/products/${productId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Failed to delete product');
+      }
+      // Remove from local state
+      const idx = products.value.findIndex(p => p.id === productId);
+      if (idx !== -1) {
+        products.value.splice(idx, 1);
+      }
+    } catch (err: any) {
+      error.value = err.message;
+      throw err;
+    } finally {
+      loading.value = false;
+    }
+  };
+
   return {
     products,
     swcis,
@@ -205,9 +312,14 @@ export const useProductStore = defineStore('products', () => {
     getProduct,
     createProduct,
     updateProduct,
+    deleteProduct,
     fetchSWCIs,
     createSWCI,
     updateSWCI,
-    fetchConfigItemTypes
+    fetchConfigItemTypes,
+    getDiagrams,
+    createDiagram,
+    updateDiagram,
+    deleteDiagram
   };
 });

@@ -188,6 +188,11 @@
                 <input v-model="selectedNode.data.contactEmail" @input="updateNodeData" class="panel-input" type="email" placeholder="contact@example.com" />
               </div>
               <div class="panel-section">
+                <label class="panel-label">ROOT CONTEXT</label>
+                <input v-model="selectedNode.data.rootContext" @input="updateNodeData" class="panel-input" placeholder="/api/v1" />
+                <p class="panel-hint">Base path prefix for all endpoints (e.g., /telemetria/api/v1)</p>
+              </div>
+              <div class="panel-section">
                 <label class="panel-label">TAGS</label>
                 <div class="tags-container">
                   <div v-if="!selectedNode.data.tags?.length" class="text-xs" style="color:#a0a7b5;">No tags</div>
@@ -650,7 +655,7 @@ const ROOT_NODE: Node = {
   data: { 
     path: '/', methods: [], operationSpecs: {}, 
     description: 'API Entry Point', operationName: '', security: '', isRoot: true, tags: [],
-    title: '', contactName: '', contactEmail: '',
+    title: '', contactName: '', contactEmail: '', rootContext: '',
     hasChildren: false, collapsed: false
   },
 };
@@ -1081,13 +1086,20 @@ onUnmounted(() => {
 // ── YAML export ───────────────────────────────────────
 function buildOpenApiSpec() {
   const pathMap: Record<string, string> = {};
+  const rootNode = nodes.value.find(n => n.data.isRoot);
+  const rootContext = rootNode?.data.rootContext || '';
+  
   function buildFullPath(nodeId: string, visited = new Set<string>()): string {
     if (visited.has(nodeId)) return '';
     visited.add(nodeId);
     const node = nodes.value.find(n => n.id === nodeId);
     if (!node) return '';
     const inEdge = edges.value.find(e => e.target === nodeId);
-    if (!inEdge) return node.data.path || '/';
+    if (!inEdge) {
+      // This is a direct child of root, prepend rootContext
+      const nodePath = node.data.path || '/';
+      return rootContext ? `${rootContext}${nodePath}` : nodePath;
+    }
     const parentPath = buildFullPath(inEdge.source, visited);
     const param = inEdge.data?.pathParam?.name ? `/{${inEdge.data.pathParam.name}}` : '';
     return `${parentPath}${param}${node.data.path !== '/' ? node.data.path : ''}`;
@@ -1150,7 +1162,6 @@ function buildOpenApiSpec() {
     };
   });
 
-  const rootNode = nodes.value.find(n => n.data.isRoot);
   const infoObj: any = { 
     title: rootNode?.data.title || apiName.value || 'API', 
     version 
@@ -1209,6 +1220,7 @@ function exportDesignYaml() {
         if (n.data.description) out.description = n.data.description;
         if (n.data.contactName) out.contactName = n.data.contactName;
         if (n.data.contactEmail) out.contactEmail = n.data.contactEmail;
+        if (n.data.rootContext) out.rootContext = n.data.rootContext;
       }
       if (n.data.operationName) out.operationName = n.data.operationName;
       if (n.data.security)      out.security      = n.data.security;
@@ -1315,6 +1327,7 @@ function importNexusDesign(doc: any) {
       title: n.title ?? '',
       contactName: n.contactName ?? '',
       contactEmail: n.contactEmail ?? '',
+      rootContext: n.rootContext ?? '',
       methods: (n.methods ?? []).map((m: any) => m.verb),
       tags: n.tags ?? [],
       hasChildren: !!n.hasChildren,
@@ -1513,6 +1526,7 @@ function importOpenApiDoc(doc: any) {
       title: doc.info?.title || '',
       contactName: doc.info?.contact?.name || '',
       contactEmail: doc.info?.contact?.email || '',
+      rootContext: '',
       isRoot: true, tags: rootTags 
     },
   });
@@ -1701,6 +1715,7 @@ The JSON must use EXACTLY this structure:
         "path": "/resource",
         "isRoot": true,
         "description": "",
+        "rootContext": "/api/v1",
         "methods": ["GET"],
         "operationSpecs": {
           "GET": {

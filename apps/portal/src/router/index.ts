@@ -40,6 +40,11 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/explorer/:id/spec/:version?',
+    component: () => import('../views/ApiSpecViewer.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/explorer/:id/:version?',
     component: () => import('../views/ApiExplorerDetail.vue'),
     meta: { requiresAuth: true }
@@ -87,7 +92,7 @@ const routes = [
   {
     path: '/domains',
     component: () => import('../views/settings/SettingsDomains.vue'),
-    meta: { requiresAuth: true, requiredRoles: ['API_MANAGER'] }
+    meta: { requiresAuth: true, requiredRoles: ['API_DESIGNER', 'API_MANAGER'] }
   },
   {
     path: '/domains/:id/concept-modeler',
@@ -106,6 +111,7 @@ const routes = [
   },
   {
     path: '/settings',
+    component: () => import('../views/Settings.vue'),
     redirect: '/settings/environments',
     meta: { requiresAuth: true, requiredRoles: ['API_MANAGER'] },
     children: [
@@ -113,8 +119,7 @@ const routes = [
       { path: 'preferences',  component: () => import('../views/settings/SettingsPreferences.vue') },
       { path: 'domains',      component: () => import('../views/settings/SettingsDomains.vue') },
       { path: 'node-types',   component: () => import('../views/settings/SettingsNodeTypes.vue') },
-      { path: 'tx-node-types', component: () => import('../views/settings/SettingsTxNodeTypes.vue') },
-      { path: 'status',       component: Dashboard }
+      { path: 'tx-node-types', component: () => import('../views/settings/SettingsTxNodeTypes.vue') }
     ]
   }
 ];

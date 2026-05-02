@@ -144,63 +144,65 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
 
     const products = await fastify.prisma.product.findMany({
       where: { organizationId: orgId },
-      include: {
-        createdBy: true
+      include: { 
+        createdBy: true,
+        diagrams: {
+          select: {
+            id: true,
+            name: true,
+            createdAt: true,
+            updatedAt: true
+          }
+        }
       },
       orderBy: { name: 'asc' }
     });
 
-    // Obtener todos los SWCIs de la organización para cruzar tipos e iconos
-    const swcis = await fastify.prisma.softwareConfigurationItem.findMany({
-      where: { organizationId: orgId },
-      include: { type: true }
-    });
-
-    // Enriquecer productos con el conteo por tipo basado en el diagrama
-    return products.map(product => {
-      const diagram = (product.diagram as any) || { nodes: [] };
-      const nodes = diagram.nodes || [];
-      
-      // Mapear IDs de SWCI presentes en el diagrama
-      const swciIdsInDiagram = nodes
-        .filter((n: any) => n.type === 'swci' && n.data?.swciId)
-        .map((n: any) => n.data.swciId);
-
-      // Contar por tipo
-      const typeCounts: Record<string, { name: string, icon: string, count: number }> = {};
-      
-      swciIdsInDiagram.forEach((id: string) => {
-        const swci = swcis.find(s => s.id === id);
-        if (swci && swci.type) {
-          if (!typeCounts[swci.typeId]) {
-            typeCounts[swci.typeId] = {
-              name: swci.type.name,
-              icon: swci.type.icon || 'settings_input_component',
-              count: 0
-            };
-          }
-          typeCounts[swci.typeId].count++;
-        }
-      });
-
-      return {
-        ...product,
-        swciSummary: Object.values(typeCounts).sort((a, b) => a.name.localeCompare(b.name)),
-        totalSwcis: swciIdsInDiagram.length
-      };
-    });
+    return products;
   });
 
   // GET /products/:id
   fastify.get('/products/:id', async (request, reply) => {
     if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
     const { id } = request.params as { id: string };
-    const product = await fastify.prisma.product.findUnique({ 
+    
+    let product = await fastify.prisma.product.findUnique({ 
       where: { id },
-      include: { organization: true }
+      include: { 
+        organization: true,
+        mainDiagram: true
+      }
     });
     if (!product) return reply.code(404).send({ error: 'Product not found' });
-    return product;
+    
+    // If no main diagram exists, create one automatically
+    if (!product.mainDiagramId) {
+      const mainDiagram = await fastify.prisma.diagram.create({
+        data: {
+          productId: id,
+          name: 'Main',
+          design: { nodes: [], edges: [] },
+          isMain: true
+        }
+      });
+      
+      product = await fastify.prisma.product.update({
+        where: { id },
+        data: { mainDiagramId: mainDiagram.id },
+        include: { 
+          organization: true,
+          mainDiagram: true
+        }
+      });
+    }
+    
+    // Get all diagrams for this product
+    const diagrams = await fastify.prisma.diagram.findMany({
+      where: { productId: id },
+      orderBy: { createdAt: 'asc' }
+    });
+    
+    return { ...product, diagrams };
   });
 
   // POST /organizations/:orgId/products
@@ -224,13 +226,36 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
     const data = productSchema.parse(request.body);
 
     try {
-      return await fastify.prisma.product.create({
+      // Create product
+      let product = await fastify.prisma.product.create({
         data: {
           ...data,
           organizationId: orgId,
           createdById: dbUser.id
         }
       });
+      
+      // Create main diagram automatically
+      const mainDiagram = await fastify.prisma.diagram.create({
+        data: {
+          productId: product.id,
+          name: 'Main',
+          design: { nodes: [], edges: [] },
+          isMain: true
+        }
+      });
+      
+      // Update product with main diagram reference
+      product = await fastify.prisma.product.update({
+        where: { id: product.id },
+        data: { mainDiagramId: mainDiagram.id },
+        include: { 
+          organization: true,
+          mainDiagram: true
+        }
+      });
+      
+      return product;
     } catch (e) {
       throw e;
     }
@@ -257,17 +282,44 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.code(403).send({ error: 'Forbidden' });
     }
 
-    const { diagram, ...rest } = request.body as any;
-    const data: any = productSchema.partial().parse(rest);
+    const data = productSchema.partial().parse(request.body);
     
-    if (diagram) {
-      data.diagram = diagram;
-    }
-
+    // Update product
     return fastify.prisma.product.update({
       where: { id },
-      data
+      data,
+      include: { 
+        organization: true
+      }
     });
+  });
+
+  // DELETE /products/:id
+  fastify.delete('/products/:id', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    const { id } = request.params as { id: string };
+    
+    const product = await fastify.prisma.product.findUnique({ 
+      where: { id },
+      include: { organization: true }
+    });
+    if (!product) return reply.code(404).send({ error: 'Product not found' });
+
+    const dbUser = await fastify.prisma.user.findUnique({ where: { sub: request.user.sub } });
+    if (!dbUser) return reply.code(401).send({ error: 'User not synchronized' });
+
+    // RBAC: Only API_DESIGNER or API_MANAGER can delete products
+    const canDelete = dbUser.role === 'API_DESIGNER' || dbUser.role === 'API_MANAGER';
+    if (!canDelete) {
+      return reply.code(403).send({ error: 'Forbidden: Only API Designer or API Manager can delete products' });
+    }
+
+    // Delete product - diagrams will be deleted automatically due to onDelete: Cascade
+    await fastify.prisma.product.delete({
+      where: { id }
+    });
+
+    return { success: true };
   });
 
   // --- SWCI ROUTES ---
@@ -358,6 +410,110 @@ const organizationRoutes: FastifyPluginAsync = async (fastify) => {
       include: { specifications: true },
       orderBy: { name: 'asc' }
     });
+  });
+
+  // --- DIAGRAM ROUTES ---
+
+  // GET /products/:id/diagrams - Get all diagrams for a product
+  fastify.get('/products/:id/diagrams', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    const { id } = request.params as { id: string };
+    
+    const diagrams = await fastify.prisma.diagram.findMany({
+      where: { productId: id },
+      orderBy: { createdAt: 'asc' }
+    });
+    return diagrams;
+  });
+
+  // POST /products/:id/diagrams - Create a new diagram
+  fastify.post('/products/:id/diagrams', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    const { id } = request.params as { id: string };
+    const { name, design, isMain } = request.body as any;
+    
+    const product = await fastify.prisma.product.findUnique({ 
+      where: { id },
+      include: { mainDiagram: true }
+    });
+    if (!product) return reply.code(404).send({ error: 'Product not found' });
+    
+    // Check if this should be the main diagram
+    let shouldBeMain = isMain === true;
+    
+    // If no main diagram exists, make this the main one
+    if (!product.mainDiagramId) {
+      shouldBeMain = true;
+    }
+    
+    // If trying to create another main diagram but one already exists
+    if (shouldBeMain && product.mainDiagramId) {
+      return reply.code(400).send({ error: 'Product already has a main diagram' });
+    }
+    
+    const diagram = await fastify.prisma.diagram.create({
+      data: {
+        productId: id,
+        name: name || (shouldBeMain ? 'Main' : 'New Diagram'),
+        design: design || { nodes: [], edges: [] },
+        isMain: shouldBeMain
+      }
+    });
+    
+    // If this is the main diagram, update product reference
+    if (shouldBeMain) {
+      await fastify.prisma.product.update({
+        where: { id },
+        data: { mainDiagramId: diagram.id }
+      });
+    }
+    
+    return diagram;
+  });
+
+  // PATCH /diagrams/:diagramId - Update a diagram
+  fastify.patch('/diagrams/:diagramId', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    const { diagramId } = request.params as { diagramId: string };
+    const { name, design } = request.body as any;
+    
+    // Check if trying to update main diagram's isMain status
+    const existingDiagram = await fastify.prisma.diagram.findUnique({
+      where: { id: diagramId }
+    });
+    
+    if (!existingDiagram) return reply.code(404).send({ error: 'Diagram not found' });
+    
+    const diagram = await fastify.prisma.diagram.update({
+      where: { id: diagramId },
+      data: {
+        ...(name && { name }),
+        ...(design && { design })
+      }
+    });
+    return diagram;
+  });
+
+  // DELETE /diagrams/:diagramId - Delete a diagram
+  fastify.delete('/diagrams/:diagramId', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    const { diagramId } = request.params as { diagramId: string };
+    
+    // Check if it's the main diagram
+    const diagram = await fastify.prisma.diagram.findUnique({
+      where: { id: diagramId }
+    });
+    
+    if (!diagram) return reply.code(404).send({ error: 'Diagram not found' });
+    
+    if (diagram.isMain) {
+      return reply.code(403).send({ error: 'Cannot delete the main diagram' });
+    }
+    
+    await fastify.prisma.diagram.delete({
+      where: { id: diagramId }
+    });
+    return { success: true };
   });
 };
 

@@ -31,6 +31,12 @@
           <span class="material-symbols-outlined" style="font-size:14px;">check_circle</span>Saved
         </span>
 
+        <button @click="openNewDiagramModal"
+          class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 hover:opacity-90"
+          style="background:#e0e7ff;color:#4338ca;border:1px solid #4338ca;">
+          <span class="material-symbols-outlined" style="font-size:18px;">add_chart</span>Add Diagram
+        </button>
+
         <button @click="onSave" :disabled="saveStatus === 'saving'"
           class="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-40"
           style="background:#4338ca;color:#ffffff;box-shadow: 0 4px 12px rgba(67, 56, 202, 0.25);">
@@ -39,6 +45,39 @@
       </div>
     </header>
 
+    <!-- ── Diagram Tabs ─────────────────────────────────── -->
+    <div v-if="diagrams.length > 0" class="flex items-center px-4 gap-1 flex-shrink-0 z-20 border-b"
+      style="height:40px;background:#f8f8fb;border-color:#e3e2e7;">
+      <div 
+        v-for="diagram in diagrams" 
+        :key="diagram.id"
+        @click="loadDiagram(diagram.id)"
+        class="flex items-center gap-2 px-4 py-1.5 rounded-t-lg text-xs font-medium cursor-pointer transition-all border-t border-l border-r"
+        :class="activeDiagramId === diagram.id 
+          ? 'bg-white text-indigo-600 border-slate-200' 
+          : 'bg-transparent text-slate-500 border-transparent hover:text-slate-700'"
+        :style="activeDiagramId === diagram.id ? 'border-bottom:1px solid white;margin-bottom:-1px;' : ''"
+      >
+        <span class="material-symbols-outlined" style="font-size:14px;">{{ diagram.name === 'Main' ? 'home' : 'dashboard' }}</span>
+        <span>{{ diagram.name }}</span>
+        <button 
+          v-if="diagram.name !== 'Main'"
+          @click.stop="confirmDeleteDiagram(diagram.id)"
+          class="ml-1 p-0.5 rounded hover:bg-red-100 hover:text-red-600 transition-colors"
+          title="Delete diagram"
+        >
+          <span class="material-symbols-outlined" style="font-size:14px;">close</span>
+        </button>
+        <span 
+          v-else 
+          class="ml-1 p-0.5 text-slate-300 cursor-not-allowed"
+          title="Main diagram cannot be deleted"
+        >
+          <span class="material-symbols-outlined" style="font-size:14px;">lock</span>
+        </span>
+      </div>
+    </div>
+
     <div class="flex-1 flex overflow-hidden">
       
       <!-- ── Left Panel: SWCI Library ─────────────────── -->
@@ -46,13 +85,23 @@
         <div class="p-4 border-bottom">
           <h2 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4">SWCI Components</h2>
           
-          <button 
-            @click="openCreateSWCI"
-            class="w-full flex items-center justify-center gap-2 py-2 mb-4 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-all text-xs font-bold uppercase"
-          >
-            <span class="material-symbols-outlined" style="font-size:16px;">add</span>
-            New SWCI
-          </button>
+          <div class="flex gap-2 mb-4">
+            <button 
+              @click="openCreateSWCI"
+              class="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 hover:border-indigo-300 hover:text-indigo-600 transition-all text-xs font-bold uppercase"
+            >
+              <span class="material-symbols-outlined" style="font-size:16px;">add</span>
+              New CI
+            </button>
+            <button 
+              @click="addNote"
+              class="flex items-center justify-center gap-2 py-2 px-3 rounded-xl border-2 border-dashed border-amber-200 text-amber-600 hover:border-amber-400 hover:text-amber-700 hover:bg-amber-50 transition-all text-xs font-bold uppercase active:scale-95"
+              title="Add Note"
+            >
+              <span class="material-symbols-outlined" style="font-size:16px;">sticky_note</span>
+              Note
+            </button>
+          </div>
 
           <div class="relative mb-4">
             <span class="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" style="font-size:16px;">search</span>
@@ -114,11 +163,11 @@
           @connect="onConnect"
           @nodes-change="onNodesChange"
           @edges-change="onEdgesChange"
+          @viewport-change="onViewportChange"
           :delete-key-code="['Delete', 'Backspace']"
           :connection-mode="ConnectionMode.Loose"
           :snap-to-grid="snapToGrid"
           :snap-grid="[20, 20]"
-          fit-view-on-init
         >
           <Background :gap="24" :size="1.5" pattern-color="#d4d2db" variant="dots" />
           
@@ -148,7 +197,7 @@
 
         <div class="p-6 space-y-6 overflow-y-auto">
           <!-- Node Properties -->
-          <template v-if="selectedElement.type === 'swci'">
+          <template v-if="selectedElement?.type === 'swci'">
             <div>
               <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Component Name</label>
               <input 
@@ -220,7 +269,7 @@
           </template>
 
           <!-- Edge Properties -->
-          <template v-else-if="selectedElement.source">
+          <template v-else-if="selectedElement?.source">
             <div>
               <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Dependency Type</label>
               <select 
@@ -233,6 +282,89 @@
                 <option value="JDBC">JDBC Connection</option>
                 <option value="SOAP">SOAP Call</option>
               </select>
+            </div>
+          </template>
+
+          <!-- Note Properties -->
+          <template v-else-if="selectedElement?.type === 'note'">
+            <div>
+              <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Background Color</label>
+              <div class="flex gap-2 flex-wrap">
+                <button
+                  v-for="color in ['#fef3c7', '#dbeafe', '#fce7f3', '#d1fae5', '#f3f4f6', '#fee2e2']"
+                  :key="color"
+                  @click="selectedElement.data.color = color; updateNoteNode()"
+                  class="w-8 h-8 rounded-lg border-2 transition-all"
+                  :class="{ 'border-slate-900': selectedElement.data.color === color, 'border-transparent': selectedElement.data.color !== color }"
+                  :style="{ backgroundColor: color }"
+                />
+              </div>
+            </div>
+
+            <div class="pt-4 border-t space-y-3">
+              <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Size</label>
+              <div class="flex gap-3">
+                <div class="flex-1">
+                  <label class="block text-[10px] text-slate-400 mb-1">Width</label>
+                  <input 
+                    type="number" 
+                    v-model.number="selectedElement.style.width" 
+                    @input="updateNoteNode"
+                    class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm outline-none focus:ring-2 focus:ring-amber-100"
+                    min="150"
+                    max="800"
+                  />
+                </div>
+                <div class="flex-1">
+                  <label class="block text-[10px] text-slate-400 mb-1">Height</label>
+                  <input 
+                    type="number" 
+                    v-model.number="selectedElement.style.height" 
+                    @input="updateNoteNode"
+                    class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-slate-50 text-sm outline-none focus:ring-2 focus:ring-amber-100"
+                    min="100"
+                    max="600"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-4 border-t">
+              <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Font Size</label>
+              <div class="flex items-center gap-3">
+                <input 
+                  type="range" 
+                  v-model="selectedElement.data.fontSize" 
+                  @input="updateNoteNode"
+                  min="10"
+                  max="24"
+                  step="1"
+                  class="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                />
+                <span class="text-sm font-bold text-slate-600 w-12 text-center">{{ selectedElement.data.fontSize || 14 }}px</span>
+              </div>
+            </div>
+
+            <div class="pt-4 border-t">
+              <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Note Content (Markdown)</label>
+              <textarea 
+                v-model="selectedElement.data.content" 
+                @input="updateNoteNode"
+                class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm outline-none focus:ring-2 focus:ring-amber-100 focus:border-amber-300 transition-all resize-none"
+                rows="10"
+                placeholder="# Title&#10;&#10;- Item 1&#10;- Item 2&#10;&#10;**Bold text**"
+              />
+              <p class="text-[10px] text-slate-400 mt-1">Supports Markdown formatting</p>
+            </div>
+
+            <div class="pt-4">
+              <button 
+                @click="deleteNode(selectedElement.id); selectedElement = null"
+                class="w-full py-3 rounded-xl bg-red-50 text-red-600 text-sm font-bold hover:bg-red-100 transition-all flex items-center justify-center gap-2"
+              >
+                <span class="material-symbols-outlined text-sm">delete</span>
+                Delete Note
+              </button>
             </div>
           </template>
         </div>
@@ -277,6 +409,42 @@
       @reject="confirmExit(false)"
     />
 
+    <!-- New Diagram Modal -->
+    <div v-if="showNewDiagramModal" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/50 backdrop-blur-sm">
+      <div class="bg-white rounded-[32px] w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+        <h2 class="text-2xl font-black text-slate-900 mb-2">New Diagram</h2>
+        <p class="text-sm text-slate-500 mb-6">Create a new diagram for this product.</p>
+        
+        <div class="space-y-4">
+          <div>
+            <label class="block text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5 ml-1">Diagram Name</label>
+            <input 
+              v-model="newDiagramName" 
+              @keyup.enter="createNewDiagram"
+              class="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 transition-all" 
+              placeholder="Enter diagram name..."
+            />
+          </div>
+        </div>
+
+        <div class="flex gap-3 mt-8">
+          <button @click="showNewDiagramModal = false" class="flex-1 py-3 font-bold text-slate-500 rounded-xl hover:bg-slate-50 transition-all">Cancel</button>
+          <button @click="createNewDiagram" :disabled="!newDiagramName.trim()" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 active:scale-95 disabled:opacity-50 transition-all">Create Diagram</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Diagram Confirmation Modal -->
+    <ConfirmationModal
+      :show="showDeleteDiagramModal"
+      title="Delete Diagram"
+      :message="`Are you sure you want to delete the diagram '${diagrams.find(d => d.id === diagramToDelete)?.name}'? This action cannot be undone.`"
+      confirmText="Delete"
+      rejectText="Cancel"
+      @confirm="deleteDiagram"
+      @reject="showDeleteDiagramModal = false; diagramToDelete = null"
+    />
+
   </div>
 </template>
 
@@ -286,21 +454,42 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { VueFlow, useVueFlow, ConnectionMode, type Node, type Edge, type Connection } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import { Controls } from '@vue-flow/controls';
+import { marked } from 'marked';
 import { useProductStore } from '../stores/products';
 import { useRegistryStore } from '../stores/registry';
 import SWCINode from '../components/designer/SWCINode.vue';
+import NoteNode from '../components/designer/NoteNode.vue';
 import ConfirmationModal from '../components/ConfirmationModal.vue';
+
+// Configure marked for safe rendering
+marked.setOptions({
+  breaks: true,
+  gfm: true
+});
 
 // --- Flow Components ---
 const nodeTypes = {
   swci: markRaw(SWCINode),
+  note: markRaw(NoteNode),
 };
 
 const route = useRoute();
 const router = useRouter();
 const productStore = useProductStore();
 const registryStore = useRegistryStore();
-const { addNodes, addEdges, toObject, fromObject } = useVueFlow();
+const vueFlow = useVueFlow();
+const { addNodes, addEdges, toObject, fromObject, setViewport, getViewport } = vueFlow;
+
+// Diagram management
+interface Diagram {
+  id: string;
+  name: string;
+  nodes: Node[];
+  edges: Edge[];
+  viewport?: { x: number; y: number; zoom: number };
+}
+
+
 
 const productId = route.params.id as string;
 const product = ref<any>(null);
@@ -315,8 +504,25 @@ const isDirty = ref(false);
 const showExitModal = ref(false);
 let nextRoute: any = null;
 
+// Multiple diagrams state
+const diagrams = ref<Diagram[]>([]);
+const activeDiagramId = ref<string>('');
+const showNewDiagramModal = ref(false);
+const newDiagramName = ref('');
+const diagramToDelete = ref<string | null>(null);
+const showDeleteDiagramModal = ref(false);
+
 const nodes = ref<Node[]>([]);
 const edges = ref<Edge[]>([]);
+
+// Computed
+const activeDiagram = computed(() => 
+  diagrams.value.find(d => d.id === activeDiagramId.value)
+);
+
+const canDeleteActiveDiagram = computed(() => 
+  activeDiagramId.value !== 'main'
+);
 
 const expandedGroups = ref<Record<string, boolean>>({});
 
@@ -380,6 +586,125 @@ const selectedApiVersions = computed(() => {
   return api?.versions || [];
 });
 
+// --- Diagram Management ---
+const loadDiagram = (diagramId: string) => {
+  // Load the target diagram first
+  const diagram = diagrams.value.find(d => d.id === diagramId);
+  if (!diagram) return;
+  
+  // Save current diagram state before switching
+  if (activeDiagramId.value && activeDiagramId.value !== diagramId) {
+    const currentDiagram = diagrams.value.find(d => d.id === activeDiagramId.value);
+    if (currentDiagram) {
+      currentDiagram.nodes = [...nodes.value];
+      currentDiagram.edges = [...edges.value];
+      // Save current viewport
+      const currentViewport = getViewport();
+      currentDiagram.viewport = { ...currentViewport };
+    }
+  }
+  
+  // Load new diagram
+  activeDiagramId.value = diagramId;
+  nodes.value = [...diagram.nodes];
+  edges.value = [...diagram.edges];
+  selectedElement.value = null;
+  
+  // Restore viewport if exists, otherwise fit view
+  if (diagram.viewport) {
+    setViewport(diagram.viewport);
+  } else {
+    // Default viewport centered
+    setViewport({ x: 0, y: 0, zoom: 1 });
+  }
+};
+
+const onViewportChange = (viewport: { x: number; y: number; zoom: number }) => {
+  // Save viewport to current diagram
+  if (activeDiagramId.value) {
+    const currentDiagram = diagrams.value.find(d => d.id === activeDiagramId.value);
+    if (currentDiagram) {
+      currentDiagram.viewport = { ...viewport };
+    }
+  }
+};
+
+const createNewDiagram = async () => {
+  if (!newDiagramName.value.trim()) return;
+  
+  try {
+    // Create diagram via API
+    const newDiagramData = await productStore.createDiagram(productId, {
+      name: newDiagramName.value.trim(),
+      design: { nodes: [], edges: [] },
+      isMain: false
+    });
+    
+    const newDiagram: Diagram = {
+      id: newDiagramData.id,
+      name: newDiagramData.name,
+      nodes: [],
+      edges: []
+    };
+    
+    diagrams.value.push(newDiagram);
+    newDiagramName.value = '';
+    showNewDiagramModal.value = false;
+    loadDiagram(newDiagram.id);
+  } catch (err) {
+    console.error('Failed to create diagram:', err);
+    alert('Failed to create diagram');
+  }
+};
+
+const confirmDeleteDiagram = (diagramId: string) => {
+  const diagram = diagrams.value.find(d => d.id === diagramId);
+  if (diagram && diagram.name === 'Main') return; // Cannot delete main diagram
+  diagramToDelete.value = diagramId;
+  showDeleteDiagramModal.value = true;
+};
+
+const deleteDiagram = async () => {
+  if (!diagramToDelete.value) return;
+  
+  try {
+    // Find the diagram to check if it's the main one
+    const diagramToRemove = diagrams.value.find(d => d.id === diagramToDelete.value);
+    if (!diagramToRemove) return;
+    
+    // Delete via API
+    await productStore.deleteDiagram(diagramToDelete.value);
+    
+    const index = diagrams.value.findIndex(d => d.id === diagramToDelete.value);
+    if (index > -1) {
+      diagrams.value.splice(index, 1);
+      
+      // If we deleted the active diagram, switch to the main diagram
+      if (activeDiagramId.value === diagramToDelete.value) {
+        const mainDiagram = diagrams.value.find(d => d.name === 'Main');
+        if (mainDiagram) {
+          loadDiagram(mainDiagram.id);
+        } else if (diagrams.value.length > 0) {
+          loadDiagram(diagrams.value[0].id);
+        }
+      }
+    }
+    
+    diagramToDelete.value = null;
+    showDeleteDiagramModal.value = false;
+  } catch (err: any) {
+    console.error('Failed to delete diagram:', err);
+    alert(err.message || 'Failed to delete diagram');
+    diagramToDelete.value = null;
+    showDeleteDiagramModal.value = false;
+  }
+};
+
+const openNewDiagramModal = () => {
+  newDiagramName.value = '';
+  showNewDiagramModal.value = true;
+};
+
 // --- Lifecycle & Guards ---
 onMounted(async () => {
   window.addEventListener('beforeunload', handleBeforeUnload);
@@ -389,9 +714,51 @@ onMounted(async () => {
     await productStore.fetchConfigItemTypes();
     await registryStore.fetchApis();
     productStore.configItemTypes.forEach(t => expandedGroups.value[t.name] = false);
-    if (product.value.diagram) {
-      fromObject(product.value.diagram);
+    
+    // Load diagrams from API
+    const apiDiagrams = await productStore.getDiagrams(productId);
+    
+    if (apiDiagrams && apiDiagrams.length > 0) {
+      // Load existing diagrams from API
+      diagrams.value = apiDiagrams.map((d: any) => ({
+        id: d.id,
+        name: d.name,
+        nodes: d.design?.nodes || [],
+        edges: d.design?.edges || [],
+        viewport: d.design?.viewport
+      }));
+      
+      // Find and load main diagram
+      const mainDiagram = apiDiagrams.find((d: any) => d.isMain);
+      if (mainDiagram) {
+        activeDiagramId.value = mainDiagram.id;
+        nodes.value = [...(mainDiagram.design?.nodes || [])];
+        edges.value = [...(mainDiagram.design?.edges || [])];
+        // Restore viewport after nodes are loaded
+        if (mainDiagram.design?.viewport) {
+          setTimeout(() => {
+            setViewport(mainDiagram.design.viewport);
+          }, 100);
+        }
+      } else {
+        // Fallback to first diagram
+        activeDiagramId.value = apiDiagrams[0].id;
+        nodes.value = [...(apiDiagrams[0].design?.nodes || [])];
+        edges.value = [...(apiDiagrams[0].design?.edges || [])];
+        // Restore viewport after nodes are loaded
+        if (apiDiagrams[0].design?.viewport) {
+          setTimeout(() => {
+            setViewport(apiDiagrams[0].design.viewport);
+          }, 100);
+        }
+      }
+    } else {
+      // No diagrams exist - the API should have created a main diagram
+      // but if not, we'll wait for it
+      console.log('No diagrams found, waiting for main diagram creation');
+      diagrams.value = [];
     }
+    
     // Set dirty false after initial load
     setTimeout(() => { isDirty.value = false; }, 500);
   } catch (err) {
@@ -421,8 +788,27 @@ onBeforeRouteLeave((to, _from, next) => {
 });
 
 // --- Methods ---
-const onNodesChange = () => { isDirty.value = true; };
-const onEdgesChange = () => { isDirty.value = true; };
+const onNodesChange = () => { 
+  isDirty.value = true;
+  // Update active diagram nodes
+  if (activeDiagramId.value) {
+    const currentDiagram = diagrams.value.find(d => d.id === activeDiagramId.value);
+    if (currentDiagram) {
+      currentDiagram.nodes = [...nodes.value];
+    }
+  }
+};
+
+const onEdgesChange = () => { 
+  isDirty.value = true;
+  // Update active diagram edges
+  if (activeDiagramId.value) {
+    const currentDiagram = diagrams.value.find(d => d.id === activeDiagramId.value);
+    if (currentDiagram) {
+      currentDiagram.edges = [...edges.value];
+    }
+  }
+};
 
 const confirmExit = async (shouldSave: boolean) => {
   showExitModal.value = false;
@@ -454,7 +840,7 @@ const onDrop = (event: DragEvent) => {
   const data = event.dataTransfer?.getData('application/vueflow');
   if (!data) return;
   const swci = JSON.parse(data);
-  const position = { x: event.clientX - 300, y: event.clientY - 100 };
+  const position = { x: event.clientX - 300, y: event.clientY - 140 }; // Adjusted for tabs bar
   const newNode: Node = {
     id: `node-${Date.now()}`,
     type: 'swci',
@@ -470,6 +856,15 @@ const onDrop = (event: DragEvent) => {
   };
   addNodes([newNode]);
   isDirty.value = true;
+  // Update active diagram nodes
+  if (activeDiagramId.value) {
+    const currentDiagram = diagrams.value.find(d => d.id === activeDiagramId.value);
+    if (currentDiagram) {
+      setTimeout(() => {
+        currentDiagram.nodes = [...nodes.value];
+      }, 0);
+    }
+  }
 };
 
 const onConnect = (params: Connection) => {
@@ -480,6 +875,15 @@ const onConnect = (params: Connection) => {
   };
   addEdges([newEdge]);
   isDirty.value = true;
+  // Update active diagram edges
+  if (activeDiagramId.value) {
+    const currentDiagram = diagrams.value.find(d => d.id === activeDiagramId.value);
+    if (currentDiagram) {
+      setTimeout(() => {
+        currentDiagram.edges = [...edges.value];
+      }, 0);
+    }
+  }
 };
 
 const onNodeClick = ({ node }: { node: Node }) => {
@@ -541,6 +945,13 @@ const updateSWCI = async () => {
     });
     selectedElement.value = null;
     isDirty.value = true;
+    // Update active diagram nodes
+    if (activeDiagramId.value) {
+      const currentDiagram = diagrams.value.find(d => d.id === activeDiagramId.value);
+      if (currentDiagram) {
+        currentDiagram.nodes = [...nodes.value];
+      }
+    }
   } catch (err) {
     alert('Failed to update SWCI');
   }
@@ -550,6 +961,69 @@ const openCreateSWCI = () => {
   newSWCI.name = '';
   newSWCI.typeId = productStore.configItemTypes[0]?.id || '';
   showCreateSWCI.value = true;
+};
+
+// --- Note Methods ---
+const addNote = () => {
+  const newNode: Node = {
+    id: `note-${Date.now()}`,
+    type: 'note',
+    position: { x: 200, y: 200 },
+    data: {
+      content: '# New Note\n\nClick to edit',
+      color: '#fef3c7',
+      fontSize: '14px'
+    },
+    style: {
+      width: '250px',
+      height: '150px'
+    }
+  };
+  addNodes([newNode]);
+  selectedElement.value = newNode;
+  isDirty.value = true;
+};
+
+const updateNoteNode = () => {
+  // Force update the node to trigger re-render
+  if (selectedElement.value && selectedElement.value.type === 'note') {
+    const nodeIndex = nodes.value.findIndex(n => n.id === selectedElement.value.id);
+    if (nodeIndex > -1) {
+      nodes.value[nodeIndex] = { ...nodes.value[nodeIndex] };
+    }
+  }
+  isDirty.value = true;
+};
+
+const deleteNode = (nodeId: string) => {
+  const index = nodes.value.findIndex(n => n.id === nodeId);
+  if (index > -1) {
+    nodes.value.splice(index, 1);
+    isDirty.value = true;
+  }
+};
+
+const onNoteResize = (nodeId: string, width: number, height: number) => {
+  const nodeIndex = nodes.value.findIndex(n => n.id === nodeId);
+  if (nodeIndex > -1) {
+    nodes.value[nodeIndex] = {
+      ...nodes.value[nodeIndex],
+      style: {
+        ...nodes.value[nodeIndex].style,
+        width: `${width}px`,
+        height: `${height}px`
+      }
+    };
+    isDirty.value = true;
+  }
+};
+
+const renderMarkdown = (content: string): string => {
+  try {
+    return marked.parse(content) as string;
+  } catch (e) {
+    return content;
+  }
 };
 
 const handleCreateSWCI = async () => {
@@ -568,12 +1042,34 @@ const handleCreateSWCI = async () => {
 const onSave = async () => {
   saveStatus.value = 'saving';
   try {
-    const diagram = toObject();
-    await productStore.updateProduct(productId, { diagram });
+    // Save current diagram state first
+    if (activeDiagramId.value) {
+      const currentDiagram = diagrams.value.find(d => d.id === activeDiagramId.value);
+      if (currentDiagram) {
+        currentDiagram.nodes = [...nodes.value];
+        currentDiagram.edges = [...edges.value];
+        
+        // Save current viewport
+        const currentViewport = getViewport();
+        currentDiagram.viewport = { ...currentViewport };
+        
+        // Save to API using the diagram ID
+        await productStore.updateDiagram(activeDiagramId.value, {
+          name: currentDiagram.name,
+          design: {
+            nodes: currentDiagram.nodes,
+            edges: currentDiagram.edges,
+            viewport: currentDiagram.viewport
+          }
+        });
+      }
+    }
+    
     saveStatus.value = 'saved';
     isDirty.value = false;
     setTimeout(() => { saveStatus.value = 'idle'; }, 2000);
   } catch (err) {
+    console.error('Failed to save diagram:', err);
     saveStatus.value = 'idle';
     alert('Failed to save diagram');
   }

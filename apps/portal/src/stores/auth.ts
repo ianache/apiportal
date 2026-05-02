@@ -89,7 +89,13 @@ export const useAuthStore = defineStore('auth', {
 
     hasRole(role: string): boolean {
       if (!this.keycloak || !this.authenticated) return false;
-      return this.keycloak.hasResourceRole(role) || this.keycloak.hasRealmRole(role);
+      // Try exact match first
+      if (this.keycloak.hasResourceRole(role) || this.keycloak.hasRealmRole(role)) {
+        return true;
+      }
+      // Normalize: convert API_DESIGNER -> API-Designer for Keycloak matching
+      const normalizedRole = role.replace(/_/g, '-').replace(/DESIGNER/g, 'Designer').replace(/MANAGER/g, 'Manager').replace(/DEVELOPER/g, 'Developer');
+      return this.keycloak.hasResourceRole(normalizedRole) || this.keycloak.hasRealmRole(normalizedRole);
     }
   }
 });
