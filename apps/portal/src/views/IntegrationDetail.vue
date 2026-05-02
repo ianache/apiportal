@@ -536,7 +536,8 @@ async function changeVersionStatus(newStatus: string) {
 }
 
 function openDesigner() {
-  router.push(`/integrations/${integration.value?.id}/design`);
+  if (!integration.value || !selectedVersion.value) return;
+  router.push(`/integrations/${integration.value.id}/design/${selectedVersion.value.id}`);
 }
 
 function formatDate(date: string) {

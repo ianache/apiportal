@@ -8,9 +8,9 @@
 - [x] **Phase 2: API Registry & Lifecycle** - CRUD for APIs, versioning, and Approval/Publication workflow logic.
   **Requirements:** [API-01, API-02, VER-01, VER-02, LIF-01, LIF-02, RBAC-01]
   **Plans:** 2 plans (COMPLETED 2026-03-29)
-- [ ] **Phase 3: Portal UX Polish & Environment Catalog** - Rename nav labels, Settings submenu (Environments/Preferences/Platform), inline API metadata editing, new version creation, version status filter, and API endpoint URLs per environment with tagged environment catalog.
+- [x] **Phase 3: Portal UX Polish & Environment Catalog** - Rename nav labels, Settings submenu (Environments/Preferences/Platform), inline API metadata editing, new version creation, version status filter, and API endpoint URLs per environment with tagged environment catalog.
   **Requirements:** [UX-01, ENV-01, ENV-02]
-  **Plans:** 3 plans
+  **Plans:** 3 plans (COMPLETED 2026-03-30)
 - [ ] **Phase 4: Visual Flow Designer Core** - Integration Flow canvas (Vue-based) with Incoming/Response/Exception flow types. *Superseded by Phase 8.*
 - [ ] **Phase 5: Node Library & Properties** - Implementation of specific node types (Transform, Validate, Route) and property panels. *Superseded by Phase 8.*
 - [ ] **Phase 6: Developer Portal & Explorer** - Categorized catalog, documentation view, and subscription management.
@@ -22,12 +22,12 @@
 |-------|----------------|--------|-----------|
 | 1. Foundation & Identity | 4/4 | Completed | 2026-03-29 |
 | 2. API Registry | 2/2 | Completed | 2026-03-29 |
-| 3. Portal UX Polish & Environment Catalog | 0/3 | Not started | - |
+| 3. Portal UX Polish & Environment Catalog | 3/3 | Completed | 2026-03-30 |
 | 4. Visual Flow Designer | 0/0 | Superseded by Phase 8 | - |
 | 5. Node Library | 0/0 | Superseded by Phase 8 | - |
 | 6. Developer Portal | 0/0 | Not started | - |
 | 7. Gateway Sync | 0/0 | Not started | - |
-| 8. Integration Flow Designer | 0/4 | Planning | - |
+| 8. Integration Flow Designer | 4/4 | Completed | 2026-04-15 |
 
 ## Plan List: Phase 1
 - [x] 01-01-PLAN.md — Scaffolding & Shared Base
@@ -42,15 +42,15 @@
 - [x] 02-VALIDATION.md — Phase-wide Verification & Truths
 
 ## Plan List: Phase 3
-- [ ] 03-01-PLAN.md — Wave 1: UX/UI Shell
-- [ ] 03-02-PLAN.md — Wave 2: Versioning & Editing
-- [ ] 03-03-PLAN.md — Wave 3: Environment Catalog
+- [x] 03-01-PLAN.md — Wave 1: UX/UI Shell
+- [x] 03-02-PLAN.md — Wave 2: Versioning & Editing
+- [x] 03-03-PLAN.md — Wave 3: Environment Catalog
 
 ## Plan List: Phase 8
-- [ ] 08-01-PLAN.md — Shared Types, Prisma Schema & BFF Flow Routes
-- [ ] 08-02-PLAN.md — Vue Flow Install, Pinia Store & Catalog Page
-- [ ] 08-03-PLAN.md — Integration Flow Designer (Canvas, Toolbox, Nodes, Properties)
-- [ ] 08-04-PLAN.md — Visual Verification Checkpoint
+- [x] 08-01-PLAN.md — Shared Types, Prisma Schema & BFF Flow Routes
+- [x] 08-02-PLAN.md — Designer -> BFF Integration & Routing
+- [x] 08-03-PLAN.md — VETRO Node Library & Property Editors
+- [x] 08-04-PLAN.md — RBAC & E2E Validation Checkpoint
 
 ## Phase Detail Sections
 

@@ -67,6 +67,43 @@ const apiRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
+  // Search APIs with filters (GET /apis/search)
+  fastify.get('/apis/search', async (request) => {
+    const { domainId, label, name, statuses } = request.query as { 
+      domainId?: string; 
+      label?: string; 
+      name?: string; 
+      statuses?: string | string[] 
+    };
+
+    let statusList = Array.isArray(statuses) ? statuses : (statuses ? [statuses] : []);
+
+    // RBAC Enforcement: Developers can ONLY see Published APIs
+    if (request.user?.role === 'API_DEVELOPER') {
+      statusList = ['PUBLISHED'];
+    }
+
+    return fastify.prisma.aPI.findMany({
+      where: {
+        domainId: domainId || undefined,
+        label: label ? { contains: label, mode: 'insensitive' } : undefined,
+        name: name ? { contains: name, mode: 'insensitive' } : undefined,
+        versions: statusList.length > 0 ? {
+          some: {
+            status: { in: statusList as any }
+          }
+        } : undefined
+      },
+      include: {
+        versions: {
+          where: request.user?.role === 'API_DEVELOPER' ? { status: 'PUBLISHED' } : undefined,
+          orderBy: { createdAt: 'desc' }
+        }
+      },
+      orderBy: { updatedAt: 'desc' }
+    });
+  });
+
   // Get single API details
   fastify.get('/apis/:id', async (request, reply) => {
     const { id } = request.params as { id: string };

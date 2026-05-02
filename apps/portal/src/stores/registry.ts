@@ -383,6 +383,35 @@ export const useRegistryStore = defineStore('registry', {
       } catch (err: any) {
         return null;
       }
+    },
+
+    async searchApis(filters: { domainId?: string; label?: string; name?: string; statuses?: string[] }) {
+      this.loading = true;
+      this.error = null;
+      try {
+        const auth = useAuthStore();
+        const token = await auth.getToken();
+        const env = (window as any).NEXUS_ENV || import.meta.env;
+        const bffBase = env.VITE_API_URL || env.API_URL || 'http://localhost:3001';
+        
+        const params = new URLSearchParams();
+        if (filters.domainId) params.append('domainId', filters.domainId);
+        if (filters.label) params.append('label', filters.label);
+        if (filters.name) params.append('name', filters.name);
+        if (filters.statuses) {
+          filters.statuses.forEach(s => params.append('statuses', s));
+        }
+
+        const res = await fetch(`${bffBase}/apis/search?${params.toString()}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to search APIs');
+        this.apis = await res.json();
+      } catch (err: any) {
+        this.error = err.message;
+      } finally {
+        this.loading = false;
+      }
     }
   }
 });

@@ -126,3 +126,52 @@ export interface APIEndpoint {
   createdAt: string;
   updatedAt: string;
 }
+
+export type IntegrationStatus = 'ACTIVE' | 'INACTIVE' | 'DRAFT' | 'ERROR';
+export type IntegrationVersionStatus = 'Design' | 'Testing' | 'Published' | 'Deprecated';
+
+export interface Integration {
+  id: string;
+  name: string;
+  type: string;
+  description?: string | null;
+  status: IntegrationStatus;
+  icon?: string | null;
+  linkedApis: number;
+  domainId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  versions?: IntegrationVersion[];
+}
+
+export interface IntegrationVersion {
+  id: string;
+  version: string;
+  status: IntegrationVersionStatus;
+  description?: string | null;
+  definition?: any | null;
+  integrationId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Subscription {
+  id: string;
+  userId: string;
+  apiId: string;
+  status: 'ACTIVE' | 'REVOKED';
+  createdAt: string;
+  updatedAt: string;
+  api?: API;
+  keys?: SubscriptionKey[];
+}
+
+export interface SubscriptionKey {
+  id: string;
+  subscriptionId: string;
+  environmentId: string;
+  apiKey: string;
+  createdAt: string;
+}
+
+

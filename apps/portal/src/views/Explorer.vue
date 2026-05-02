@@ -619,30 +619,6 @@ const filteredApis = computed(() => {
     if (showFavoritesOnly.value && !favoritesStore.isFavorite(api.id)) {
       return false;
     }
-    
-    // Domain filter
-    if (filters.value.domainId && api.domainId !== filters.value.domainId) {
-      return false;
-    }
-    
-    // Label filter
-    if (filters.value.label && !(api.label?.toLowerCase().includes(filters.value.label.toLowerCase()))) {
-      return false;
-    }
-    
-    // Name filter
-    if (filters.value.name && !(api.name?.toLowerCase().includes(filters.value.name.toLowerCase()))) {
-      return false;
-    }
-    
-    // Status filter
-    if (filteredStatuses.value.length > 0) {
-      const apiStatus = api.versions?.[0]?.status;
-      if (!apiStatus || !filteredStatuses.value.includes(apiStatus)) {
-        return false;
-      }
-    }
-    
     return true;
   });
 });
@@ -651,7 +627,13 @@ const executeSearch = () => {
   if (hasActiveFilters.value) {
     hasSearched.value = true;
   }
-  registry.fetchApis();
+  
+  registry.searchApis({
+    domainId: filters.value.domainId,
+    label: filters.value.label,
+    name: filters.value.name,
+    statuses: filteredStatuses.value
+  });
 };
 
 onMounted(async () => {
@@ -661,7 +643,9 @@ onMounted(async () => {
   if (route.query.favorites === 'true') {
     showFavoritesOnly.value = true;
     hasSearched.value = true;
-    registry.fetchApis();
+    executeSearch();
+  } else if (hasSearched.value) {
+    executeSearch();
   }
 });
 

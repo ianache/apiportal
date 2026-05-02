@@ -403,11 +403,15 @@
                   <option v-for="opt in prop.options" :key="opt" :value="opt">{{ opt }}</option>
                 </select>
 
-                <textarea v-else-if="prop.type === 'textarea'"
+                <textarea v-else-if="prop.type === 'textarea' || prop.type === 'code' || prop.type === 'json'"
                   class="props-input props-textarea"
                   rows="4"
+                  :placeholder='prop.type === "json" ? "{ \"key\": \"value\" }" : ""'
                   :value="selectedNode.data.props?.[prop.name] ?? ''"
                   @input="updateProp(prop.name, ($event.target as HTMLTextAreaElement).value)" />
+                <div v-if="prop.type === 'code' || prop.type === 'json'" class="text-[9px] mt-1 text-right" style="color: #a0a7b5;">
+                  Language: {{ prop.language || 'text' }}
+                </div>
               </div>
             </template>
           </div>
@@ -450,13 +454,18 @@
                 <option v-for="opt in prop.options" :key="opt" :value="opt">{{ opt }}</option>
               </select>
 
-              <!-- textarea -->
-              <textarea v-else-if="prop.type === 'textarea'"
-                class="props-input props-textarea"
-                rows="4"
-                :placeholder="prop.defaultValue ?? ''"
-                :value="selectedNode.data.props?.[prop.key] ?? prop.defaultValue ?? ''"
-                @input="updateProp(prop.key, ($event.target as HTMLTextAreaElement).value)" />
+              <!-- textarea / code / json -->
+              <div v-else-if="prop.type === 'textarea' || prop.type === 'code' || prop.type === 'json'">
+                <textarea
+                  class="props-input props-textarea"
+                  rows="4"
+                  :placeholder='prop.type === "json" ? "{ \"key\": \"value\" }" : (prop.defaultValue ?? "")'
+                  :value="selectedNode.data.props?.[prop.key] ?? prop.defaultValue ?? ''"
+                  @input="updateProp(prop.key, ($event.target as HTMLTextAreaElement).value)" />
+                <div v-if="prop.type === 'code' || prop.type === 'json'" class="text-[9px] mt-1 text-right" style="color: #a0a7b5;">
+                  Language: {{ prop.language || 'text' }}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -480,6 +489,7 @@ import ProtocolNode from '../components/integration/ProtocolNode.vue';
 import FlowNode from '../components/integration/FlowNode.vue';
 import FilterNode from '../components/integration/FilterNode.vue';
 import SubFlowNode from '../components/integration/SubFlowNode.vue';
+import CodeEditor from '../components/designer/CodeEditor.vue';
 import { NODE_TYPE_CATALOG, CATEGORIES, CATEGORY_COLORS, findNodeType } from '../stores/nodeTypes';
 import { useIntegrationsStore } from '../stores/integrations';
 import { useDomainsStore } from '../stores/domains';
@@ -495,6 +505,7 @@ const domainsStore       = useDomainsStore();
 const catalogStore       = useNodeTypeCatalogStore();
 
 const integrationId = computed(() => route.params.id as string);
+const versionId     = computed(() => route.params.versionId as string);
 const integration   = computed(() => integrationsStore.integrations.find(i => i.id === integrationId.value));
 const domainLabel   = computed(() => {
   const domId = integration.value?.domainId;
@@ -949,15 +960,15 @@ function changeProtocolType(event: Event) {
 // ── Save ──────────────────────────────────────────────────
 const saveStatus = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-function saveFlow() {
+async function saveFlow() {
   saveStatus.value = 'saving';
   try {
-    const key = `integration-flow:${integrationId.value}`;
-    const payload = { type: 'integration-flow', nodes: nodes.value, edges: edges.value };
-    localStorage.setItem(key, JSON.stringify(payload));
+    const definition = { type: 'integration-flow', nodes: nodes.value, edges: edges.value };
+    await integrationsStore.saveFlow(integrationId.value, versionId.value, definition);
     saveStatus.value = 'saved';
     setTimeout(() => { saveStatus.value = 'idle'; }, 2000);
-  } catch {
+  } catch (e) {
+    console.error('Failed to save flow:', e);
     saveStatus.value = 'error';
     setTimeout(() => { saveStatus.value = 'idle'; }, 3000);
   }
@@ -971,6 +982,7 @@ function exportFlow() {
   const payload = {
     type: 'integration-flow',
     integrationId: integrationId.value,
+    versionId: versionId.value,
     integrationName: name,
     exportedAt: new Date().toISOString(),
     nodes: nodes.value,
@@ -987,14 +999,27 @@ function exportFlow() {
 }
 
 // ── Load saved flow or create defaults ────────────────────
-function loadOrInitFlow() {
-  const key = `integration-flow:${integrationId.value}`;
-  const saved = localStorage.getItem(key);
+async function loadOrInitFlow() {
+  try {
+    const definition = await integrationsStore.fetchFlow(integrationId.value, versionId.value);
+    if (definition && definition.nodes) {
+      nodes.value = definition.nodes ?? [];
+      edges.value = definition.edges ?? [];
+      return;
+    }
+  } catch (e) {
+    console.error('Failed to fetch flow definition from BFF:', e);
+  }
+
+  // Fallback to localStorage for migration/legacy
+  const localKey = `integration-flow:${integrationId.value}`;
+  const saved = localStorage.getItem(localKey);
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
       nodes.value = parsed.nodes ?? [];
       edges.value = parsed.edges ?? [];
+      // Optionally clear it after successful migration?
       return;
     } catch { /* fall through to defaults */ }
   }
@@ -1032,8 +1057,12 @@ function loadOrInitFlow() {
 
 // ── Mount ─────────────────────────────────────────────────
 onMounted(async () => {
-  await Promise.all([integrationsStore.fetch(), domainsStore.fetch(), catalogStore.fetch()]);
-  loadOrInitFlow();
+  await Promise.all([
+    integrationsStore.fetch(), 
+    domainsStore.fetch(), 
+    catalogStore.fetch()
+  ]);
+  await loadOrInitFlow();
 });
 </script>
 

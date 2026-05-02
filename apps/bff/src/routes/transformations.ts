@@ -32,6 +32,10 @@ export default async function (fastify: FastifyInstance) {
   });
 
   fastify.put('/transformations/:id', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    if (request.user.role === 'API_DEVELOPER')
+      return reply.code(403).send({ error: 'Forbidden' });
+
     const { id } = request.params as any;
     const { name, description, source, target, code, language, organizationId, domainId, definition } = request.body as any;
     const transformation = await fastify.prisma.dataTransformation.update({

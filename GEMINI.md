@@ -52,6 +52,7 @@ This file provides foundational mandates and context for Gemini CLI when working
 - **State:** Pinia.
 - **Styling:** Tailwind CSS v4 (Vanilla CSS preferred for custom components).
 - **Icons:** Use Google Material Symbols (as seen in `Shell.vue`).
+- **Prohibido**: Evita CSS built-in de VueFlow
 
 ---
 

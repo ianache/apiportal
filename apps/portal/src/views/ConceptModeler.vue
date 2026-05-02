@@ -135,13 +135,22 @@
 
             <template #edge-relation="{ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data }">
               <g class="edge-relation" :class="{ 'edge-selected': selectedItem?.type === 'edge' && selectedItem?.id === id }">
+                <!-- Hitbox path for easier selection -->
                 <path
-                  :d="getEdgePath(data?.lineStyle || 'straight', sourceX, sourceY, targetX, targetY)"
+                  :d="getEdgePath(data?.lineStyle || 'straight', sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition)"
+                  fill="none"
+                  stroke="transparent"
+                  stroke-width="20"
+                  @click.stop="selectEdgeById(id)"
+                  style="cursor: pointer; pointer-events: stroke;"
+                />
+                <path
+                  :d="getEdgePath(data?.lineStyle || 'straight', sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition)"
                   fill="none"
                   :stroke="selectedItem?.type === 'edge' && selectedItem?.id === id ? '#dc2626' : '#0058bc'"
                   :stroke-width="selectedItem?.type === 'edge' && selectedItem?.id === id ? '3' : '2'"
-                  @click="selectEdgeById(id)"
-                  style="cursor: pointer; transition: stroke 0.2s ease, stroke-width 0.2s ease;"
+                  @click.stop="selectEdgeById(id)"
+                  style="cursor: pointer; transition: stroke 0.2s ease, stroke-width 0.2s ease; pointer-events: stroke;"
                 />
                 <!-- Source role label -->
                 <foreignObject v-if="showLabels && data?.sourceRole" 
@@ -705,7 +714,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { VueFlow, useVueFlow, Handle, Position } from '@vue-flow/core';
+import { VueFlow, useVueFlow, Handle, Position, getBezierPath as getVueFlowBezierPath } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import type { Node, Edge, Connection, NodeMouseEvent } from '@vue-flow/core';
 import '@vue-flow/core/dist/style.css';
@@ -742,6 +751,7 @@ interface RelationEdge {
   sourceHandle?: string | null;
   targetHandle?: string | null;
   type: 'relation';
+  updatable?: boolean;
   data: {
     label: string;
     description: string;
@@ -1085,6 +1095,7 @@ function applyAIConcepts(newConcepts: Array<{ name: string; description: string 
           sourceHandle: null,
           targetHandle: null,
           type: 'relation',
+          updatable: true,
           data: {
             label: rel.label || '',
             description: rel.description || '',
@@ -1145,6 +1156,7 @@ function handleConnect(params: Connection) {
     sourceHandle: params.sourceHandle || null,
     targetHandle: params.targetHandle || null,
     type: 'relation',
+    updatable: true,
     data: {
       label: '',
       description: '',
@@ -1668,12 +1680,21 @@ function deleteSelectedEdge() {
   }
 }
 
-function getEdgePath(style: string, sx: number, sy: number, tx: number, ty: number): string {
+function getEdgePath(style: string, sx: number, sy: number, tx: number, ty: number, sourcePosition: any, targetPosition: any): string {
   switch (style) {
     case 'step':
       return getStepPath(sx, sy, tx, ty);
     case 'bezier':
-      return getBezierPath(sx, sy, tx, ty);
+      // Use Vue Flow's built-in bezier path generator for more organic look
+      const [path] = getVueFlowBezierPath({
+        sourceX: sx,
+        sourceY: sy,
+        sourcePosition,
+        targetX: tx,
+        targetY: ty,
+        targetPosition,
+      });
+      return path;
     case 'straight':
     default:
       return `M ${sx} ${sy} L ${tx} ${ty}`;
@@ -1799,9 +1820,10 @@ async function loadModel() {
         }));
       }
       if (data.edges) {
-        // Ensure all edges have lineStyle and labelPositions
+        // Ensure all edges have lineStyle, labelPositions and updatable
         edges.value = data.edges.map((edge: any) => ({
           ...edge,
+          updatable: true,
           data: {
             ...edge.data,
             lineStyle: edge.data.lineStyle || 'straight',
@@ -2162,5 +2184,14 @@ async function loadModel() {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+}
+
+/* Selected edge should be on top of everything */
+:deep(.vue-flow__edge.selected) {
+  z-index: 2000 !important;
+}
+
+:deep(.vue-flow__edge.selected .edge-relation foreignObject) {
+  z-index: 2010 !important;
 }
 </style>

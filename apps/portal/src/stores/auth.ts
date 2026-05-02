@@ -85,6 +85,11 @@ export const useAuthStore = defineStore('auth', {
         throw new Error('Session expired. Redirecting to login…');
       }
       return this.keycloak.token!;
+    },
+
+    hasRole(role: string): boolean {
+      if (!this.keycloak || !this.authenticated) return false;
+      return this.keycloak.hasResourceRole(role) || this.keycloak.hasRealmRole(role);
     }
   }
 });

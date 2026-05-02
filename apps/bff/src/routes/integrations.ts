@@ -155,6 +155,35 @@ const integrationRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.code(204).send();
   });
 
+  // GET /integrations/:id/versions/:versionId/definition
+  fastify.get('/integrations/:id/versions/:versionId/definition', async (request, reply) => {
+    const { versionId } = request.params as { versionId: string };
+    const version = await fastify.prisma.integrationVersion.findUnique({
+      where: { id: versionId },
+      select: { definition: true },
+    });
+    if (!version) return reply.code(404).send({ error: 'Version not found' });
+    return { definition: version.definition };
+  });
+
+  // PUT /integrations/:id/versions/:versionId/definition
+  fastify.put('/integrations/:id/versions/:versionId/definition', async (request, reply) => {
+    if (!request.user) return reply.code(401).send({ error: 'Unauthorized' });
+    if (request.user.role === 'API_DEVELOPER')
+      return reply.code(403).send({ error: 'Forbidden' });
+
+    const { versionId } = request.params as { versionId: string };
+    const { definition } = request.body as { definition: any };
+
+    const existing = await fastify.prisma.integrationVersion.findUnique({ where: { id: versionId } });
+    if (!existing) return reply.code(404).send({ error: 'Version not found' });
+
+    return fastify.prisma.integrationVersion.update({
+      where: { id: versionId },
+      data: { definition },
+    });
+  });
+
 };
 
 export default integrationRoutes;

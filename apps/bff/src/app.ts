@@ -18,6 +18,7 @@ import userPreferencesRoute from './routes/userPreferences.js';
 import favoritesRoutes from './routes/favorites.js';
 import knowledgeRoutes from './routes/knowledge.js';
 import transformationRoutes from './routes/transformations.js';
+import subscriptionRoutes from './routes/subscriptions.js';
 
 const schema = {
   type: 'object',
@@ -71,6 +72,7 @@ fastify.register(userPreferencesRoute, { prefix: '/user-preferences' });
 fastify.register(favoritesRoutes, { prefix: '/favorites' });
 fastify.register(knowledgeRoutes);
 fastify.register(transformationRoutes);
+fastify.register(subscriptionRoutes, { prefix: '/subscriptions' });
 
 const start = async () => {
   try {

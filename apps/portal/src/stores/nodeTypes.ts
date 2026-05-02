@@ -1,10 +1,11 @@
 export interface PropertyDef {
   key: string;
   label: string;
-  type: 'string' | 'number' | 'boolean' | 'select' | 'textarea';
+  type: 'string' | 'number' | 'boolean' | 'select' | 'textarea' | 'code' | 'json';
   required: boolean;
   defaultValue?: any;
   options?: string[];
+  language?: string; // For 'code' type: 'javascript', 'jsonata', 'xml', 'sql', etc.
 }
 
 export interface NodeTypeDef {
@@ -18,7 +19,7 @@ export interface NodeTypeDef {
 }
 
 export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
-  // ── Protocol ───────────────────────────────────────────────
+  // ── Protocol (Entry Points) ───────────────────────────────
   {
     id: 'http-listener@v1',
     name: 'HTTP Listener',
@@ -58,6 +59,48 @@ export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
     ],
   },
 
+  // ── Validate ──────────────────────────────────────────────
+  {
+    id: 'schema-validator@v1',
+    name: 'Schema Validator',
+    description: 'Validates the message body against a JSON Schema or XML XSD.',
+    category: 'Validate',
+    icon: 'rule',
+    color: '#0ea5e9',
+    properties: [
+      { key: 'schemaType', label: 'Schema Type', type: 'select', required: true, defaultValue: 'json', options: ['json', 'xml'] },
+      { key: 'schema',     label: 'Schema Definition', type: 'code', required: true, language: 'json' },
+      { key: 'failFast',   label: 'Fail Fast', type: 'boolean', required: false, defaultValue: true },
+    ],
+  },
+  {
+    id: 'ip-bw-list@v1',
+    name: 'IP Filter',
+    description: 'Filters or validates IP addresses against a configurable allowlist or blocklist.',
+    category: 'Validate',
+    icon: 'phonelink_lock',
+    color: '#0ea5e9',
+    properties: [
+      { key: 'mode', label: 'Mode', type: 'select', required: true, defaultValue: 'allow', options: ['allow', 'block'] },
+      { key: 'ipList', label: 'IP List', type: 'textarea', required: true, defaultValue: '192.168.1.0/24' },
+    ],
+  },
+
+  // ── Enrich ────────────────────────────────────────────────
+  {
+    id: 'content-enricher@v1',
+    name: 'Content Enricher',
+    description: 'Calls an external service and merges the response into the current message.',
+    category: 'Enrich',
+    icon: 'library_add',
+    color: '#ec4899',
+    properties: [
+      { key: 'resourceUri', label: 'Resource URI', type: 'string', required: true, defaultValue: 'http://api.example.com/data' },
+      { key: 'targetPath',  label: 'Target Path (JSON)', type: 'string', required: true, defaultValue: 'body.enrichedData' },
+      { key: 'aggregationStrategy', label: 'Strategy', type: 'select', required: true, defaultValue: 'merge', options: ['merge', 'replace', 'append'] },
+    ],
+  },
+
   // ── Transform ──────────────────────────────────────────────
   {
     id: 'json-transform@v1',
@@ -67,7 +110,7 @@ export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
     icon: 'data_object',
     color: '#7c3aed',
     properties: [
-      { key: 'template',  label: 'Template',    type: 'textarea', required: true  },
+      { key: 'template',  label: 'Template',    type: 'code', required: true, language: 'jsonata' },
       { key: 'outputVar', label: 'Output Var',  type: 'string',   required: false, defaultValue: 'body' },
     ],
   },
@@ -80,7 +123,7 @@ export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
     color: '#7c3aed',
     properties: [
       { key: 'language', label: 'Language', type: 'select',   required: true, defaultValue: 'javascript', options: ['javascript','groovy','python'] },
-      { key: 'code',     label: 'Code',     type: 'textarea', required: true  },
+      { key: 'code',     label: 'Code',     type: 'code',     required: true, language: 'javascript' },
     ],
   },
   {
@@ -96,34 +139,34 @@ export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
     ],
   },
 
-  // ── Routing ────────────────────────────────────────────────
+  // ── Route ──────────────────────────────────────────────────
   {
     id: 'choice@v1',
     name: 'Choice',
     description: 'Routes messages to different paths based on a boolean expression.',
-    category: 'Routing',
+    category: 'Route',
     icon: 'alt_route',
     color: '#9e3d00',
     properties: [
-      { key: 'expression', label: 'Expression', type: 'string', required: true },
+      { key: 'expression', label: 'Expression', type: 'string', required: true, defaultValue: '${header.type} == "urgent"' },
     ],
   },
   {
     id: 'split@v1',
     name: 'Split',
     description: 'Splits a collection message into individual messages for parallel processing.',
-    category: 'Routing',
+    category: 'Route',
     icon: 'call_split',
     color: '#9e3d00',
     properties: [
-      { key: 'splitExpression', label: 'Split Expression', type: 'string', required: true },
+      { key: 'splitExpression', label: 'Split Expression', type: 'string', required: true, defaultValue: 'body.items' },
     ],
   },
   {
     id: 'filter-msg@v1',
     name: 'Filter',
     description: 'Drops messages that do not match the specified condition.',
-    category: 'Routing',
+    category: 'Route',
     icon: 'filter_alt',
     color: '#9e3d00',
     properties: [
@@ -131,37 +174,37 @@ export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
     ],
   },
 
-  // ── Connector ──────────────────────────────────────────────
+  // ── Operate (Connectors) ──────────────────────────────────
   {
     id: 'http-request@v1',
     name: 'HTTP Request',
     description: 'Calls an external HTTP/REST endpoint and returns the response.',
-    category: 'Connector',
+    category: 'Operate',
     icon: 'send',
     color: '#047857',
     properties: [
       { key: 'url',     label: 'URL',     type: 'string',   required: true  },
       { key: 'method',  label: 'Method',  type: 'select',   required: true, defaultValue: 'GET', options: ['GET','POST','PUT','PATCH','DELETE'] },
-      { key: 'headers', label: 'Headers', type: 'textarea', required: false },
+      { key: 'headers', label: 'Headers', type: 'json',     required: false, language: 'json' },
     ],
   },
   {
     id: 'db-query@v1',
     name: 'DB Query',
     description: 'Executes a SQL query against a configured data source.',
-    category: 'Connector',
+    category: 'Operate',
     icon: 'database',
     color: '#047857',
     properties: [
       { key: 'datasource', label: 'Data Source', type: 'string',   required: true  },
-      { key: 'query',      label: 'Query',        type: 'textarea', required: true  },
+      { key: 'query',      label: 'Query',        type: 'code',     required: true, language: 'sql' },
     ],
   },
   {
     id: 'queue-publish@v1',
     name: 'Queue Publish',
     description: 'Publishes a message to a queue or topic via AMQP/RabbitMQ.',
-    category: 'Connector',
+    category: 'Operate',
     icon: 'publish',
     color: '#047857',
     properties: [
@@ -170,7 +213,7 @@ export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
     ],
   },
 
-  // ── Composition ────────────────────────────────────────────
+  // ── Other ──────────────────────────────────────────────────
   {
     id: 'subflow-node@v1',
     name: 'Sub Flow',
@@ -180,37 +223,19 @@ export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
     color: '#6b21a8',
     properties: [],
   },
-
-  // ── Catalog ────────────────────────────────────────────────
   {
     id: 'catalog-node@v1',
     name: 'Catalog Node',
-    description: 'Instantiates a custom node type from the catalog with its configured properties.',
+    description: 'Instantiates a custom node type from the catalog.',
     category: 'Catalog',
     icon: 'category',
     color: '#0f766e',
     properties: [],
   },
   {
-    id: 'ip-bw-list@v1',
-    name: 'IP b/w List',
-    description: 'Filters or validates IP addresses against a configurable allowlist or blocklist.',
-    category: 'Catalog',
-    icon: 'phonelink_lock',
-    color: '#0f766e',
-    properties: [
-      { key: 'mode', label: 'Mode', type: 'select', required: true, defaultValue: 'allow', options: ['allow', 'block'] },
-      { key: 'ipList', label: 'IP List', type: 'textarea', required: true, defaultValue: '192.168.1.0/24\n10.0.0.0/8' },
-      { key: 'checkType', label: 'Check Type', type: 'select', required: true, defaultValue: 'cidr', options: ['cidr', 'range', 'exact'] },
-      { key: 'sourceField', label: 'Source Field', type: 'string', required: false, defaultValue: 'clientIp' },
-    ],
-  },
-
-  // ── Control ────────────────────────────────────────────────
-  {
     id: 'logger@v1',
     name: 'Logger',
-    description: 'Logs the current message or a custom expression to the flow log.',
+    description: 'Logs the current message or a custom expression.',
     category: 'Control',
     icon: 'description',
     color: '#414755',
@@ -228,18 +253,19 @@ export const NODE_TYPE_CATALOG: NodeTypeDef[] = [
     color: '#414755',
     properties: [
       { key: 'errorType', label: 'Error Type', type: 'string', required: true, defaultValue: 'Exception' },
-      { key: 'when',      label: 'When',       type: 'string', required: false },
     ],
   },
 ];
 
-export const CATEGORIES = ['Protocol', 'Transform', 'Routing', 'Connector', 'Composition', 'Catalog', 'Control'] as const;
+export const CATEGORIES = ['Protocol', 'Validate', 'Enrich', 'Transform', 'Route', 'Operate', 'Composition', 'Catalog', 'Control'] as const;
 
 export const CATEGORY_COLORS: Record<string, string> = {
   Protocol:    '#0058bc',
+  Validate:    '#0ea5e9',
+  Enrich:      '#ec4899',
   Transform:   '#7c3aed',
-  Routing:     '#9e3d00',
-  Connector:   '#047857',
+  Route:       '#9e3d00',
+  Operate:     '#047857',
   Composition: '#6b21a8',
   Catalog:     '#0f766e',
   Control:     '#414755',

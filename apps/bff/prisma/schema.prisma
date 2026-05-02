@@ -21,6 +21,7 @@ model User {
   createdOrganizations  Organization[]    @relation("OrganizationCreator")
   ownedOrganizations    Organization[]    @relation("OrganizationOwner")
   createdProducts       Product[]         @relation("ProductCreator")
+  subscriptions         Subscription[]
 }
 
 model AuditLog {
@@ -46,6 +47,7 @@ model API {
   favorites      UserAPIFavorite[]
   organizationId String?
   organization   Organization?     @relation("OrganizationApis", fields: [organizationId], references: [id])
+  subscriptions  Subscription[]
 
   @@index([domainId])
   @@index([label])
@@ -116,6 +118,7 @@ model IntegrationVersion {
   version       String
   status        IntegrationVersionStatus @default(Design)
   description   String?
+  definition    Json?
   integrationId String
   createdAt     DateTime                 @default(now())
   updatedAt     DateTime                 @updatedAt
@@ -321,6 +324,31 @@ model DataTransformation {
   domain         Domain?       @relation("DomainTransformations", fields: [domainId], references: [id])
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+}
+
+model Subscription {
+  id        String            @id @default(uuid())
+  userId    String
+  apiId     String
+  status    String            @default("ACTIVE") // ACTIVE, REVOKED
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  api       API               @relation(fields: [apiId], references: [id], onDelete: Cascade)
+  keys      SubscriptionKey[]
+
+  @@unique([userId, apiId])
+}
+
+model SubscriptionKey {
+  id             String       @id @default(uuid())
+  subscriptionId String
+  environmentId  String
+  apiKey         String       @unique
+  createdAt      DateTime     @default(now())
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@unique([subscriptionId, environmentId])
 }
 
 enum Role {

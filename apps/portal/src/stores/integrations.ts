@@ -105,6 +105,25 @@ export const useIntegrationsStore = defineStore('integrations', {
       if (!res.ok && res.status !== 404) throw new Error('Failed to delete version');
     },
 
+    async fetchFlow(integrationId: string, versionId: string) {
+      const res = await fetch(`${bff()}/integrations/${integrationId}/versions/${versionId}/definition`, {
+        headers: await authHeaders(),
+      });
+      if (!res.ok) throw new Error('Failed to fetch flow');
+      const data = await res.json();
+      return data.definition;
+    },
+
+    async saveFlow(integrationId: string, versionId: string, definition: any) {
+      const res = await fetch(`${bff()}/integrations/${integrationId}/versions/${versionId}/definition`, {
+        method: 'PUT',
+        headers: await authHeaders(),
+        body: JSON.stringify({ definition }),
+      });
+      if (!res.ok) throw new Error('Failed to save flow');
+      return await res.json();
+    },
+
     async remove(id: string) {
       const res = await fetch(`${bff()}/integrations/${id}`, {
         method: 'DELETE', headers: await authHeaders(),

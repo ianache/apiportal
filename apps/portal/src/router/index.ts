@@ -40,13 +40,8 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/explorer/:id/spec/:version?',
-    component: () => import('../views/ApiSpecViewer.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/explorer/:id/redoc/:version?',
-    component: () => import('../views/RedocViewer.vue'),
+    path: '/explorer/:id/:version?',
+    component: () => import('../views/ApiExplorerDetail.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -62,7 +57,7 @@ const routes = [
   {
     path: '/projects/:id/design/:version',
     component: ApiDesigner,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiredRoles: ['API_DESIGNER', 'API_MANAGER'] }
   },
   {
     path: '/integrations',
@@ -75,9 +70,9 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/integrations/:id/design',
+    path: '/integrations/:id/design/:versionId',
     component: IntegrationDesigner,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiredRoles: ['API_DESIGNER', 'API_MANAGER'] }
   },
   {
     path: '/transformations',
@@ -87,32 +82,32 @@ const routes = [
   {
     path: '/transformations/:id/design',
     component: () => import('../views/TransformationDesigner.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiredRoles: ['API_DESIGNER', 'API_MANAGER'] }
   },
   {
     path: '/domains',
     component: () => import('../views/settings/SettingsDomains.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiredRoles: ['API_MANAGER'] }
   },
   {
     path: '/domains/:id/concept-modeler',
     component: () => import('../views/ConceptModeler.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiredRoles: ['API_DESIGNER', 'API_MANAGER'] }
   },
   {
     path: '/domains/:id/er-modeler',
     component: () => import('../views/EntityRelationshipModeler.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiredRoles: ['API_DESIGNER', 'API_MANAGER'] }
   },
   {
     path: '/domains/:id/knowledge-base',
     component: () => import('../views/KnowledgeBase.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiredRoles: ['API_DESIGNER', 'API_MANAGER'] }
   },
   {
     path: '/settings',
     redirect: '/settings/environments',
-    meta: { requiresAuth: true },
+    meta: { requiresAuth: true, requiredRoles: ['API_MANAGER'] },
     children: [
       { path: 'environments', component: () => import('../views/settings/SettingsEnvironments.vue') },
       { path: 'preferences',  component: () => import('../views/settings/SettingsPreferences.vue') },
@@ -141,6 +136,10 @@ router.beforeEach(async (to, _from) => {
     // Redirect to Keycloak login — does not call next()
     auth.keycloak?.login({ redirectUri: window.location.origin + to.fullPath });
     return false; // prevent navigation while redirecting
+  } else if (to.meta.requiredRoles) {
+    const roles = to.meta.requiredRoles as string[];
+    const hasAny = roles.some(role => auth.hasRole(role));
+    if (!hasAny) return '/dashboard';
   } else if (to.path === '/' && auth.authenticated) {
     // Authenticated users visiting root are forwarded to dashboard
     return '/dashboard';
