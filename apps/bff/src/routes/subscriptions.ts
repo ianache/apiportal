@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
-import { crypto } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 
 const subscriptionRoutes: FastifyPluginAsync = async (fastify) => {
 
@@ -70,7 +70,7 @@ const subscriptionRoutes: FastifyPluginAsync = async (fastify) => {
     
     if (environments.length > 0) {
       await Promise.all(environments.map(env => {
-        const apiKey = `nx_${Buffer.from(crypto.randomUUID()).toString('base64').replace(/=/g, '').substring(0, 32)}`;
+        const apiKey = `nx_${Buffer.from(randomUUID()).toString('base64').replace(/=/g, '').substring(0, 32)}`;
         return fastify.prisma.subscriptionKey.create({
           data: {
             subscriptionId: sub.id,

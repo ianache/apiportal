@@ -707,7 +707,7 @@ const navigateToSpec = (id: string, version?: string) => {
 };
 
 const navigateToRedoc = (id: string, version?: string) => {
-  router.push(`/explorer/${id}/redoc${version ? `/${version}` : ''}`);
+  router.push(`/explorer/${id}${version ? `/${version}` : ''}`);
 };
 
 const getStatusStyle = (status: string | undefined): Record<string, string> => {

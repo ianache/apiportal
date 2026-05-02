@@ -85,9 +85,12 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
       else if (clientRoles.includes('API-Designer')) appRole = 'API_DESIGNER';
       else if (clientRoles.includes('API-Developer')) appRole = 'API_DEVELOPER';
 
+      // Extract email from various possible JWT claims (Keycloak may use preferred_username)
+      const email = (payload.email as string) || (payload.preferred_username as string) || `${payload.sub}@placeholder.com`;
+      
       request.user = {
         sub: payload.sub as string,
-        email: payload.email as string,
+        email,
         name: payload.name as string | undefined,
         role: appRole,
       };
